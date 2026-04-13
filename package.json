@@ -1,0 +1,23 @@
+{
+  "name": "flote",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev:desktop": "turbo run dev --filter=desktop",
+    "dev:mobile": "turbo run dev --filter=mobile",
+    "build:desktop": "turbo run build --filter=desktop",
+    "build:mobile:ios": "turbo run build:ios --filter=mobile",
+    "build:mobile:android": "turbo run build:android --filter=mobile",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=9"
+  },
+  "packageManager": "pnpm@9.4.0"
+}

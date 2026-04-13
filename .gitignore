@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+out/
+
+# Tauri
+apps/desktop/src-tauri/target/
+apps/desktop/gen/
+
+# Expo
+apps/mobile/.expo/
+apps/mobile/android/
+apps/mobile/ios/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Misc
+.DS_Store
+*.log
+.turbo/
