@@ -185,7 +185,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 6,
   },
-  checkbox: { marginRight: 10 },
+  checkbox: { width: 32, height: 32, alignItems: "center", justifyContent: "center", marginRight: 8 },
   item: {
     flex: 1,
     flexDirection: "row",
