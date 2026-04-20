@@ -18,6 +18,23 @@ import { useTaskStore } from "../../../src/store/taskStore";
 import { supabase } from "../../../src/lib/supabase";
 import type { Task } from "@flote/types";
 
+function generateUUID(): string {
+  const hex = "0123456789abcdef";
+  let id = "";
+  for (let i = 0; i < 36; i++) {
+    if (i === 8 || i === 13 || i === 18 || i === 23) {
+      id += "-";
+    } else if (i === 14) {
+      id += "4";
+    } else if (i === 19) {
+      id += hex[(Math.random() * 4) | 8];
+    } else {
+      id += hex[(Math.random() * 16) | 0];
+    }
+  }
+  return id;
+}
+
 export default function NewTaskScreen() {
   const { colors } = useTheme();
   const router = useRouter();
@@ -40,7 +57,7 @@ export default function NewTaskScreen() {
     setLoading(true);
     const now = new Date().toISOString();
     const task: Task = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      id: generateUUID(),
       title: title.trim(),
       body_md: "",
       due_date: dueDate ? dueDate.toISOString().split("T")[0] : null,

@@ -21,7 +21,21 @@ import TasksList from "../../components/TasksList";
 import type { Note } from "@flote/types";
 
 function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  // Generate UUID v4 compatible with PostgreSQL uuid type
+  const hex = "0123456789abcdef";
+  let id = "";
+  for (let i = 0; i < 36; i++) {
+    if (i === 8 || i === 13 || i === 18 || i === 23) {
+      id += "-";
+    } else if (i === 14) {
+      id += "4";
+    } else if (i === 19) {
+      id += hex[(Math.random() * 4) | 8];
+    } else {
+      id += hex[(Math.random() * 16) | 0];
+    }
+  }
+  return id;
 }
 
 const TABS = ["ノート", "タスク"] as const;
