@@ -9,7 +9,6 @@ import {
   Pressable,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../src/theme";
 import { useTaskStore } from "../src/store/taskStore";
 import type { Task } from "@flote/types";
@@ -86,14 +85,18 @@ export default function TasksList({ userId }: Props) {
         <View style={styles.row}>
           <Pressable
             onPress={() => handleToggle(item.id)}
-            style={styles.checkbox}
+            style={[
+              styles.checkbox,
+              {
+                borderColor: item.done ? colors.accent : colors.textSecondary,
+                backgroundColor: item.done ? colors.accent : "transparent",
+              },
+            ]}
             hitSlop={8}
           >
-            <Ionicons
-              name={item.done ? "checkbox" : "square-outline"}
-              size={24}
-              color={item.done ? colors.accent : colors.textSecondary}
-            />
+            {item.done && (
+              <Text style={{ color: "#fff", fontSize: 14, fontWeight: "bold" }}>✓</Text>
+            )}
           </Pressable>
           <TouchableOpacity
             style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -185,7 +188,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 6,
   },
-  checkbox: { width: 32, height: 32, alignItems: "center", justifyContent: "center", marginRight: 8 },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
   item: {
     flex: 1,
     flexDirection: "row",
