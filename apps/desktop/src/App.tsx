@@ -1,252 +1,478 @@
-import { useState, useEffect, useCallback } from "react";
-import type { Note, Task } from "@flote/types";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import type { Note, Task, StorageMode } from "@flote/types";
 import {
-  getNotes,
-  saveNote,
-  deleteNote as deleteNoteStorage,
-  getTasks,
-  saveTask,
-  deleteTask as deleteTaskStorage,
-} from "@flote/api-client/src/local-storage";
+  initSupabase,
+  createNoteRepository,
+  createTaskRepository,
+} from "@flote/api-client";
+import { getConfig, setConfig } from "./config";
+import { useAuth } from "./hooks/useAuth";
+import { useRealtime } from "./hooks/useRealtime";
+import { useBadge } from "./hooks/useBadge";
+import { useTheme } from "./hooks/useTheme";
+import { useKeyboard } from "./hooks/useKeyboard";
+import { useNoteStore } from "./store/noteStore";
+import { useTaskStore } from "./store/taskStore";
+import { useUIStore } from "./store/uiStore";
+import Auth from "./components/Auth";
 import Editor from "./components/Editor";
+import TaskList from "./components/TaskList";
+import Settings from "./components/Settings";
+import CommandPalette from "./components/CommandPalette";
+import ToastContainer from "./components/Toast";
+import styles from "./App.module.css";
 
-function generateId(): string {
-  return crypto.randomUUID();
+// Initialize Supabase client if env vars present
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+if (supabaseUrl && supabaseKey) {
+  initSupabase(supabaseUrl, supabaseKey);
 }
+const supabaseConfigured = !!supabaseUrl && !!supabaseKey;
 
 function extractTitle(bodyMd: string): string {
   const firstLine = bodyMd.split("\n")[0]?.replace(/^#+\s*/, "").trim();
   return firstLine || "無題のノート";
 }
 
-type Tab = "notes" | "tasks";
+function relativeDate(dateStr: string): string {
+  const now = Date.now();
+  const then = new Date(dateStr).getTime();
+  const diffMs = now - then;
+  const diffMins = Math.floor(diffMs / 60000);
+  if (diffMins < 1) return "たった今";
+  if (diffMins < 60) return `${diffMins}分前`;
+  const diffHours = Math.floor(diffMs / 3600000);
+  if (diffHours < 24) return `${diffHours}時間前`;
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffDays < 7) return `${diffDays}日前`;
+  return new Date(dateStr).toLocaleDateString("ja-JP", {
+    month: "short",
+    day: "numeric",
+  });
+}
 
-function App() {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<Tab>("notes");
-  const [newTaskTitle, setNewTaskTitle] = useState("");
+function countWords(text: string): number {
+  if (!text.trim()) return 0;
+  // Count CJK characters individually + space-delimited words
+  const cjk = text.match(/[\u3000-\u9fff\uf900-\ufaff]/g)?.length ?? 0;
+  const words = text
+    .replace(/[\u3000-\u9fff\uf900-\ufaff]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean).length;
+  return cjk + words;
+}
 
-  const selectedNote = notes.find((n) => n.id === selectedNoteId) ?? null;
+function countOverdue(tasks: Task[]): number {
+  const today = new Date().toISOString().slice(0, 10);
+  return tasks.filter((t) => !t.done && t.due_date && t.due_date <= today)
+    .length;
+}
 
-  // Load data on mount
+/* ─── MainApp ─── */
+
+function MainApp({
+  userId,
+  storageMode,
+  onSignOut,
+}: {
+  userId?: string;
+  storageMode: StorageMode;
+  onSignOut?: () => void;
+}) {
+  const {
+    notes,
+    activeNoteId,
+    fetchNotes,
+    saveNote,
+    deleteNote,
+    setActiveNote,
+  } = useNoteStore();
+  const { tasks, fetchTasks, saveTask, deleteTask, toggleDone } =
+    useTaskStore();
+
+  const activeTab = useUIStore((s) => s.activeTab);
+  const setActiveTab = useUIStore((s) => s.setActiveTab);
+  const isCommandPaletteOpen = useUIStore((s) => s.isCommandPaletteOpen);
+  const isSettingsOpen = useUIStore((s) => s.isSettingsOpen);
+  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
+  const addToast = useUIStore((s) => s.addToast);
+
+  const [filter, setFilter] = useState("");
+  const filterInputRef = useRef<HTMLInputElement | null>(null);
+
+  const { cycleTheme } = useTheme();
+
+  const selectedNote = notes.find((n) => n.id === activeNoteId) ?? null;
+  const wordCount = selectedNote ? countWords(selectedNote.body_md) : 0;
+  const overdueCount = countOverdue(tasks);
+
+  useRealtime(userId, storageMode);
+  useBadge();
+
   useEffect(() => {
-    getNotes()
-      .then(setNotes)
-      .catch(() => setNotes([]));
-    getTasks()
-      .then(setTasks)
-      .catch(() => setTasks([]));
-  }, []);
+    fetchNotes(userId);
+    fetchTasks(userId);
+  }, [userId, fetchNotes, fetchTasks]);
 
-  const handleCreateNote = useCallback(async () => {
+  const handleCreateNote = useCallback(() => {
     const note: Note = {
-      id: generateId(),
+      id: crypto.randomUUID(),
       title: "無題のノート",
       body_md: "",
       updated_at: new Date().toISOString(),
     };
-    const updated = [note, ...notes];
-    setNotes(updated);
-    setSelectedNoteId(note.id);
+    setActiveNote(note.id);
     setActiveTab("notes");
-    await saveNote(note);
-  }, [notes]);
+    saveNote(note, userId);
+  }, [userId, saveNote, setActiveNote, setActiveTab]);
+
+  const handleCreateTask = useCallback(() => {
+    setActiveTab("tasks");
+    // Focus the task input (it's inside TaskList)
+  }, [setActiveTab]);
 
   const handleEditorChange = useCallback(
-    async (value: string) => {
-      if (!selectedNoteId) return;
+    (value: string) => {
+      if (!activeNoteId) return;
       const note: Note = {
-        id: selectedNoteId,
+        id: activeNoteId,
         title: extractTitle(value),
         body_md: value,
         updated_at: new Date().toISOString(),
       };
-      setNotes((prev) =>
-        prev.map((n) => (n.id === selectedNoteId ? note : n))
-      );
-      await saveNote(note);
+      saveNote(note, userId);
     },
-    [selectedNoteId]
+    [activeNoteId, userId, saveNote]
   );
 
-  const handleDeleteNote = useCallback(
-    async (id: string) => {
-      setNotes((prev) => prev.filter((n) => n.id !== id));
-      if (selectedNoteId === id) setSelectedNoteId(null);
-      await deleteNoteStorage(id);
-    },
-    [selectedNoteId]
-  );
-
-  const handleCreateTask = useCallback(async () => {
-    if (!newTaskTitle.trim()) return;
-    const task: Task = {
-      id: generateId(),
-      title: newTaskTitle.trim(),
-      due_date: null,
-      remind_at: null,
-      done: false,
-      updated_at: new Date().toISOString(),
-    };
-    const updated = [task, ...tasks];
-    setTasks(updated);
-    setNewTaskTitle("");
-    await saveTask(task);
-  }, [newTaskTitle, tasks]);
-
-  const handleToggleTask = useCallback(
-    async (id: string) => {
-      const task = tasks.find((t) => t.id === id);
-      if (!task) return;
-      const updated: Task = {
-        ...task,
-        done: !task.done,
+  const handleAddTask = useCallback(
+    (title: string, dueDate: string | null) => {
+      const task: Task = {
+        id: crypto.randomUUID(),
+        title,
+        due_date: dueDate,
+        remind_at: null,
+        done: false,
         updated_at: new Date().toISOString(),
       };
-      setTasks((prev) => prev.map((t) => (t.id === id ? updated : t)));
-      await saveTask(updated);
+      saveTask(task, userId);
     },
-    [tasks]
+    [userId, saveTask]
   );
 
-  const handleDeleteTask = useCallback(async (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id));
-    await deleteTaskStorage(id);
-  }, []);
+  // Navigate items with ⌘↑/↓
+  const handlePrevItem = useCallback(() => {
+    if (activeTab === "notes") {
+      const idx = notes.findIndex((n) => n.id === activeNoteId);
+      if (idx > 0) setActiveNote(notes[idx - 1].id);
+    }
+  }, [activeTab, notes, activeNoteId, setActiveNote]);
+
+  const handleNextItem = useCallback(() => {
+    if (activeTab === "notes") {
+      const idx = notes.findIndex((n) => n.id === activeNoteId);
+      if (idx < notes.length - 1) setActiveNote(notes[idx + 1].id);
+    }
+  }, [activeTab, notes, activeNoteId, setActiveNote]);
+
+  const handleSelectNote = useCallback(
+    (id: string) => {
+      setActiveNote(id);
+      setActiveTab("notes");
+    },
+    [setActiveNote, setActiveTab]
+  );
+
+  const handleSelectTask = useCallback(
+    (id: string) => {
+      setActiveTab("tasks");
+      // Could scroll to task if needed
+      void id;
+    },
+    [setActiveTab]
+  );
+
+  const handleStorageModeChange = useCallback(
+    (mode: StorageMode) => {
+      setConfig({ storageMode: mode });
+      addToast("info", "設定を反映するにはアプリを再起動してください");
+    },
+    [addToast]
+  );
+
+  const keyboardActions = useMemo(
+    () => ({
+      onNewNote: handleCreateNote,
+      onNewTask: handleCreateTask,
+      onPrevItem: handlePrevItem,
+      onNextItem: handleNextItem,
+      onCycleTheme: cycleTheme,
+      filterInputRef,
+    }),
+    [handleCreateNote, handleCreateTask, handlePrevItem, handleNextItem, cycleTheme]
+  );
+
+  useKeyboard(keyboardActions);
+
+  // Filtered items
+  const filteredNotes = filter
+    ? notes.filter((n) => n.title.toLowerCase().includes(filter.toLowerCase()))
+    : notes;
+
+  const filteredTasks = filter
+    ? tasks.filter((t) => t.title.toLowerCase().includes(filter.toLowerCase()))
+    : tasks;
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-gray-100 rounded-lg overflow-hidden">
-      {/* Drag region */}
-      <div
-        data-tauri-drag-region
-        className="h-8 flex items-center justify-center shrink-0 bg-gray-900/80 select-none cursor-move"
-      >
-        <span className="text-[10px] text-gray-500 tracking-widest uppercase">
-          Flote
-        </span>
+    <div className={styles.app}>
+      {/* Titlebar */}
+      <div data-tauri-drag-region className={styles.titlebar}>
+        <div className={styles.titlebarLeft}>
+          <div className={styles.dots}>
+            <span className={`${styles.dot} ${styles.dotRed}`} />
+            <span className={`${styles.dot} ${styles.dotYellow}`} />
+            <span className={`${styles.dot} ${styles.dotGreen}`} />
+          </div>
+          <span className={styles.titleLabel}>Flote</span>
+          {storageMode === "local" && (
+            <span className={styles.storageLabel}>local</span>
+          )}
+        </div>
+        <div className={styles.titlebarRight}>
+          <span className={styles.kbd}>⌘K</span>
+          {onSignOut && (
+            <button className={styles.settingsBtn} onClick={onSignOut}>
+              ログアウト
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="flex flex-1 min-h-0">
+      {/* Main area */}
+      <div className={styles.main}>
         {/* Sidebar */}
-        <div className="w-56 flex flex-col border-r border-gray-700 bg-gray-800/50 shrink-0">
-          {/* Tabs */}
-          <div className="flex border-b border-gray-700">
+        <div className={styles.sidebar}>
+          <div className={styles.tabs}>
             <button
-              className={`flex-1 py-2 text-xs font-medium ${
-                activeTab === "notes"
-                  ? "text-white border-b-2 border-blue-500"
-                  : "text-gray-400 hover:text-gray-200"
-              }`}
+              className={`${styles.tab} ${activeTab === "notes" ? styles.tabActive : ""}`}
               onClick={() => setActiveTab("notes")}
             >
               ノート
             </button>
             <button
-              className={`flex-1 py-2 text-xs font-medium ${
-                activeTab === "tasks"
-                  ? "text-white border-b-2 border-blue-500"
-                  : "text-gray-400 hover:text-gray-200"
-              }`}
+              className={`${styles.tab} ${activeTab === "tasks" ? styles.tabActive : ""}`}
               onClick={() => setActiveTab("tasks")}
             >
               タスク
             </button>
           </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className={styles.filterWrap}>
+            <input
+              ref={filterInputRef}
+              className={styles.filterInput}
+              placeholder="フィルター (⌘F)"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+            />
+          </div>
+
+          <div className={styles.sidebarList}>
             {activeTab === "notes" && (
-              <div>
+              <>
                 <button
+                  className={styles.newButton}
                   onClick={handleCreateNote}
-                  className="w-full py-2 px-3 text-xs text-blue-400 hover:bg-gray-700/50 text-left"
                 >
                   + 新しいノート
                 </button>
-                {notes.map((note) => (
+                {filteredNotes.map((note) => (
                   <div
                     key={note.id}
-                    className={`group flex items-center px-3 py-2 cursor-pointer text-sm ${
-                      selectedNoteId === note.id
-                        ? "bg-gray-700 text-white"
-                        : "text-gray-300 hover:bg-gray-700/50"
-                    }`}
-                    onClick={() => setSelectedNoteId(note.id)}
+                    className={`${styles.noteItem} ${activeNoteId === note.id ? styles.noteItemActive : ""}`}
+                    onClick={() => setActiveNote(note.id)}
                   >
-                    <span className="truncate flex-1">{note.title}</span>
+                    <div className={styles.noteItemContent}>
+                      <div className={styles.noteItemTitle}>{note.title}</div>
+                      <div className={styles.noteItemDate}>
+                        {relativeDate(note.updated_at)}
+                      </div>
+                    </div>
                     <button
-                      className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 ml-1 text-xs"
+                      className={styles.deleteBtn}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleDeleteNote(note.id);
+                        deleteNote(note.id);
                       }}
                     >
                       ✕
                     </button>
                   </div>
                 ))}
-              </div>
+              </>
             )}
 
             {activeTab === "tasks" && (
-              <div>
-                <div className="flex px-3 py-2 gap-1">
-                  <input
-                    type="text"
-                    value={newTaskTitle}
-                    onChange={(e) => setNewTaskTitle(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && handleCreateTask()}
-                    placeholder="タスクを追加..."
-                    className="flex-1 bg-gray-700 text-sm text-white px-2 py-1 rounded outline-none placeholder-gray-500"
-                  />
-                </div>
-                {tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="group flex items-center px-3 py-2 text-sm"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={task.done}
-                      onChange={() => handleToggleTask(task.id)}
-                      className="mr-2 accent-blue-500"
-                    />
-                    <span
-                      className={`flex-1 truncate ${
-                        task.done
-                          ? "line-through text-gray-500"
-                          : "text-gray-300"
-                      }`}
-                    >
-                      {task.title}
-                    </span>
-                    <button
-                      className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 ml-1 text-xs"
-                      onClick={() => handleDeleteTask(task.id)}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
+              <TaskList
+                tasks={filteredTasks}
+                onToggleDone={(id) => toggleDone(id, userId)}
+                onDelete={deleteTask}
+                onAddTask={handleAddTask}
+              />
             )}
           </div>
         </div>
 
-        {/* Main editor area */}
-        <div className="flex-1 min-w-0">
+        {/* Editor area */}
+        <div className={styles.editorArea}>
           {selectedNote ? (
             <Editor value={selectedNote.body_md} onChange={handleEditorChange} />
           ) : (
-            <div className="flex items-center justify-center h-full text-gray-500 text-sm">
-              ノートを選択するか、新しいノートを作成してください
+            <div className={styles.editorPlaceholder}>
+              ノートを選択するか、⌘N で新しいノートを作成
             </div>
           )}
         </div>
       </div>
+
+      {/* Statusbar */}
+      <div className={styles.statusbar}>
+        <div className={styles.statusLeft}>
+          {selectedNote && (
+            <>
+              <span>{wordCount} words</span>
+              <span>Markdown</span>
+            </>
+          )}
+        </div>
+        <div className={styles.statusRight}>
+          {overdueCount > 0 && (
+            <span className={styles.overdueBadge}>
+              {overdueCount} 期限切れ
+            </span>
+          )}
+          <button
+            className={styles.settingsBtn}
+            onClick={() => setSettingsOpen(true)}
+            title="設定 (⌘,)"
+          >
+            ⚙
+          </button>
+        </div>
+      </div>
+
+      {/* Command Palette overlay */}
+      {isCommandPaletteOpen && (
+        <CommandPalette
+          notes={notes}
+          tasks={tasks}
+          onSelectNote={handleSelectNote}
+          onSelectTask={handleSelectTask}
+          onNewNote={handleCreateNote}
+          onNewTask={handleCreateTask}
+          onCycleTheme={cycleTheme}
+        />
+      )}
+
+      {/* Settings overlay */}
+      {isSettingsOpen && (
+        <Settings
+          currentMode={storageMode}
+          onClose={() => setSettingsOpen(false)}
+          onStorageModeChange={handleStorageModeChange}
+        />
+      )}
+
+      {/* Toast */}
+      <ToastContainer />
     </div>
+  );
+}
+
+/* ─── App (entry) ─── */
+
+function App() {
+  const [storageMode, setStorageMode] = useState<StorageMode | null>(null);
+  const [loading, setLoading] = useState(true);
+  const { session, loading: authLoading, signIn, signUp, signOut } = useAuth();
+
+  const initNoteStore = useNoteStore((s) => s.initStore);
+  const initTaskStore = useTaskStore((s) => s.initStore);
+
+  useTheme();
+
+  // Load config on mount
+  useEffect(() => {
+    getConfig().then((config) => {
+      setStorageMode(config.storageMode);
+
+      const noteRepo = createNoteRepository(config.storageMode);
+      const taskRepo = createTaskRepository(config.storageMode);
+      initNoteStore(noteRepo);
+      initTaskStore(taskRepo);
+
+      setLoading(false);
+    });
+  }, [initNoteStore, initTaskStore]);
+
+  if (loading || storageMode === null) {
+    return (
+      <div className={styles.loading}>
+        <div data-tauri-drag-region className={styles.loadingDrag} />
+        <div className={styles.loadingContent}>読み込み中...</div>
+      </div>
+    );
+  }
+
+  // Local mode: no auth needed
+  if (storageMode === "local") {
+    return <MainApp storageMode={storageMode} />;
+  }
+
+  // Supabase mode: need config
+  if (!supabaseConfigured) {
+    return (
+      <div className={styles.loading}>
+        <div data-tauri-drag-region className={styles.loadingDrag} />
+        <div className={styles.supabaseWarning}>
+          <div className={styles.warningBox}>
+            <p className={styles.warningTitle}>Supabase未設定</p>
+            <p>保存先がSupabaseに設定されていますが、接続情報がありません。</p>
+            <p>
+              <code className={styles.warningCode}>
+                apps/desktop/.env.local
+              </code>{" "}
+              に接続情報を設定してください。
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Auth loading
+  if (authLoading) {
+    return (
+      <div className={styles.loading}>
+        <div data-tauri-drag-region className={styles.loadingDrag} />
+        <div className={styles.loadingContent}>読み込み中...</div>
+      </div>
+    );
+  }
+
+  // Not logged in
+  if (!session) {
+    return <Auth onSignIn={signIn} onSignUp={signUp} />;
+  }
+
+  // Logged in
+  return (
+    <MainApp
+      userId={session.user.id}
+      storageMode={storageMode}
+      onSignOut={signOut}
+    />
   );
 }
 

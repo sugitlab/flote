@@ -1,18 +1,22 @@
 import type { Task, TaskInsert, TaskUpdate } from "@flote/types";
-import { getClient } from "./client";
+import { getSupabase } from "./supabase";
 
-export async function listTasks(): Promise<Task[]> {
-  const supabase = getClient();
-  const { data, error } = await supabase
+export async function listTasks(userId?: string): Promise<Task[]> {
+  const supabase = getSupabase();
+  let query = supabase
     .from("tasks")
     .select("*")
     .order("updated_at", { ascending: false });
+  if (userId) {
+    query = query.eq("user_id", userId);
+  }
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map(toTask);
 }
 
-export async function createTask(task: TaskInsert): Promise<Task> {
-  const supabase = getClient();
+export async function createTask(task: TaskInsert, userId: string): Promise<Task> {
+  const supabase = getSupabase();
   const { data, error } = await supabase
     .from("tasks")
     .insert({
@@ -20,6 +24,7 @@ export async function createTask(task: TaskInsert): Promise<Task> {
       due_date: task.due_date,
       remind_at: task.remind_at,
       done: task.done,
+      user_id: userId,
     })
     .select()
     .single();
@@ -28,12 +33,13 @@ export async function createTask(task: TaskInsert): Promise<Task> {
 }
 
 export async function updateTask(id: string, task: TaskUpdate): Promise<Task> {
-  const supabase = getClient();
+  const supabase = getSupabase();
   const patch: Record<string, unknown> = {};
   if (task.title !== undefined) patch.title = task.title;
   if (task.due_date !== undefined) patch.due_date = task.due_date;
   if (task.remind_at !== undefined) patch.remind_at = task.remind_at;
   if (task.done !== undefined) patch.done = task.done;
+  patch.updated_at = new Date().toISOString();
   const { data, error } = await supabase
     .from("tasks")
     .update(patch)
@@ -44,8 +50,27 @@ export async function updateTask(id: string, task: TaskUpdate): Promise<Task> {
   return toTask(data);
 }
 
+export async function saveTask(task: Task, userId: string): Promise<Task> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase
+    .from("tasks")
+    .upsert({
+      id: task.id,
+      title: task.title,
+      due_date: task.due_date,
+      remind_at: task.remind_at,
+      done: task.done,
+      updated_at: task.updated_at,
+      user_id: userId,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return toTask(data);
+}
+
 export async function deleteTask(id: string): Promise<void> {
-  const supabase = getClient();
+  const supabase = getSupabase();
   const { error } = await supabase.from("tasks").delete().eq("id", id);
   if (error) throw error;
 }

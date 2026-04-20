@@ -1,3 +1,4 @@
+export { initSupabase, getSupabase } from "./supabase";
 export { createClient, getClient } from "./client";
 export * from "./notes";
 export * from "./tasks";
@@ -9,3 +10,8 @@ export {
   saveTask as saveLocalTask,
   deleteTask as deleteLocalTask,
 } from "./local-storage";
+export {
+  createNoteRepository,
+  createTaskRepository,
+} from "./repository";
+export type { NoteRepository, TaskRepository } from "./repository";

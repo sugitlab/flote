@@ -1,6 +1,6 @@
 import { useRef, useEffect } from "react";
 import { EditorState } from "@codemirror/state";
-import { EditorView, keymap } from "@codemirror/view";
+import { EditorView, keymap, placeholder } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
@@ -50,6 +50,7 @@ export default function Editor({ value, onChange }: EditorProps) {
             onChangeRef.current(update.state.doc.toString());
           }
         }),
+        placeholder("# タイトルを入力..."),
         EditorView.lineWrapping,
       ],
     });
