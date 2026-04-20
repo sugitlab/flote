@@ -5,10 +5,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ScrollView,
+  Dimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import PagerView from "react-native-pager-view";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../src/theme";
 import { useNoteStore } from "../../src/store/noteStore";
@@ -18,12 +21,13 @@ import TasksList from "../../components/TasksList";
 import type { Note } from "@flote/types";
 
 const TABS = ["ノート", "タスク"] as const;
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const pagerRef = useRef<PagerView>(null);
+  const scrollRef = useRef<ScrollView>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
   const saveNote = useNoteStore((s) => s.saveNote);
@@ -36,8 +40,13 @@ export default function HomeScreen() {
 
   const handleTabPress = useCallback((index: number) => {
     setActiveTab(index);
-    pagerRef.current?.setPage(index);
+    scrollRef.current?.scrollTo({ x: index * SCREEN_WIDTH, animated: true });
   }, []);
+
+  const handleScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const page = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+    if (page !== activeTab) setActiveTab(page);
+  }, [activeTab]);
 
   const handleAdd = useCallback(async () => {
     if (!userId) return;
@@ -105,19 +114,22 @@ export default function HomeScreen() {
       </View>
 
       {/* Swipeable pages */}
-      <PagerView
-        ref={pagerRef}
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={handleScroll}
+        scrollEventThrottle={16}
         style={styles.pager}
-        initialPage={0}
-        onPageSelected={(e) => setActiveTab(e.nativeEvent.position)}
       >
-        <View key="notes" style={styles.page}>
+        <View style={{ width: SCREEN_WIDTH }}>
           <NotesList userId={userId} />
         </View>
-        <View key="tasks" style={styles.page}>
+        <View style={{ width: SCREEN_WIDTH }}>
           <TasksList userId={userId} />
         </View>
-      </PagerView>
+      </ScrollView>
     </View>
   );
 }
@@ -158,5 +170,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   pager: { flex: 1 },
-  page: { flex: 1 },
 });
