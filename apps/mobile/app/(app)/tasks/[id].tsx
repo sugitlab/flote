@@ -124,14 +124,12 @@ export default function TaskDetailScreen() {
     hr: { backgroundColor: colors.border },
   };
 
-  const headerTitle = task?.title || "タスク詳細";
-
   return (
     <>
       <Stack.Screen
         options={{
           headerShown: true,
-          title: headerTitle,
+          title: "",
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerRight: () => (

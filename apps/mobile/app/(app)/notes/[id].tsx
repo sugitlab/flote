@@ -127,16 +127,12 @@ export default function NoteDetailScreen() {
     hr: { backgroundColor: colors.border },
   };
 
-  const headerTitle = note
-    ? (note.title || note.body_md.split("\n").find((l) => l.trim())?.replace(/^#{1,6}\s+/, "").trim() || "無題")
-    : "新規ノート";
-
   return (
     <>
       <Stack.Screen
         options={{
           headerShown: true,
-          title: headerTitle,
+          title: "",
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerRight: () => (
