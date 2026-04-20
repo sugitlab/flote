@@ -86,8 +86,8 @@ export default function TaskDetailScreen() {
   };
 
   const markdownStyles = {
-    body: { color: colors.text, fontSize: 16, lineHeight: 24 },
-    heading1: { color: colors.text, fontSize: 28, fontWeight: "bold" as const, marginTop: 0, marginBottom: 8, paddingTop: 0 },
+    body: { color: colors.text, fontSize: 16, lineHeight: 24, overflow: "visible" as const },
+    heading1: { color: colors.text, fontSize: 28, lineHeight: 36, fontWeight: "bold" as const, marginTop: 0, marginBottom: 8, paddingTop: 0, overflow: "visible" as const },
     heading2: { color: colors.text, fontSize: 24, fontWeight: "bold" as const, marginVertical: 6 },
     heading3: { color: colors.text, fontSize: 20, fontWeight: "bold" as const, marginVertical: 4 },
     paragraph: { color: colors.text, marginVertical: 4 },
@@ -191,6 +191,7 @@ export default function TaskDetailScreen() {
           />
         ) : (
           <ScrollView style={styles.preview} contentContainerStyle={styles.previewContent}>
+            <View style={{ height: 4 }} />
             {content ? (
               <Markdown style={markdownStyles}>{content}</Markdown>
             ) : (
