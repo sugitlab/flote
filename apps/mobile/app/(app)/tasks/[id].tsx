@@ -87,7 +87,7 @@ export default function TaskDetailScreen() {
 
   const markdownStyles = {
     body: { color: colors.text, fontSize: 16, lineHeight: 24 },
-    heading1: { color: colors.text, fontSize: 28, fontWeight: "bold" as const, marginVertical: 8 },
+    heading1: { color: colors.text, fontSize: 28, fontWeight: "bold" as const, marginTop: 0, marginBottom: 8, paddingTop: 0 },
     heading2: { color: colors.text, fontSize: 24, fontWeight: "bold" as const, marginVertical: 6 },
     heading3: { color: colors.text, fontSize: 20, fontWeight: "bold" as const, marginVertical: 4 },
     paragraph: { color: colors.text, marginVertical: 4 },
@@ -219,5 +219,5 @@ const styles = StyleSheet.create({
   metaDue: { fontSize: 13, marginLeft: "auto" },
   editor: { flex: 1, padding: 16, fontSize: 15, lineHeight: 22 },
   preview: { flex: 1 },
-  previewContent: { padding: 16 },
+  previewContent: { padding: 16, paddingTop: 8 },
 });
