@@ -41,7 +41,7 @@ export default function TaskList({
       <div className="px-3 py-2 border-b border-[var(--border)]">
         <button
           onClick={onAddTask}
-          className="w-full text-left text-sm text-[var(--accent)] bg-transparent border-none cursor-pointer py-1 hover:bg-[var(--bg-hover)] rounded px-2 transition-colors"
+          className="w-full text-left text-[11px] text-[var(--accent)] bg-transparent border-none cursor-pointer py-2 px-[10px] hover:bg-[var(--bg-hover)] rounded transition-colors"
         >
           + 新しいタスク
         </button>
