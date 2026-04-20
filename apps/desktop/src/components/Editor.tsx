@@ -9,6 +9,7 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 
 type EditorProps = {
+  docId: string;
   value: string;
   onChange: (v: string) => void;
   editing: boolean;
@@ -33,14 +34,17 @@ const baseTheme = EditorView.theme({
   },
 });
 
-export default function Editor({ value, onChange, editing, onExitEdit }: EditorProps) {
+export default function Editor({ docId, value, onChange, editing, onExitEdit }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const onExitEditRef = useRef(onExitEdit);
   onExitEditRef.current = onExitEdit;
+  const editingRef = useRef(editing);
+  editingRef.current = editing;
 
+  // Create the CodeMirror instance once
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -73,17 +77,12 @@ export default function Editor({ value, onChange, editing, onExitEdit }: EditorP
       ],
     });
 
-    const view = new EditorView({
-      state,
-      parent: containerRef.current,
-    });
-
+    const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
 
     return () => {
       view.destroy();
     };
-    // Only create the editor once
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -94,7 +93,7 @@ export default function Editor({ value, onChange, editing, onExitEdit }: EditorP
     }
   }, [editing]);
 
-  // Sync external value changes (e.g. switching notes)
+  // Sync content when switching to a different document (always replace)
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
@@ -104,7 +103,23 @@ export default function Editor({ value, onChange, editing, onExitEdit }: EditorP
         changes: { from: 0, to: current.length, insert: value },
       });
     }
-  }, [value]);
+    // docId changing means the user switched notes — always sync
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docId]);
+
+  // Sync remote updates only while NOT editing (preview mode)
+  // While editing, trust CodeMirror's internal state to avoid cursor jumps
+  useEffect(() => {
+    if (editing) return;
+    const view = viewRef.current;
+    if (!view) return;
+    const current = view.state.doc.toString();
+    if (current !== value) {
+      view.dispatch({
+        changes: { from: 0, to: current.length, insert: value },
+      });
+    }
+  }, [value, editing]);
 
   const previewHtml = useMemo(() => {
     if (editing) return "";

@@ -90,11 +90,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
           set({ tasks: [task, ...tasks] });
         }
         break;
-      case "UPDATE":
-        set({
-          tasks: tasks.map((t) => (t.id === task.id ? task : t)),
-        });
+      case "UPDATE": {
+        const local = tasks.find((t) => t.id === task.id);
+        // Skip if local version is already newer or equal (own echo / stale update)
+        if (local && local.updated_at >= task.updated_at) break;
+        set({ tasks: tasks.map((t) => (t.id === task.id ? task : t)) });
         break;
+      }
       case "DELETE":
         set({
           tasks: tasks.filter((t) => t.id !== task.id),

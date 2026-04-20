@@ -17,13 +17,13 @@ import { useTaskStore } from "./store/taskStore";
 import { useUIStore } from "./store/uiStore";
 import Auth from "./components/Auth";
 import Editor from "./components/Editor";
+import NoteList from "./components/NoteList";
 import TaskList from "./components/TaskList";
 import Settings from "./components/Settings";
 import CommandPalette from "./components/CommandPalette";
 import ConfirmDialog from "./components/ConfirmDialog";
 import ResizeHandles from "./components/ResizeHandles";
 import ToastContainer from "./components/Toast";
-import { relativeDate } from "./utils/date";
 import styles from "./App.module.css";
 
 // Initialize Supabase client if env vars present
@@ -172,8 +172,11 @@ function MainApp({
         if (!activeTaskId) return;
         const task = tasks.find((t) => t.id === activeTaskId);
         if (!task) return;
+        const firstLine = value.split("\n").find((l) => l.trim());
+        const title = firstLine?.replace(/^#{1,6}\s+/, "").trim() || task.title;
         const updated: Task = {
           ...task,
+          title,
           body_md: value,
           updated_at: new Date().toISOString(),
         };
@@ -181,16 +184,6 @@ function MainApp({
       }
     },
     [activeTab, activeNoteId, activeTaskId, tasks, userId, saveNote, saveTask]
-  );
-
-  const handleTaskTitleChange = useCallback(
-    (title: string) => {
-      if (!activeTaskId) return;
-      const task = tasks.find((t) => t.id === activeTaskId);
-      if (!task) return;
-      saveTask({ ...task, title, updated_at: new Date().toISOString() }, userId);
-    },
-    [activeTaskId, tasks, userId, saveTask]
   );
 
   const handleTaskDueDateChange = useCallback(
@@ -281,6 +274,20 @@ function MainApp({
     setConfirmDelete(null);
   }, [confirmDelete, deleteNote, deleteTask]);
 
+  const handleDeleteNotes = useCallback(
+    (ids: string[]) => {
+      ids.forEach((id) => deleteNote(id));
+    },
+    [deleteNote]
+  );
+
+  const handleDeleteTasks = useCallback(
+    (ids: string[]) => {
+      ids.forEach((id) => deleteTask(id));
+    },
+    [deleteTask]
+  );
+
   const handleSelectByIndex = useCallback(
     (index: number) => {
       setIsEditing(false);
@@ -327,22 +334,9 @@ function MainApp({
       {/* Titlebar */}
       <div data-tauri-drag-region className={styles.titlebar}>
         <div className={styles.titlebarLeft}>
-          <div className={styles.dots}>
-            <span className={`${styles.dot} ${styles.dotRed}`} />
-            <span className={`${styles.dot} ${styles.dotYellow}`} />
-            <span className={`${styles.dot} ${styles.dotGreen}`} />
-          </div>
           <span className={styles.titleLabel}>Flote</span>
           {storageMode === "local" && (
             <span className={styles.storageLabel}>local</span>
-          )}
-        </div>
-        <div className={styles.titlebarRight}>
-          <span className={styles.kbd}>⌘K</span>
-          {onSignOut && (
-            <button className={styles.settingsBtn} onClick={onSignOut}>
-              ログアウト
-            </button>
           )}
         </div>
       </div>
@@ -368,40 +362,14 @@ function MainApp({
 
           <div className={styles.sidebarList}>
             {activeTab === "notes" && (
-              <>
-                <button
-                  className={styles.newButton}
-                  onClick={handleCreateNote}
-                >
-                  + 新しいノート
-                </button>
-                {notes.map((note, idx) => (
-                  <div
-                    key={note.id}
-                    className={`${styles.noteItem} ${activeNoteId === note.id ? styles.noteItemActive : ""}`}
-                    onClick={() => { setIsEditing(false); setActiveNote(note.id); }}
-                  >
-                    {idx < 9 && (
-                      <span className={styles.indexBadge}>{idx + 1}</span>
-                    )}
-                    <div className={styles.noteItemContent}>
-                      <div className={styles.noteItemTitle}>{note.title}</div>
-                      <div className={styles.noteItemDate}>
-                        {relativeDate(note.updated_at)}
-                      </div>
-                    </div>
-                    <button
-                      className={styles.deleteBtn}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteNote(note.id);
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </>
+              <NoteList
+                notes={notes}
+                activeNoteId={activeNoteId}
+                onSelect={(id) => { setIsEditing(false); setActiveNote(id); }}
+                onDelete={handleDeleteNote}
+                onDeleteMultiple={handleDeleteNotes}
+                onNew={handleCreateNote}
+              />
             )}
 
             {activeTab === "tasks" && (
@@ -410,6 +378,7 @@ function MainApp({
                 activeTaskId={activeTaskId}
                 onToggleDone={(id) => toggleDone(id, userId)}
                 onDelete={handleDeleteTask}
+                onDeleteMultiple={handleDeleteTasks}
                 onAddTask={handleCreateTask}
                 onSelectTask={handleSelectTask}
               />
@@ -425,6 +394,7 @@ function MainApp({
               onDoubleClick={() => setIsEditing(true)}
             >
               <Editor
+                docId={selectedNote.id}
                 value={selectedNote.body_md}
                 onChange={handleEditorChange}
                 editing={isEditing}
@@ -434,32 +404,41 @@ function MainApp({
           ) : activeTab === "tasks" && selectedTask ? (
             <div className={styles.taskDetail}>
               <div className={styles.taskDetailHeader}>
-                <div className={styles.taskDetailTitle}>
+                <button
+                  className={styles.taskDetailStatusBtn}
+                  onClick={() => toggleDone(selectedTask.id, userId)}
+                >
                   <input
                     type="checkbox"
                     checked={selectedTask.done}
-                    onChange={() => toggleDone(selectedTask.id, userId)}
+                    readOnly
                     className={styles.taskDetailCheckbox}
                   />
+                  <span
+                    className={styles.taskDetailStatus}
+                    style={{ color: selectedTask.done ? "var(--accent)" : "#f59e0b" }}
+                  >
+                    {selectedTask.done ? "完了" : "未完了"}
+                  </span>
+                </button>
+                <div className={styles.datePickerWrap}>
+                  <span className={styles.taskDetailDateInput}>
+                    {selectedTask.due_date || "期日を設定"}
+                  </span>
                   <input
-                    type="text"
-                    value={selectedTask.title}
-                    onChange={(e) => handleTaskTitleChange(e.target.value)}
-                    className={styles.taskDetailTitleInput}
+                    type="date"
+                    value={selectedTask.due_date ?? ""}
+                    onChange={(e) => handleTaskDueDateChange(e.target.value)}
+                    className={styles.datePickerHidden}
                   />
                 </div>
-                <input
-                  type="date"
-                  value={selectedTask.due_date ?? ""}
-                  onChange={(e) => handleTaskDueDateChange(e.target.value)}
-                  className={styles.taskDetailDateInput}
-                />
               </div>
               <div
                 className={styles.editorWrap}
                 onDoubleClick={() => setIsEditing(true)}
               >
                 <Editor
+                  docId={selectedTask.id}
                   value={selectedTask.body_md}
                   onChange={handleEditorChange}
                   editing={isEditing}

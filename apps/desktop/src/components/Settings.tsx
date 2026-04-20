@@ -11,7 +11,7 @@ import { getConfig, setConfig, type AppSettings } from "../config";
 import { useAuth } from "../hooks/useAuth";
 import styles from "./Settings.module.css";
 
-type SettingsTab = "general" | "shortcuts" | "account" | "storage";
+type SettingsTab = "general" | "shortcuts" | "howto" | "account" | "storage";
 
 type Props = {
   currentMode: StorageMode;
@@ -35,6 +35,7 @@ export default function Settings({
             [
               ["general", "一般"],
               ["shortcuts", "ショートカット"],
+              ["howto", "使い方"],
               ["account", "アカウント"],
               ["storage", "保存先"],
             ] as const
@@ -55,6 +56,7 @@ export default function Settings({
         <div className={styles.content}>
           {tab === "general" && <GeneralTab />}
           {tab === "shortcuts" && <ShortcutsTab />}
+          {tab === "howto" && <HowToTab />}
           {tab === "account" && (
             <AccountTab
               currentMode={currentMode}
@@ -456,6 +458,102 @@ function StorageTab({
 
       <div className={styles.storageInfo}>
         ローカルデータは保持されます。保存先を切り替えてもデータは削除されません。
+      </div>
+    </>
+  );
+}
+
+/* ─── How To ─── */
+
+function HowToTab() {
+  return (
+    <>
+      <h3 className={styles.sectionTitle}>使い方</h3>
+
+      <div className={styles.helpSection}>
+        <div className={styles.helpSectionTitle}>基本操作</div>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>ノート・タスクを開く</span>
+          <span className={styles.helpDesc}>サイドバーのアイテムをクリック</span>
+        </div>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>ノートを編集する</span>
+          <span className={styles.helpDesc}>エディタエリアをダブルクリック</span>
+        </div>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>編集を終了する</span>
+          <span className={styles.helpDesc}><kbd className={styles.kbd}>Esc</kbd> キー</span>
+        </div>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>新規ノートを作成</span>
+          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘N</kbd> またはサイドバー上部の「＋ 新しいノート」</span>
+        </div>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>新規タスクを追加</span>
+          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘T</kbd> またはサイドバー上部の「＋ 新しいタスク」</span>
+        </div>
+      </div>
+
+      <div className={styles.helpSection}>
+        <div className={styles.helpSectionTitle}>一括削除</div>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>複数選択して削除する</span>
+          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘クリック</kbd> または 右クリックで選択モードに入り、削除ボタンを押す</span>
+        </div>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>選択を解除する</span>
+          <span className={styles.helpDesc}>「キャンセル」をクリック</span>
+        </div>
+      </div>
+
+      <div className={styles.helpSection}>
+        <div className={styles.helpSectionTitle}>ナビゲーション</div>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>コマンドパレットを開く</span>
+          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘K</kbd></span>
+        </div>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>ノート / タスクタブを切替</span>
+          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘1</kbd> / <kbd className={styles.kbd}>⌘2</kbd></span>
+        </div>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>前後のアイテムへ移動</span>
+          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘↑</kbd> / <kbd className={styles.kbd}>⌘↓</kbd></span>
+        </div>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>番号でアイテムを選択</span>
+          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘1</kbd>〜<kbd className={styles.kbd}>⌘9</kbd>（タブ切替後は番号キー）</span>
+        </div>
+      </div>
+
+      <div className={styles.helpSection}>
+        <div className={styles.helpSectionTitle}>コマンドパレット</div>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>ノート・タスクを検索</span>
+          <span className={styles.helpDesc}>タイトルで絞り込み</span>
+        </div>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>英語でコマンド検索</span>
+          <span className={styles.helpDesc}>add note / add task / show notes / settings など</span>
+        </div>
+      </div>
+
+      <h3 className={styles.sectionTitle} style={{ marginTop: 24 }}>法的情報</h3>
+      <div className={styles.helpSection}>
+        {[
+          ["プライバシーポリシー", "https://example.com"],
+          ["利用規約", "https://example.com"],
+          ["ライセンス", "https://example.com"],
+        ].map(([label, url]) => (
+          <div key={label} className={styles.helpItem}>
+            <button
+              className={styles.legalLink}
+              onClick={() => window.open(url, "_blank")}
+            >
+              {label}
+            </button>
+          </div>
+        ))}
       </div>
     </>
   );

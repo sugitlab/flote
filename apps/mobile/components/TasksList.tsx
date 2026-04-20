@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   RefreshControl,
   Pressable,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useTheme } from "../src/theme";
@@ -57,6 +58,10 @@ export default function TasksList({ userId }: Props) {
   const loading = useTaskStore((s) => s.loading);
   const fetchTasks = useTaskStore((s) => s.fetchTasks);
   const toggleDone = useTaskStore((s) => s.toggleDone);
+  const deleteTask = useTaskStore((s) => s.deleteTask);
+
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (userId) fetchTasks(userId);
@@ -75,12 +80,105 @@ export default function TasksList({ userId }: Props) {
     [userId]
   );
 
+  const enterSelectMode = useCallback((id: string) => {
+    setSelectMode(true);
+    setSelectedIds(new Set([id]));
+  }, []);
+
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  }, []);
+
+  const toggleSelect = useCallback((id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleDeleteSelected = useCallback(() => {
+    const count = selectedIds.size;
+    Alert.alert(
+      "削除の確認",
+      `${count}件のタスクを削除しますか？`,
+      [
+        { text: "キャンセル", style: "cancel" },
+        {
+          text: "削除",
+          style: "destructive",
+          onPress: async () => {
+            await Promise.all([...selectedIds].map((id) => deleteTask(id)));
+            exitSelectMode();
+          },
+        },
+      ]
+    );
+  }, [selectedIds, deleteTask, exitSelectMode]);
+
   const isOverdue = (task: Task) =>
     !task.done && task.due_date != null && task.due_date < todayStr();
 
   const renderItem = useCallback(
     ({ item }: { item: Task }) => {
       const overdue = isOverdue(item);
+      const isSelected = selectedIds.has(item.id);
+
+      if (selectMode) {
+        return (
+          <TouchableOpacity
+            style={[
+              styles.row,
+              {
+                backgroundColor: isSelected ? colors.accent + "22" : colors.surface,
+                borderColor: isSelected ? colors.accent : colors.border,
+                borderWidth: StyleSheet.hairlineWidth,
+                borderRadius: 10,
+                marginBottom: 6,
+                paddingHorizontal: 14,
+                paddingVertical: 14,
+              },
+            ]}
+            onPress={() => toggleSelect(item.id)}
+            activeOpacity={0.7}
+          >
+            <View style={[
+              styles.selectCircle,
+              {
+                borderColor: isSelected ? colors.accent : colors.textSecondary,
+                backgroundColor: isSelected ? colors.accent : "transparent",
+              },
+            ]}>
+              {isSelected && <Text style={styles.checkmarkText}>✓</Text>}
+            </View>
+            <Text
+              style={[
+                styles.itemTitle,
+                { color: item.done ? colors.textSecondary : colors.text },
+                item.done && styles.doneTitle,
+              ]}
+              numberOfLines={1}
+            >
+              {item.title || "無題のタスク"}
+            </Text>
+            <Text
+              style={[
+                styles.itemDate,
+                { color: overdue ? colors.danger : colors.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              {item.due_date ?? ""}
+            </Text>
+          </TouchableOpacity>
+        );
+      }
+
       return (
         <View style={styles.row}>
           <Pressable
@@ -101,6 +199,8 @@ export default function TasksList({ userId }: Props) {
           <TouchableOpacity
             style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}
             onPress={() => router.push(`/(app)/tasks/${item.id}` as never)}
+            onLongPress={() => enterSelectMode(item.id)}
+            delayLongPress={400}
             activeOpacity={0.7}
           >
             <Text
@@ -113,21 +213,20 @@ export default function TasksList({ userId }: Props) {
             >
               {item.title || "無題のタスク"}
             </Text>
-            {item.due_date ? (
-              <Text
-                style={[
-                  styles.itemDate,
-                  { color: overdue ? colors.danger : colors.textSecondary },
-                ]}
-              >
-                {item.due_date}
-              </Text>
-            ) : null}
+            <Text
+              style={[
+                styles.itemDate,
+                { color: overdue ? colors.danger : colors.textSecondary },
+              ]}
+              numberOfLines={1}
+            >
+              {item.due_date ?? ""}
+            </Text>
           </TouchableOpacity>
         </View>
       );
     },
-    [colors, handleToggle]
+    [colors, selectMode, selectedIds, toggleSelect, enterSelectMode, handleToggle]
   );
 
   const renderSectionHeader = useCallback(
@@ -149,6 +248,17 @@ export default function TasksList({ userId }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {selectMode && (
+        <View style={[styles.selectHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <Text style={[styles.selectCount, { color: colors.text }]}>
+            {selectedIds.size}件選択中
+          </Text>
+          <TouchableOpacity onPress={exitSelectMode}>
+            <Text style={[styles.cancelText, { color: colors.accent }]}>キャンセル</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
@@ -169,12 +279,45 @@ export default function TasksList({ userId }: Props) {
           ) : null
         }
       />
+
+      {selectMode && (
+        <View style={[styles.actionBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+          <TouchableOpacity
+            style={[
+              styles.deleteButton,
+              { backgroundColor: selectedIds.size > 0 ? "#ff3b30" : colors.border },
+            ]}
+            onPress={handleDeleteSelected}
+            disabled={selectedIds.size === 0}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.deleteButtonText}>
+              削除{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  selectHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  selectCount: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  cancelText: {
+    fontSize: 15,
+  },
   list: { padding: 16, paddingBottom: 40 },
   sectionTitle: {
     fontSize: 13,
@@ -197,6 +340,17 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginRight: 10,
   },
+  selectCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+    flexShrink: 0,
+  },
+  checkmarkText: { color: "#fff", fontSize: 13, fontWeight: "bold" },
   item: {
     flex: 1,
     flexDirection: "row",
@@ -208,7 +362,24 @@ const styles = StyleSheet.create({
   },
   itemTitle: { fontSize: 16, flex: 1, marginRight: 8 },
   doneTitle: { textDecorationLine: "line-through" },
-  itemDate: { fontSize: 12, marginTop: 2 },
+  itemDate: { fontSize: 12, flexShrink: 0 },
   empty: { alignItems: "center", marginTop: 80 },
   emptyText: { fontSize: 16 },
+  actionBar: {
+    padding: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  deleteButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  deleteButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
 });

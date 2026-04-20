@@ -10,18 +10,16 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import { useRouter, Stack } from "expo-router";
 import { useTheme } from "../../src/theme";
 import { useNoteStore } from "../../src/store/noteStore";
 import { supabase } from "../../src/lib/supabase";
 import NotesList from "../../components/NotesList";
 import TasksList from "../../components/TasksList";
+import SettingsPage from "../../components/SettingsPage";
 import type { Note } from "@flote/types";
 
 function generateId(): string {
-  // Generate UUID v4 compatible with PostgreSQL uuid type
   const hex = "0123456789abcdef";
   let id = "";
   for (let i = 0; i < 36; i++) {
@@ -38,12 +36,11 @@ function generateId(): string {
   return id;
 }
 
-const TABS = ["ノート", "タスク"] as const;
+const TABS = ["ノート", "タスク", "設定"] as const;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const [activeTab, setActiveTab] = useState(0);
@@ -88,90 +85,89 @@ export default function HomeScreen() {
     }
   }, [userId, activeTab]);
 
+  const handleSignOut = useCallback(() => {
+    // Auth state change will trigger redirect via _layout.tsx
+  }, []);
+
+  const showAddButton = activeTab < 2;
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 4 }]}>
-        <Text style={[styles.title, { color: colors.text }]}>
-          {TABS[activeTab]}
-        </Text>
-        <TouchableOpacity
-          onPress={handleAdd}
-          style={[styles.addButton, { backgroundColor: colors.accent }]}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="add" size={22} color="#fff" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Tab indicator */}
-      <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
-        {TABS.map((label, i) => (
-          <TouchableOpacity
-            key={label}
-            style={[
-              styles.tab,
-              activeTab === i && { borderBottomColor: colors.accent, borderBottomWidth: 2 },
-            ]}
-            onPress={() => handleTabPress(i)}
-            activeOpacity={0.7}
-          >
-            <Text
+    <>
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: TABS[activeTab],
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.text,
+          headerShadowVisible: false,
+          headerRight: showAddButton
+            ? () => (
+                <TouchableOpacity
+                  onPress={handleAdd}
+                  activeOpacity={0.5}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={{ color: colors.accent, fontSize: 30, lineHeight: 34, fontWeight: "300" }}>+</Text>
+                </TouchableOpacity>
+              )
+            : undefined,
+        }}
+      />
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Tab bar */}
+        <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
+          {TABS.map((label, i) => (
+            <TouchableOpacity
+              key={label}
               style={[
-                styles.tabText,
-                {
-                  color: activeTab === i ? colors.accent : colors.textSecondary,
-                  fontWeight: activeTab === i ? "600" : "400",
-                },
+                styles.tab,
+                activeTab === i && { borderBottomColor: colors.accent, borderBottomWidth: 2 },
               ]}
+              onPress={() => handleTabPress(i)}
+              activeOpacity={0.7}
             >
-              {label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+              <Text
+                style={[
+                  styles.tabText,
+                  {
+                    color: activeTab === i ? colors.accent : colors.textSecondary,
+                    fontWeight: activeTab === i ? "600" : "400",
+                  },
+                ]}
+              >
+                {label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      {/* Swipeable pages */}
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={handleScroll}
-        scrollEventThrottle={16}
-        style={styles.pager}
-      >
-        <View style={{ width: SCREEN_WIDTH }}>
-          <NotesList userId={userId} />
-        </View>
-        <View style={{ width: SCREEN_WIDTH }}>
-          <TasksList userId={userId} />
-        </View>
-      </ScrollView>
-    </View>
+        {/* Swipeable pages */}
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onMomentumScrollEnd={handleScroll}
+          scrollEventThrottle={16}
+          style={styles.pager}
+        >
+          <View style={{ width: SCREEN_WIDTH }}>
+            <NotesList userId={userId} />
+          </View>
+          <View style={{ width: SCREEN_WIDTH }}>
+            <TasksList userId={userId} />
+          </View>
+          <View style={{ width: SCREEN_WIDTH }}>
+            <SettingsPage onSignOut={handleSignOut} />
+          </View>
+        </ScrollView>
+      </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 4,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  addButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   tabBar: {
     flexDirection: "row",
     borderBottomWidth: StyleSheet.hairlineWidth,

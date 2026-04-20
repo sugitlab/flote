@@ -78,11 +78,13 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
           set({ notes: [note, ...notes] });
         }
         break;
-      case "UPDATE":
-        set({
-          notes: notes.map((n) => (n.id === note.id ? note : n)),
-        });
+      case "UPDATE": {
+        const local = notes.find((n) => n.id === note.id);
+        // Skip if local version is already newer or equal (own echo / stale update)
+        if (local && local.updated_at >= note.updated_at) break;
+        set({ notes: notes.map((n) => (n.id === note.id ? note : n)) });
         break;
+      }
       case "DELETE":
         set({
           notes: notes.filter((n) => n.id !== note.id),

@@ -11,7 +11,7 @@ export default function AppLayout() {
         contentStyle: { backgroundColor: colors.background },
       }}
     >
-      <Stack.Screen name="index" />
+      <Stack.Screen name="index" options={{ headerShown: true }} />
       <Stack.Screen name="notes" />
       <Stack.Screen name="tasks" />
     </Stack>

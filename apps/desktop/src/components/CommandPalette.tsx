@@ -7,6 +7,7 @@ import styles from "./CommandPalette.module.css";
 type Command = {
   id: string;
   label: string;
+  keywords?: string[];
   kbd?: string;
   action: () => void;
 };
@@ -62,19 +63,45 @@ export default function CommandPalette({
 
   const commands: Command[] = useMemo(
     () => [
-      { id: "show-notes", label: "ノート一覧を表示", kbd: "⌘1", action: onShowNotes },
-      { id: "show-tasks", label: "タスク一覧を表示", kbd: "⌘2", action: onShowTasks },
-      { id: "new-note", label: "新規ノートを作成", kbd: "⌘N", action: onNewNote },
-      { id: "new-task", label: "新規タスクを追加", kbd: "⌘T", action: onNewTask },
+      {
+        id: "show-notes",
+        label: "ノート一覧を表示",
+        keywords: ["show notes", "notes", "list notes"],
+        kbd: "⌘1",
+        action: onShowNotes,
+      },
+      {
+        id: "show-tasks",
+        label: "タスク一覧を表示",
+        keywords: ["show tasks", "tasks", "list tasks"],
+        kbd: "⌘2",
+        action: onShowTasks,
+      },
+      {
+        id: "new-note",
+        label: "新規ノートを作成",
+        keywords: ["add note", "new note", "create note"],
+        kbd: "⌘N",
+        action: onNewNote,
+      },
+      {
+        id: "new-task",
+        label: "新規タスクを追加",
+        keywords: ["add task", "new task", "create task"],
+        kbd: "⌘T",
+        action: onNewTask,
+      },
       {
         id: "settings",
         label: "設定を開く",
+        keywords: ["settings", "preferences", "config"],
         kbd: "⌘,",
         action: () => setSettingsOpen(true),
       },
       {
         id: "theme",
         label: "テーマを切り替え",
+        keywords: ["theme", "toggle theme", "dark mode", "light mode"],
         kbd: "⌘⇧L",
         action: onCycleTheme,
       },
@@ -114,7 +141,10 @@ export default function CommandPalette({
     }
 
     const matchedCmds = commands.filter(
-      (c) => !q || c.label.toLowerCase().includes(q)
+      (c) =>
+        !q ||
+        c.label.toLowerCase().includes(q) ||
+        c.keywords?.some((k) => k.toLowerCase().includes(q))
     );
     for (const c of matchedCmds) {
       result.push({

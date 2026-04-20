@@ -7,6 +7,7 @@
   align-items: center;
   justify-content: center;
   z-index: 40;
+  border-radius: 14px;
 }
 
 .modal {
@@ -432,4 +433,72 @@
   background: var(--danger-bg);
   color: var(--danger);
   margin-left: 6px;
+}
+
+/* How-to tab */
+.helpSection {
+  margin-bottom: 20px;
+}
+
+.helpSectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 8px;
+}
+
+.helpItem {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.helpItem:last-child {
+  border-bottom: none;
+}
+
+.helpLabel {
+  flex: 1;
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+
+.helpDesc {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  text-align: right;
+  max-width: 180px;
+  line-height: 1.4;
+}
+
+.kbd {
+  display: inline-block;
+  font-size: 10px;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-family: -apple-system, sans-serif;
+  white-space: nowrap;
+}
+
+.legalLink {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  text-align: left;
+}
+
+.legalLink:hover {
+  text-decoration: underline;
 }

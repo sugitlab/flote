@@ -1,4 +1,6 @@
 import { useColorScheme } from "react-native";
+import * as SecureStore from "expo-secure-store";
+import { create } from "zustand";
 
 export const Colors = {
   light: {
@@ -22,10 +24,39 @@ export const Colors = {
 } as const;
 
 export type ThemeColors = (typeof Colors)["light"];
+export type ThemeMode = "system" | "light" | "dark";
+
+const THEME_KEY = "flote_theme_mode";
+
+type ThemeStore = {
+  mode: ThemeMode;
+  setMode: (mode: ThemeMode) => Promise<void>;
+  loadMode: () => Promise<void>;
+};
+
+export const useThemeStore = create<ThemeStore>((set) => ({
+  mode: "system",
+  setMode: async (mode) => {
+    set({ mode });
+    await SecureStore.setItemAsync(THEME_KEY, mode);
+  },
+  loadMode: async () => {
+    const stored = await SecureStore.getItemAsync(THEME_KEY);
+    if (stored === "light" || stored === "dark" || stored === "system") {
+      set({ mode: stored });
+    }
+  },
+}));
 
 export function useTheme() {
-  const scheme = useColorScheme();
-  const isDark = scheme === "dark";
+  const systemScheme = useColorScheme();
+  const mode = useThemeStore((s) => s.mode);
+
+  const isDark =
+    mode === "dark" ? true :
+    mode === "light" ? false :
+    systemScheme === "dark";
+
   const colors = isDark ? Colors.dark : Colors.light;
-  return { colors, isDark };
+  return { colors, isDark, mode };
 }
