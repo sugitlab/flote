@@ -6,6 +6,7 @@ import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { marked } from "marked";
+import DOMPurify from "dompurify";
 
 type EditorProps = {
   value: string;
@@ -107,7 +108,8 @@ export default function Editor({ value, onChange, editing, onExitEdit }: EditorP
 
   const previewHtml = useMemo(() => {
     if (editing) return "";
-    return marked.parse(value || "*ノートが空です*") as string;
+    const raw = marked.parse(value || "*ノートが空です*") as string;
+    return DOMPurify.sanitize(raw);
   }, [value, editing]);
 
   return (

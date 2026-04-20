@@ -29,14 +29,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   fetchTasks: async (userId?: string) => {
     const { repo } = get();
-    if (!repo) return;
+    if (!repo || !userId) return;
     const tasks = await repo.getTasks(userId);
     set({ tasks });
   },
 
   saveTask: async (task: Task, userId?: string) => {
     const { repo } = get();
-    if (!repo) return;
+    if (!repo || !userId) return;
     const prev = get().tasks;
     const exists = prev.some((t) => t.id === task.id);
     const optimistic = exists
@@ -46,7 +46,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
     try {
       await repo.saveTask(task, userId);
-    } catch {
+    } catch (e) {
+      console.error("[taskStore] saveTask failed:", e);
       set({ tasks: prev });
     }
   },
@@ -62,7 +63,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
     try {
       await repo.deleteTask(id);
-    } catch {
+    } catch (e) {
+      console.error("[taskStore] deleteTask failed:", e);
       set({ tasks: prev });
     }
   },

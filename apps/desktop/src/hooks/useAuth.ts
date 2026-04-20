@@ -17,6 +17,9 @@ export function useAuth() {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
       setLoading(false);
+    }).catch((e) => {
+      console.error("[useAuth] getSession failed:", e);
+      setLoading(false);
     });
 
     const {

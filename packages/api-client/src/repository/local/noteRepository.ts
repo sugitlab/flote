@@ -7,11 +7,11 @@ import {
 } from "../../local-storage";
 
 export class LocalNoteRepository implements NoteRepository {
-  async getNotes(): Promise<Note[]> {
+  async getNotes(_userId: string): Promise<Note[]> {
     return getLocalNotes();
   }
 
-  async saveNote(note: Note): Promise<Note> {
+  async saveNote(note: Note, _userId: string): Promise<Note> {
     await saveLocalNote(note);
     return note;
   }

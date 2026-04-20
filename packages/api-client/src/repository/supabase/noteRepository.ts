@@ -4,29 +4,26 @@ import { getSupabase } from "../../supabase";
 
 function toNote(row: Record<string, unknown>): Note {
   return {
-    id: row.id as string,
-    title: (row.title as string) ?? "",
-    body_md: (row.body_md as string) ?? "",
-    updated_at: row.updated_at as string,
+    id: String(row.id ?? ""),
+    title: String(row.title ?? ""),
+    body_md: String(row.body_md ?? ""),
+    updated_at: String(row.updated_at ?? new Date().toISOString()),
   };
 }
 
 export class SupabaseNoteRepository implements NoteRepository {
-  async getNotes(userId?: string): Promise<Note[]> {
+  async getNotes(userId: string): Promise<Note[]> {
     const supabase = getSupabase();
-    let query = supabase
+    const { data, error } = await supabase
       .from("notes")
       .select("*")
+      .eq("user_id", userId)
       .order("updated_at", { ascending: false });
-    if (userId) {
-      query = query.eq("user_id", userId);
-    }
-    const { data, error } = await query;
     if (error) throw error;
     return (data ?? []).map(toNote);
   }
 
-  async saveNote(note: Note, userId?: string): Promise<Note> {
+  async saveNote(note: Note, userId: string): Promise<Note> {
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from("notes")

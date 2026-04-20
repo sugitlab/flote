@@ -1,16 +1,13 @@
 import type { Task, TaskInsert, TaskUpdate } from "@flote/types";
 import { getSupabase } from "./supabase";
 
-export async function listTasks(userId?: string): Promise<Task[]> {
+export async function listTasks(userId: string): Promise<Task[]> {
   const supabase = getSupabase();
-  let query = supabase
+  const { data, error } = await supabase
     .from("tasks")
     .select("*")
+    .eq("user_id", userId)
     .order("updated_at", { ascending: false });
-  if (userId) {
-    query = query.eq("user_id", userId);
-  }
-  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map(toTask);
 }
@@ -84,12 +81,12 @@ export async function toggleTask(id: string, done: boolean): Promise<Task> {
 
 function toTask(row: Record<string, unknown>): Task {
   return {
-    id: row.id as string,
-    title: row.title as string,
-    body_md: (row.body_md as string) ?? "",
-    due_date: row.due_date as string | null,
-    remind_at: row.remind_at as string | null,
-    done: row.done as boolean,
-    updated_at: row.updated_at as string,
+    id: String(row.id ?? ""),
+    title: String(row.title ?? ""),
+    body_md: String(row.body_md ?? ""),
+    due_date: row.due_date != null ? String(row.due_date) : null,
+    remind_at: row.remind_at != null ? String(row.remind_at) : null,
+    done: Boolean(row.done),
+    updated_at: String(row.updated_at ?? new Date().toISOString()),
   };
 }

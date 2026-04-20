@@ -7,11 +7,11 @@ import {
 } from "../../local-storage";
 
 export class LocalTaskRepository implements TaskRepository {
-  async getTasks(): Promise<Task[]> {
+  async getTasks(_userId: string): Promise<Task[]> {
     return getLocalTasks();
   }
 
-  async saveTask(task: Task): Promise<Task> {
+  async saveTask(task: Task, _userId: string): Promise<Task> {
     await saveLocalTask(task);
     return task;
   }

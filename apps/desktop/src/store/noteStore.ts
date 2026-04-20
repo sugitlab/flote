@@ -28,14 +28,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
   fetchNotes: async (userId?: string) => {
     const { repo } = get();
-    if (!repo) return;
+    if (!repo || !userId) return;
     const notes = await repo.getNotes(userId);
     set({ notes });
   },
 
   saveNote: async (note: Note, userId?: string) => {
     const { repo } = get();
-    if (!repo) return;
+    if (!repo || !userId) return;
     const prev = get().notes;
     const exists = prev.some((n) => n.id === note.id);
     const optimistic = exists
@@ -45,7 +45,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
     try {
       await repo.saveNote(note, userId);
-    } catch {
+    } catch (e) {
+      console.error("[noteStore] saveNote failed:", e);
       set({ notes: prev });
     }
   },
@@ -61,7 +62,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
     try {
       await repo.deleteNote(id);
-    } catch {
+    } catch (e) {
+      console.error("[noteStore] deleteNote failed:", e);
       set({ notes: prev });
     }
   },
