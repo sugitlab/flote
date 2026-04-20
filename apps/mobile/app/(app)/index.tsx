@@ -20,6 +20,10 @@ import NotesList from "../../components/NotesList";
 import TasksList from "../../components/TasksList";
 import type { Note } from "@flote/types";
 
+function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 const TABS = ["ノート", "タスク"] as const;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -54,7 +58,7 @@ export default function HomeScreen() {
     if (activeTab === 0) {
       const now = new Date().toISOString();
       const newNote: Note = {
-        id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        id: generateId(),
         title: "",
         body_md: "",
         updated_at: now,

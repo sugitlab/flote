@@ -40,7 +40,7 @@ export default function NewTaskScreen() {
     setLoading(true);
     const now = new Date().toISOString();
     const task: Task = {
-      id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
       title: title.trim(),
       body_md: "",
       due_date: dueDate ? dueDate.toISOString().split("T")[0] : null,

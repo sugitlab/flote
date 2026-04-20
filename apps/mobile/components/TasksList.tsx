@@ -3,10 +3,12 @@ import {
   View,
   Text,
   SectionList,
+  TouchableOpacity,
   StyleSheet,
   RefreshControl,
   Pressable,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../src/theme";
 import { useTaskStore } from "../src/store/taskStore";
@@ -51,6 +53,7 @@ type Props = {
 
 export default function TasksList({ userId }: Props) {
   const { colors } = useTheme();
+  const router = useRouter();
   const tasks = useTaskStore((s) => s.tasks);
   const loading = useTaskStore((s) => s.loading);
   const fetchTasks = useTaskStore((s) => s.fetchTasks);
@@ -80,7 +83,11 @@ export default function TasksList({ userId }: Props) {
     ({ item }: { item: Task }) => {
       const overdue = isOverdue(item);
       return (
-        <View style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+        <TouchableOpacity
+          style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          onPress={() => router.push(`/(app)/tasks/${item.id}` as never)}
+          activeOpacity={0.7}
+        >
           <Pressable
             onPress={() => handleToggle(item.id)}
             style={styles.checkbox}
@@ -103,18 +110,18 @@ export default function TasksList({ userId }: Props) {
             >
               {item.title || "無題のタスク"}
             </Text>
-            {item.due_date ? (
-              <Text
-                style={[
-                  styles.itemDate,
-                  { color: overdue ? colors.danger : colors.textSecondary },
-                ]}
-              >
-                {item.due_date}
-              </Text>
-            ) : null}
           </View>
-        </View>
+          {item.due_date ? (
+            <Text
+              style={[
+                styles.itemDate,
+                { color: overdue ? colors.danger : colors.textSecondary },
+              ]}
+            >
+              {item.due_date}
+            </Text>
+          ) : null}
+        </TouchableOpacity>
       );
     },
     [colors, handleToggle]

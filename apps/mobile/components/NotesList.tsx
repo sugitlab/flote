@@ -7,12 +7,10 @@ import {
   TextInput,
   StyleSheet,
   RefreshControl,
-  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useTheme } from "../src/theme";
 import { useNoteStore } from "../src/store/noteStore";
-import { supabase } from "../src/lib/supabase";
 import type { Note } from "@flote/types";
 
 function relativeDate(dateStr: string): string {
@@ -23,14 +21,6 @@ function relativeDate(dateStr: string): string {
   if (diffDays === 0) return "今日";
   if (diffDays === 1) return "昨日";
   return `${diffDays}日前`;
-}
-
-function stripMarkdown(md: string): string {
-  return md
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/[*_~`]/g, "")
-    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .trim();
 }
 
 function extractTitle(note: Note): string {
@@ -73,7 +63,6 @@ export default function NotesList({ userId }: Props) {
   const renderItem = useCallback(
     ({ item }: { item: Note }) => {
       const title = extractTitle(item);
-      const preview = stripMarkdown(item.body_md).slice(0, 100);
       return (
         <TouchableOpacity
           style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -83,16 +72,9 @@ export default function NotesList({ userId }: Props) {
           <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>
             {title}
           </Text>
-          <View style={styles.itemMeta}>
-            <Text style={[styles.itemDate, { color: colors.textSecondary }]}>
-              {relativeDate(item.updated_at)}
-            </Text>
-          </View>
-          {preview ? (
-            <Text style={[styles.itemPreview, { color: colors.textSecondary }]} numberOfLines={2}>
-              {preview}
-            </Text>
-          ) : null}
+          <Text style={[styles.itemDate, { color: colors.textSecondary }]}>
+            {relativeDate(item.updated_at)}
+          </Text>
         </TouchableOpacity>
       );
     },
@@ -146,15 +128,16 @@ const styles = StyleSheet.create({
   },
   list: { padding: 16, paddingBottom: 40 },
   item: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 14,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 8,
   },
-  itemTitle: { fontSize: 16, fontWeight: "600", marginBottom: 4 },
-  itemMeta: { flexDirection: "row", marginBottom: 4 },
+  itemTitle: { fontSize: 16, fontWeight: "600", flex: 1, marginRight: 8 },
   itemDate: { fontSize: 12 },
-  itemPreview: { fontSize: 13, lineHeight: 18 },
   empty: { alignItems: "center", marginTop: 80 },
   emptyText: { fontSize: 16 },
 });
