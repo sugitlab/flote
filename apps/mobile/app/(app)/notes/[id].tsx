@@ -192,5 +192,5 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   editor: { flex: 1, padding: 16, fontSize: 15, lineHeight: 22 },
   preview: { flex: 1 },
-  previewContent: { padding: 16, paddingTop: 8 },
+  previewContent: { padding: 16, paddingTop: 20 },
 });
