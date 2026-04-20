@@ -8,14 +8,11 @@ import {
   StyleSheet,
   RefreshControl,
   Alert,
-  Keyboard,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../../../src/theme";
-import { useNoteStore } from "../../../src/store/noteStore";
-import { supabase } from "../../../src/lib/supabase";
+import { useTheme } from "../src/theme";
+import { useNoteStore } from "../src/store/noteStore";
+import { supabase } from "../src/lib/supabase";
 import type { Note } from "@flote/types";
 
 function relativeDate(dateStr: string): string {
@@ -43,25 +40,21 @@ function extractTitle(note: Note): string {
   return firstLine.replace(/^#{1,6}\s+/, "").trim() || "無題のノート";
 }
 
-export default function NotesListScreen() {
+type Props = {
+  userId: string | null;
+};
+
+export default function NotesList({ userId }: Props) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const notes = useNoteStore((s) => s.notes);
   const loading = useNoteStore((s) => s.loading);
   const fetchNotes = useNoteStore((s) => s.fetchNotes);
-  const saveNote = useNoteStore((s) => s.saveNote);
-  const [userId, setUserId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setUserId(data.user.id);
-        fetchNotes(data.user.id);
-      }
-    }).catch((e) => console.error("[notes] getUser failed:", e));
-  }, []);
+    if (userId) fetchNotes(userId);
+  }, [userId]);
 
   const filtered = useMemo(() => {
     if (!search) return notes;
@@ -75,23 +68,6 @@ export default function NotesListScreen() {
 
   const handleRefresh = useCallback(() => {
     if (userId) fetchNotes(userId);
-  }, [userId]);
-
-  const handleCreate = useCallback(async () => {
-    if (!userId) return;
-    const now = new Date().toISOString();
-    const newNote: Note = {
-      id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-      title: "",
-      body_md: "",
-      updated_at: now,
-    };
-    try {
-      await saveNote(newNote, userId);
-      router.push(`/(app)/notes/${newNote.id}` as never);
-    } catch (e) {
-      Alert.alert("エラー", "ノートの作成に失敗しました");
-    }
   }, [userId]);
 
   const renderItem = useCallback(
@@ -125,10 +101,6 @@ export default function NotesListScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { borderBottomColor: colors.border, paddingTop: insets.top + 8 }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>ノート</Text>
-      </View>
-
       <TextInput
         style={[styles.searchInput, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
         placeholder="検索..."
@@ -157,36 +129,22 @@ export default function NotesListScreen() {
           ) : null
         }
       />
-
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.accent, bottom: insets.bottom + 70 }]}
-        onPress={handleCreate}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerTitle: { fontSize: 28, fontWeight: "bold" },
   searchInput: {
     height: 40,
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 8,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
     fontSize: 15,
   },
-  list: { padding: 16, paddingBottom: 100 },
+  list: { padding: 16, paddingBottom: 40 },
   item: {
     padding: 14,
     borderRadius: 10,
@@ -199,18 +157,4 @@ const styles = StyleSheet.create({
   itemPreview: { fontSize: 13, lineHeight: 18 },
   empty: { alignItems: "center", marginTop: 80 },
   emptyText: { fontSize: 16 },
-  fab: {
-    position: "absolute",
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
 });

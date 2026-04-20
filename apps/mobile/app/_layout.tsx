@@ -25,7 +25,7 @@ export default function RootLayout() {
     if (!session && !inAuth) {
       router.replace("/(auth)");
     } else if (session && inAuth) {
-      router.replace("/(app)/notes");
+      router.replace("/(app)");
     }
   }, [session, initialized, segments]);
 

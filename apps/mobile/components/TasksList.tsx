@@ -1,19 +1,15 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
   SectionList,
-  TouchableOpacity,
   StyleSheet,
   RefreshControl,
   Pressable,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useTheme } from "../../../src/theme";
-import { useTaskStore } from "../../../src/store/taskStore";
-import { supabase } from "../../../src/lib/supabase";
+import { useTheme } from "../src/theme";
+import { useTaskStore } from "../src/store/taskStore";
 import type { Task } from "@flote/types";
 
 function todayStr(): string {
@@ -49,24 +45,20 @@ function groupTasks(tasks: Task[]): Section[] {
   return sections;
 }
 
-export default function TasksListScreen() {
+type Props = {
+  userId: string | null;
+};
+
+export default function TasksList({ userId }: Props) {
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
   const tasks = useTaskStore((s) => s.tasks);
   const loading = useTaskStore((s) => s.loading);
   const fetchTasks = useTaskStore((s) => s.fetchTasks);
   const toggleDone = useTaskStore((s) => s.toggleDone);
-  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setUserId(data.user.id);
-        fetchTasks(data.user.id);
-      }
-    }).catch((e) => console.error("[tasks] getUser failed:", e));
-  }, []);
+    if (userId) fetchTasks(userId);
+  }, [userId]);
 
   const sections = useMemo(() => groupTasks(tasks), [tasks]);
 
@@ -147,10 +139,6 @@ export default function TasksListScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { borderBottomColor: colors.border, paddingTop: insets.top + 8 }]}>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>タスク</Text>
-      </View>
-
       <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
@@ -171,27 +159,13 @@ export default function TasksListScreen() {
           ) : null
         }
       />
-
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.accent, bottom: insets.bottom + 70 }]}
-        onPress={() => router.push("/(app)/tasks/new" as never)}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="add" size={28} color="#fff" />
-      </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    paddingBottom: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerTitle: { fontSize: 28, fontWeight: "bold" },
-  list: { padding: 16, paddingBottom: 100 },
+  list: { padding: 16, paddingBottom: 40 },
   sectionTitle: {
     fontSize: 13,
     fontWeight: "600",
@@ -214,18 +188,4 @@ const styles = StyleSheet.create({
   itemDate: { fontSize: 12, marginTop: 2 },
   empty: { alignItems: "center", marginTop: 80 },
   emptyText: { fontSize: 16 },
-  fab: {
-    position: "absolute",
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
 });
