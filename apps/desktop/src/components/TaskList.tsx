@@ -38,10 +38,10 @@ export default function TaskList({
   return (
     <div className="flex flex-col h-full">
       {/* Add button */}
-      <div className="px-3 py-2 border-b border-[var(--border)]">
+      <div className="border-b border-[var(--border)]">
         <button
           onClick={onAddTask}
-          className="w-full text-left text-[11px] text-[var(--accent)] bg-transparent border-none cursor-pointer py-2 px-[10px] hover:bg-[var(--bg-hover)] rounded transition-colors"
+          className="w-full text-left text-[11px] text-[var(--accent)] bg-transparent border-none cursor-pointer py-[8px] px-[10px] hover:bg-[var(--bg-hover)] transition-colors"
         >
           + 新しいタスク
         </button>
