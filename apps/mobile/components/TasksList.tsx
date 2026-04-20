@@ -83,11 +83,7 @@ export default function TasksList({ userId }: Props) {
     ({ item }: { item: Task }) => {
       const overdue = isOverdue(item);
       return (
-        <TouchableOpacity
-          style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={() => router.push(`/(app)/tasks/${item.id}` as never)}
-          activeOpacity={0.7}
-        >
+        <View style={styles.row}>
           <Pressable
             onPress={() => handleToggle(item.id)}
             style={styles.checkbox}
@@ -99,7 +95,11 @@ export default function TasksList({ userId }: Props) {
               color={item.done ? colors.accent : colors.textSecondary}
             />
           </Pressable>
-          <View style={styles.itemContent}>
+          <TouchableOpacity
+            style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}
+            onPress={() => router.push(`/(app)/tasks/${item.id}` as never)}
+            activeOpacity={0.7}
+          >
             <Text
               style={[
                 styles.itemTitle,
@@ -110,18 +110,18 @@ export default function TasksList({ userId }: Props) {
             >
               {item.title || "無題のタスク"}
             </Text>
-          </View>
-          {item.due_date ? (
-            <Text
-              style={[
-                styles.itemDate,
-                { color: overdue ? colors.danger : colors.textSecondary },
-              ]}
-            >
-              {item.due_date}
-            </Text>
-          ) : null}
-        </TouchableOpacity>
+            {item.due_date ? (
+              <Text
+                style={[
+                  styles.itemDate,
+                  { color: overdue ? colors.danger : colors.textSecondary },
+                ]}
+              >
+                {item.due_date}
+              </Text>
+            ) : null}
+          </TouchableOpacity>
+        </View>
       );
     },
     [colors, handleToggle]
@@ -180,17 +180,22 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     paddingVertical: 8,
   },
-  item: {
+  row: {
     flexDirection: "row",
     alignItems: "center",
+    marginBottom: 6,
+  },
+  checkbox: { marginRight: 10 },
+  item: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     padding: 14,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
-    marginBottom: 6,
   },
-  checkbox: { marginRight: 12 },
-  itemContent: { flex: 1 },
-  itemTitle: { fontSize: 16 },
+  itemTitle: { fontSize: 16, flex: 1, marginRight: 8 },
   doneTitle: { textDecorationLine: "line-through" },
   itemDate: { fontSize: 12, marginTop: 2 },
   empty: { alignItems: "center", marginTop: 80 },
