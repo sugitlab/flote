@@ -59,7 +59,7 @@ export default function NewTaskScreen() {
     const task: Task = {
       id: generateUUID(),
       title: title.trim(),
-      body_md: "",
+      body_md: `# ${title.trim()}`,
       due_date: dueDate ? dueDate.toISOString().split("T")[0] : null,
       remind_at: null,
       done: false,

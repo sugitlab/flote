@@ -54,6 +54,7 @@ export default function TaskDetailScreen() {
         const updated: Task = {
           ...taskRef.current,
           body_md: text,
+          title: text.split("\n").find((l) => l.trim())?.replace(/^#{1,6}\s+/, "").trim() ?? "",
           updated_at: new Date().toISOString(),
         };
         taskRef.current = updated;
