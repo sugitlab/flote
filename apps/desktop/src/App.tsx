@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type { Note, Task, StorageMode } from "@flote/types";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   initSupabase,
   createNoteRepository,
@@ -19,6 +20,8 @@ import Editor from "./components/Editor";
 import TaskList from "./components/TaskList";
 import Settings from "./components/Settings";
 import CommandPalette from "./components/CommandPalette";
+import ConfirmDialog from "./components/ConfirmDialog";
+import ResizeHandles from "./components/ResizeHandles";
 import ToastContainer from "./components/Toast";
 import styles from "./App.module.css";
 
@@ -88,8 +91,15 @@ function MainApp({
     deleteNote,
     setActiveNote,
   } = useNoteStore();
-  const { tasks, fetchTasks, saveTask, deleteTask, toggleDone } =
-    useTaskStore();
+  const {
+    tasks,
+    activeTaskId,
+    fetchTasks,
+    saveTask,
+    deleteTask,
+    toggleDone,
+    setActiveTask,
+  } = useTaskStore();
 
   const activeTab = useUIStore((s) => s.activeTab);
   const setActiveTab = useUIStore((s) => s.setActiveTab);
@@ -98,12 +108,13 @@ function MainApp({
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
   const addToast = useUIStore((s) => s.addToast);
 
-  const [filter, setFilter] = useState("");
-  const filterInputRef = useRef<HTMLInputElement | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ type: "note" | "task"; id: string } | null>(null);
 
   const { cycleTheme } = useTheme();
 
   const selectedNote = notes.find((n) => n.id === activeNoteId) ?? null;
+  const selectedTask = tasks.find((t) => t.id === activeTaskId) ?? null;
   const wordCount = selectedNote ? countWords(selectedNote.body_md) : 0;
   const overdueCount = countOverdue(tasks);
 
@@ -115,6 +126,22 @@ function MainApp({
     fetchTasks(userId);
   }, [userId, fetchNotes, fetchTasks]);
 
+  // Hide window when it loses focus (if setting enabled)
+  useEffect(() => {
+    const win = getCurrentWindow();
+    const unlisten = win.onFocusChanged(async ({ payload: focused }) => {
+      if (!focused) {
+        const config = await getConfig();
+        if (config.hideOnBlur) {
+          await win.hide();
+        }
+      }
+    });
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
   const handleCreateNote = useCallback(() => {
     const note: Note = {
       id: crypto.randomUUID(),
@@ -123,46 +150,81 @@ function MainApp({
       updated_at: new Date().toISOString(),
     };
     setActiveNote(note.id);
+    setActiveTask(null);
     setActiveTab("notes");
+    setIsEditing(true);
     saveNote(note, userId);
-  }, [userId, saveNote, setActiveNote, setActiveTab]);
+  }, [userId, saveNote, setActiveNote, setActiveTask, setActiveTab]);
 
   const handleCreateTask = useCallback(() => {
+    const task: Task = {
+      id: crypto.randomUUID(),
+      title: "新しいタスク",
+      body_md: "",
+      due_date: null,
+      remind_at: null,
+      done: false,
+      updated_at: new Date().toISOString(),
+    };
+    setActiveTask(task.id);
+    setActiveNote(null);
     setActiveTab("tasks");
-    // Focus the task input (it's inside TaskList)
-  }, [setActiveTab]);
+    setIsEditing(false);
+    saveTask(task, userId);
+  }, [userId, saveTask, setActiveTask, setActiveNote, setActiveTab]);
 
   const handleEditorChange = useCallback(
     (value: string) => {
-      if (!activeNoteId) return;
-      const note: Note = {
-        id: activeNoteId,
-        title: extractTitle(value),
-        body_md: value,
-        updated_at: new Date().toISOString(),
-      };
-      saveNote(note, userId);
+      if (activeTab === "notes") {
+        if (!activeNoteId) return;
+        const note: Note = {
+          id: activeNoteId,
+          title: extractTitle(value),
+          body_md: value,
+          updated_at: new Date().toISOString(),
+        };
+        saveNote(note, userId);
+      } else if (activeTab === "tasks") {
+        if (!activeTaskId) return;
+        const task = tasks.find((t) => t.id === activeTaskId);
+        if (!task) return;
+        const updated: Task = {
+          ...task,
+          body_md: value,
+          updated_at: new Date().toISOString(),
+        };
+        saveTask(updated, userId);
+      }
     },
-    [activeNoteId, userId, saveNote]
+    [activeTab, activeNoteId, activeTaskId, tasks, userId, saveNote, saveTask]
   );
 
-  const handleAddTask = useCallback(
-    (title: string, dueDate: string | null) => {
-      const task: Task = {
-        id: crypto.randomUUID(),
-        title,
-        due_date: dueDate,
-        remind_at: null,
-        done: false,
-        updated_at: new Date().toISOString(),
-      };
-      saveTask(task, userId);
+  const handleTaskTitleChange = useCallback(
+    (title: string) => {
+      if (!activeTaskId) return;
+      const task = tasks.find((t) => t.id === activeTaskId);
+      if (!task) return;
+      saveTask({ ...task, title, updated_at: new Date().toISOString() }, userId);
     },
-    [userId, saveTask]
+    [activeTaskId, tasks, userId, saveTask]
+  );
+
+  const handleTaskDueDateChange = useCallback(
+    (dueDate: string) => {
+      if (!activeTaskId) return;
+      const task = tasks.find((t) => t.id === activeTaskId);
+      if (!task) return;
+      saveTask(
+        { ...task, due_date: dueDate || null, updated_at: new Date().toISOString() },
+        userId
+      );
+    },
+    [activeTaskId, tasks, userId, saveTask]
   );
 
   // Navigate items with ⌘↑/↓
   const handlePrevItem = useCallback(() => {
+    setIsEditing(false);
     if (activeTab === "notes") {
       const idx = notes.findIndex((n) => n.id === activeNoteId);
       if (idx > 0) setActiveNote(notes[idx - 1].id);
@@ -170,6 +232,7 @@ function MainApp({
   }, [activeTab, notes, activeNoteId, setActiveNote]);
 
   const handleNextItem = useCallback(() => {
+    setIsEditing(false);
     if (activeTab === "notes") {
       const idx = notes.findIndex((n) => n.id === activeNoteId);
       if (idx < notes.length - 1) setActiveNote(notes[idx + 1].id);
@@ -178,6 +241,7 @@ function MainApp({
 
   const handleSelectNote = useCallback(
     (id: string) => {
+      setIsEditing(false);
       setActiveNote(id);
       setActiveTab("notes");
     },
@@ -186,11 +250,11 @@ function MainApp({
 
   const handleSelectTask = useCallback(
     (id: string) => {
+      setIsEditing(false);
+      setActiveTask(id);
       setActiveTab("tasks");
-      // Could scroll to task if needed
-      void id;
     },
-    [setActiveTab]
+    [setActiveTask, setActiveTab]
   );
 
   const handleStorageModeChange = useCallback(
@@ -201,6 +265,63 @@ function MainApp({
     [addToast]
   );
 
+  const handleShowNotes = useCallback(() => {
+    setActiveTab("notes");
+  }, [setActiveTab]);
+
+  const handleShowTasks = useCallback(() => {
+    setActiveTab("tasks");
+  }, [setActiveTab]);
+
+  const handleDeleteNote = useCallback(
+    (id: string) => {
+      setConfirmDelete({ type: "note", id });
+    },
+    []
+  );
+
+  const handleDeleteTask = useCallback(
+    (id: string) => {
+      setConfirmDelete({ type: "task", id });
+    },
+    []
+  );
+
+  const handleConfirmDelete = useCallback(() => {
+    if (!confirmDelete) return;
+    if (confirmDelete.type === "note") {
+      deleteNote(confirmDelete.id);
+    } else {
+      deleteTask(confirmDelete.id);
+    }
+    setConfirmDelete(null);
+  }, [confirmDelete, deleteNote, deleteTask]);
+
+  const handleSelectByIndex = useCallback(
+    (index: number) => {
+      setIsEditing(false);
+      if (activeTab === "notes") {
+        const note = notes[index];
+        if (note) setActiveNote(note.id);
+      } else {
+        const task = tasks[index];
+        if (task) setActiveTask(task.id);
+      }
+    },
+    [activeTab, notes, tasks, setActiveNote, setActiveTask]
+  );
+
+  const handleEnterEditor = useCallback(() => {
+    const hasContent =
+      (activeTab === "notes" && selectedNote) ||
+      (activeTab === "tasks" && selectedTask);
+    if (hasContent) setIsEditing(true);
+  }, [activeTab, selectedNote, selectedTask]);
+
+  const handleExitEditor = useCallback(() => {
+    setIsEditing(false);
+  }, []);
+
   const keyboardActions = useMemo(
     () => ({
       onNewNote: handleCreateNote,
@@ -208,24 +329,17 @@ function MainApp({
       onPrevItem: handlePrevItem,
       onNextItem: handleNextItem,
       onCycleTheme: cycleTheme,
-      filterInputRef,
+      onSelectByIndex: handleSelectByIndex,
+      onEnterEditor: handleEnterEditor,
     }),
-    [handleCreateNote, handleCreateTask, handlePrevItem, handleNextItem, cycleTheme]
+    [handleCreateNote, handleCreateTask, handlePrevItem, handleNextItem, cycleTheme, handleSelectByIndex, handleEnterEditor]
   );
 
   useKeyboard(keyboardActions);
 
-  // Filtered items
-  const filteredNotes = filter
-    ? notes.filter((n) => n.title.toLowerCase().includes(filter.toLowerCase()))
-    : notes;
-
-  const filteredTasks = filter
-    ? tasks.filter((t) => t.title.toLowerCase().includes(filter.toLowerCase()))
-    : tasks;
-
   return (
     <div className={styles.app}>
+      <ResizeHandles />
       {/* Titlebar */}
       <div data-tauri-drag-region className={styles.titlebar}>
         <div className={styles.titlebarLeft}>
@@ -258,24 +372,14 @@ function MainApp({
               className={`${styles.tab} ${activeTab === "notes" ? styles.tabActive : ""}`}
               onClick={() => setActiveTab("notes")}
             >
-              ノート
+              ノート <span className={styles.tabKbd}>⌘1</span>
             </button>
             <button
               className={`${styles.tab} ${activeTab === "tasks" ? styles.tabActive : ""}`}
               onClick={() => setActiveTab("tasks")}
             >
-              タスク
+              タスク <span className={styles.tabKbd}>⌘2</span>
             </button>
-          </div>
-
-          <div className={styles.filterWrap}>
-            <input
-              ref={filterInputRef}
-              className={styles.filterInput}
-              placeholder="フィルター (⌘F)"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
           </div>
 
           <div className={styles.sidebarList}>
@@ -287,12 +391,15 @@ function MainApp({
                 >
                   + 新しいノート
                 </button>
-                {filteredNotes.map((note) => (
+                {notes.map((note, idx) => (
                   <div
                     key={note.id}
                     className={`${styles.noteItem} ${activeNoteId === note.id ? styles.noteItemActive : ""}`}
-                    onClick={() => setActiveNote(note.id)}
+                    onClick={() => { setIsEditing(false); setActiveNote(note.id); }}
                   >
+                    {idx < 9 && (
+                      <span className={styles.indexBadge}>{idx + 1}</span>
+                    )}
                     <div className={styles.noteItemContent}>
                       <div className={styles.noteItemTitle}>{note.title}</div>
                       <div className={styles.noteItemDate}>
@@ -303,7 +410,7 @@ function MainApp({
                       className={styles.deleteBtn}
                       onClick={(e) => {
                         e.stopPropagation();
-                        deleteNote(note.id);
+                        handleDeleteNote(note.id);
                       }}
                     >
                       ✕
@@ -315,10 +422,12 @@ function MainApp({
 
             {activeTab === "tasks" && (
               <TaskList
-                tasks={filteredTasks}
+                tasks={tasks}
+                activeTaskId={activeTaskId}
                 onToggleDone={(id) => toggleDone(id, userId)}
-                onDelete={deleteTask}
-                onAddTask={handleAddTask}
+                onDelete={handleDeleteTask}
+                onAddTask={handleCreateTask}
+                onSelectTask={handleSelectTask}
               />
             )}
           </div>
@@ -326,11 +435,59 @@ function MainApp({
 
         {/* Editor area */}
         <div className={styles.editorArea}>
-          {selectedNote ? (
-            <Editor value={selectedNote.body_md} onChange={handleEditorChange} />
+          {activeTab === "notes" && selectedNote ? (
+            <div
+              className={styles.editorWrap}
+              onDoubleClick={() => setIsEditing(true)}
+            >
+              <Editor
+                value={selectedNote.body_md}
+                onChange={handleEditorChange}
+                editing={isEditing}
+                onExitEdit={handleExitEditor}
+              />
+            </div>
+          ) : activeTab === "tasks" && selectedTask ? (
+            <div className={styles.taskDetail}>
+              <div className={styles.taskDetailHeader}>
+                <div className={styles.taskDetailTitle}>
+                  <input
+                    type="checkbox"
+                    checked={selectedTask.done}
+                    onChange={() => toggleDone(selectedTask.id, userId)}
+                    className={styles.taskDetailCheckbox}
+                  />
+                  <input
+                    type="text"
+                    value={selectedTask.title}
+                    onChange={(e) => handleTaskTitleChange(e.target.value)}
+                    className={styles.taskDetailTitleInput}
+                  />
+                </div>
+                <input
+                  type="date"
+                  value={selectedTask.due_date ?? ""}
+                  onChange={(e) => handleTaskDueDateChange(e.target.value)}
+                  className={styles.taskDetailDateInput}
+                />
+              </div>
+              <div
+                className={styles.editorWrap}
+                onDoubleClick={() => setIsEditing(true)}
+              >
+                <Editor
+                  value={selectedTask.body_md}
+                  onChange={handleEditorChange}
+                  editing={isEditing}
+                  onExitEdit={handleExitEditor}
+                />
+              </div>
+            </div>
           ) : (
             <div className={styles.editorPlaceholder}>
-              ノートを選択するか、⌘N で新しいノートを作成
+              {activeTab === "notes"
+                ? "ノートを選択するか、⌘N で新しいノートを作成"
+                : "タスクを選択してメモを編集"}
             </div>
           )}
         </div>
@@ -339,10 +496,19 @@ function MainApp({
       {/* Statusbar */}
       <div className={styles.statusbar}>
         <div className={styles.statusLeft}>
-          {selectedNote && (
+          {activeTab === "notes" && selectedNote && (
             <>
               <span>{wordCount} words</span>
-              <span>Markdown</span>
+              <span>{isEditing ? "編集" : "プレビュー"}</span>
+            </>
+          )}
+          {activeTab === "tasks" && selectedTask && (
+            <>
+              <span>{selectedTask.done ? "完了" : "未完了"}</span>
+              {selectedTask.due_date && (
+                <span>期限: {selectedTask.due_date}</span>
+              )}
+              <span>{isEditing ? "編集" : "プレビュー"}</span>
             </>
           )}
         </div>
@@ -372,6 +538,8 @@ function MainApp({
           onNewNote={handleCreateNote}
           onNewTask={handleCreateTask}
           onCycleTheme={cycleTheme}
+          onShowNotes={handleShowNotes}
+          onShowTasks={handleShowTasks}
         />
       )}
 
@@ -381,6 +549,15 @@ function MainApp({
           currentMode={storageMode}
           onClose={() => setSettingsOpen(false)}
           onStorageModeChange={handleStorageModeChange}
+        />
+      )}
+
+      {/* Confirm Dialog */}
+      {confirmDelete && (
+        <ConfirmDialog
+          message={confirmDelete.type === "note" ? "このノートを削除しますか？" : "このタスクを削除しますか？"}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setConfirmDelete(null)}
         />
       )}
 

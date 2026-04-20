@@ -25,7 +25,7 @@ type UIStore = {
 
 export const useUIStore = create<UIStore>((set, get) => ({
   theme: "system",
-  isCommandPaletteOpen: false,
+  isCommandPaletteOpen: true,
   isSettingsOpen: false,
   activeTab: "notes",
   toasts: [],

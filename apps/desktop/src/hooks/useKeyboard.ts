@@ -7,7 +7,8 @@ type KeyboardActions = {
   onPrevItem: () => void;
   onNextItem: () => void;
   onCycleTheme: () => void;
-  filterInputRef: React.RefObject<HTMLInputElement | null>;
+  onSelectByIndex: (index: number) => void;
+  onEnterEditor: () => void;
 };
 
 export function useKeyboard(actions: KeyboardActions) {
@@ -65,13 +66,6 @@ export function useKeyboard(actions: KeyboardActions) {
         return;
       }
 
-      // ⌘F: focus filter
-      if (meta && e.key === "f") {
-        e.preventDefault();
-        actions.filterInputRef.current?.focus();
-        return;
-      }
-
       // ⌘1: notes tab
       if (meta && e.key === "1") {
         e.preventDefault();
@@ -111,6 +105,24 @@ export function useKeyboard(actions: KeyboardActions) {
       if (meta && e.key === ",") {
         e.preventDefault();
         setSettingsOpen(true);
+        return;
+      }
+
+      // 1-9: select item by index (no modifier, not in input)
+      const inInput = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+      if (!meta && !e.shiftKey && !e.altKey && !inInput) {
+        const num = parseInt(e.key, 10);
+        if (num >= 1 && num <= 9) {
+          e.preventDefault();
+          actions.onSelectByIndex(num - 1);
+          return;
+        }
+      }
+
+      // Enter: enter edit mode (no modifier, not in input/editor)
+      if (e.key === "Enter" && !meta && !e.shiftKey && !e.altKey && !inInput) {
+        e.preventDefault();
+        actions.onEnterEditor();
         return;
       }
     }

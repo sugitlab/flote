@@ -1,6 +1,7 @@
 export type Task = {
   id: string;
   title: string;
+  body_md: string;
   due_date: string | null;
   remind_at: string | null;
   done: boolean;

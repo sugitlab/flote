@@ -4,12 +4,14 @@ import type { TaskRepository } from "@flote/api-client";
 
 type TaskStore = {
   tasks: Task[];
+  activeTaskId: string | null;
   repo: TaskRepository | null;
   initStore: (repo: TaskRepository) => void;
   fetchTasks: (userId?: string) => Promise<void>;
   saveTask: (task: Task, userId?: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   toggleDone: (id: string, userId?: string) => Promise<void>;
+  setActiveTask: (id: string | null) => void;
   applyRemoteChange: (
     eventType: "INSERT" | "UPDATE" | "DELETE",
     task: Task
@@ -18,6 +20,7 @@ type TaskStore = {
 
 export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
+  activeTaskId: null,
   repo: null,
 
   initStore: (repo: TaskRepository) => {
@@ -52,7 +55,10 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const { repo } = get();
     if (!repo) return;
     const prev = get().tasks;
-    set({ tasks: prev.filter((t) => t.id !== id) });
+    set({
+      tasks: prev.filter((t) => t.id !== id),
+      activeTaskId: get().activeTaskId === id ? null : get().activeTaskId,
+    });
 
     try {
       await repo.deleteTask(id);
@@ -72,6 +78,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     await get().saveTask(updated, userId);
   },
 
+  setActiveTask: (id: string | null) => set({ activeTaskId: id }),
+
   applyRemoteChange: (eventType, task) => {
     const { tasks } = get();
     switch (eventType) {
@@ -88,6 +96,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       case "DELETE":
         set({
           tasks: tasks.filter((t) => t.id !== task.id),
+          activeTaskId:
+            get().activeTaskId === task.id ? null : get().activeTaskId,
         });
         break;
     }

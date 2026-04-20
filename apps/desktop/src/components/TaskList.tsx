@@ -2,9 +2,11 @@ import type { Task } from "@flote/types";
 
 type TaskListProps = {
   tasks: Task[];
+  activeTaskId: string | null;
   onToggleDone: (id: string) => void;
   onDelete: (id: string) => void;
-  onAddTask: (title: string, dueDate: string | null) => void;
+  onAddTask: () => void;
+  onSelectTask: (id: string) => void;
 };
 
 function isOverdue(task: Task): boolean {
@@ -24,58 +26,59 @@ function formatDate(date: string | null): string {
 
 export default function TaskList({
   tasks,
+  activeTaskId,
   onToggleDone,
   onDelete,
   onAddTask,
+  onSelectTask,
 }: TaskListProps) {
   const pending = tasks.filter((t) => !t.done);
   const completed = tasks.filter((t) => t.done);
 
-  const handleAdd = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const fd = new FormData(form);
-    const title = (fd.get("title") as string).trim();
-    if (!title) return;
-    const dueDate = (fd.get("due_date") as string) || null;
-    onAddTask(title, dueDate);
-    form.reset();
-  };
-
   return (
     <div className="flex flex-col h-full">
-      {/* Add form */}
-      <form onSubmit={handleAdd} className="px-3 py-2 border-b border-gray-700">
-        <input
-          name="title"
-          type="text"
-          placeholder="タスクを追加..."
-          className="w-full bg-gray-700 text-sm text-white px-2 py-1.5 rounded outline-none placeholder-gray-500 mb-1"
-        />
-        <input
-          name="due_date"
-          type="date"
-          className="w-full bg-gray-700 text-xs text-gray-300 px-2 py-1 rounded outline-none"
-        />
-      </form>
+      {/* Add button */}
+      <div className="px-3 py-2 border-b border-[var(--border)]">
+        <button
+          onClick={onAddTask}
+          className="w-full text-left text-sm text-[var(--accent)] bg-transparent border-none cursor-pointer py-1 hover:bg-[var(--bg-hover)] rounded px-2 transition-colors"
+        >
+          + 新しいタスク
+        </button>
+      </div>
 
       {/* Pending tasks */}
       <div className="flex-1 overflow-y-auto">
-        {pending.map((task) => (
+        {pending.map((task) => {
+          const globalIdx = tasks.indexOf(task);
+          return (
           <div
             key={task.id}
-            className="group flex items-center px-3 py-2 text-sm"
+            className={`group flex items-center px-3 py-2 text-sm cursor-pointer transition-colors ${
+              activeTaskId === task.id
+                ? "bg-[var(--bg-active)]"
+                : "hover:bg-[var(--bg-hover)]"
+            }`}
+            onClick={() => onSelectTask(task.id)}
           >
+            {globalIdx < 9 && (
+              <span className="inline-flex items-center justify-center w-4 h-4 text-[9px] font-semibold text-[var(--text-muted)] bg-[var(--bg-input)] rounded mr-1.5 shrink-0">
+                {globalIdx + 1}
+              </span>
+            )}
             <input
               type="checkbox"
               checked={false}
-              onChange={() => onToggleDone(task.id)}
+              onChange={(e) => {
+                e.stopPropagation();
+                onToggleDone(task.id);
+              }}
               className="mr-2 accent-blue-500 shrink-0"
             />
             <div className="flex-1 min-w-0">
               <span
                 className={`block truncate ${
-                  isOverdue(task) ? "text-red-400" : "text-gray-300"
+                  isOverdue(task) ? "text-[var(--danger)]" : "text-[var(--text-primary)]"
                 }`}
               >
                 {task.title}
@@ -83,7 +86,7 @@ export default function TaskList({
               {task.due_date && (
                 <span
                   className={`text-[10px] ${
-                    isOverdue(task) ? "text-red-500" : "text-gray-500"
+                    isOverdue(task) ? "text-[var(--danger)]" : "text-[var(--text-muted)]"
                   }`}
                 >
                   {formatDate(task.due_date)}
@@ -91,37 +94,52 @@ export default function TaskList({
               )}
             </div>
             <button
-              className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 ml-1 text-xs shrink-0"
-              onClick={() => onDelete(task.id)}
+              className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--danger)] ml-1 text-xs shrink-0"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(task.id);
+              }}
             >
               ✕
             </button>
           </div>
-        ))}
+          );
+        })}
 
         {/* Completed section */}
         {completed.length > 0 && (
           <>
-            <div className="px-3 py-1 text-[10px] text-gray-500 uppercase tracking-wider border-t border-gray-700 mt-1">
+            <div className="px-3 py-1 text-[10px] text-[var(--text-muted)] uppercase tracking-wider border-t border-[var(--border)] mt-1">
               完了 ({completed.length})
             </div>
             {completed.map((task) => (
               <div
                 key={task.id}
-                className="group flex items-center px-3 py-1.5 text-sm"
+                className={`group flex items-center px-3 py-1.5 text-sm cursor-pointer transition-colors ${
+                  activeTaskId === task.id
+                    ? "bg-[var(--bg-active)]"
+                    : "hover:bg-[var(--bg-hover)]"
+                }`}
+                onClick={() => onSelectTask(task.id)}
               >
                 <input
                   type="checkbox"
                   checked={true}
-                  onChange={() => onToggleDone(task.id)}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    onToggleDone(task.id);
+                  }}
                   className="mr-2 accent-blue-500 shrink-0"
                 />
-                <span className="flex-1 truncate line-through text-gray-600">
+                <span className="flex-1 truncate line-through text-[var(--text-muted)]">
                   {task.title}
                 </span>
                 <button
-                  className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 ml-1 text-xs shrink-0"
-                  onClick={() => onDelete(task.id)}
+                  className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--danger)] ml-1 text-xs shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(task.id);
+                  }}
                 >
                   ✕
                 </button>

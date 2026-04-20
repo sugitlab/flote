@@ -1,14 +1,18 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView, keymap, placeholder } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
 import { oneDark } from "@codemirror/theme-one-dark";
+import { marked } from "marked";
 
 type EditorProps = {
   value: string;
   onChange: (v: string) => void;
+  editing: boolean;
+  onRequestEdit?: () => void;
+  onExitEdit?: () => void;
 };
 
 const baseTheme = EditorView.theme({
@@ -28,18 +32,31 @@ const baseTheme = EditorView.theme({
   },
 });
 
-export default function Editor({ value, onChange }: EditorProps) {
+export default function Editor({ value, onChange, editing, onExitEdit }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const onExitEditRef = useRef(onExitEdit);
+  onExitEditRef.current = onExitEdit;
 
   useEffect(() => {
     if (!containerRef.current) return;
 
+    const escKeymap = keymap.of([
+      {
+        key: "Escape",
+        run: () => {
+          onExitEditRef.current?.();
+          return true;
+        },
+      },
+    ]);
+
     const state = EditorState.create({
       doc: value,
       extensions: [
+        escKeymap,
         keymap.of([...defaultKeymap, ...historyKeymap]),
         history(),
         markdown({ codeLanguages: languages }),
@@ -69,6 +86,13 @@ export default function Editor({ value, onChange }: EditorProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Focus when entering edit mode
+  useEffect(() => {
+    if (editing && viewRef.current) {
+      viewRef.current.focus();
+    }
+  }, [editing]);
+
   // Sync external value changes (e.g. switching notes)
   useEffect(() => {
     const view = viewRef.current;
@@ -81,5 +105,28 @@ export default function Editor({ value, onChange }: EditorProps) {
     }
   }, [value]);
 
-  return <div ref={containerRef} className="h-full w-full overflow-hidden" />;
+  const previewHtml = useMemo(() => {
+    if (editing) return "";
+    return marked.parse(value || "*ノートが空です*") as string;
+  }, [value, editing]);
+
+  return (
+    <div className="h-full w-full overflow-hidden relative">
+      {/* CodeMirror editor */}
+      <div
+        ref={containerRef}
+        className="h-full w-full overflow-hidden"
+        style={{ display: editing ? "block" : "none" }}
+      />
+      {/* Markdown preview */}
+      {!editing && (
+        <div className="h-full w-full overflow-auto preview-area">
+          <div
+            className="preview-content"
+            dangerouslySetInnerHTML={{ __html: previewHtml }}
+          />
+        </div>
+      )}
+    </div>
+  );
 }

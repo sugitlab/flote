@@ -21,6 +21,7 @@ export async function createTask(task: TaskInsert, userId: string): Promise<Task
     .from("tasks")
     .insert({
       title: task.title,
+      body_md: task.body_md,
       due_date: task.due_date,
       remind_at: task.remind_at,
       done: task.done,
@@ -36,6 +37,7 @@ export async function updateTask(id: string, task: TaskUpdate): Promise<Task> {
   const supabase = getSupabase();
   const patch: Record<string, unknown> = {};
   if (task.title !== undefined) patch.title = task.title;
+  if (task.body_md !== undefined) patch.body_md = task.body_md;
   if (task.due_date !== undefined) patch.due_date = task.due_date;
   if (task.remind_at !== undefined) patch.remind_at = task.remind_at;
   if (task.done !== undefined) patch.done = task.done;
@@ -57,6 +59,7 @@ export async function saveTask(task: Task, userId: string): Promise<Task> {
     .upsert({
       id: task.id,
       title: task.title,
+      body_md: task.body_md,
       due_date: task.due_date,
       remind_at: task.remind_at,
       done: task.done,
@@ -83,6 +86,7 @@ function toTask(row: Record<string, unknown>): Task {
   return {
     id: row.id as string,
     title: row.title as string,
+    body_md: (row.body_md as string) ?? "",
     due_date: row.due_date as string | null,
     remind_at: row.remind_at as string | null,
     done: row.done as boolean,

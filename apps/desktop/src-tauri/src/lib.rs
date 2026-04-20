@@ -9,6 +9,35 @@ fn toggle_window(app: &tauri::AppHandle) {
         if window.is_visible().unwrap_or(false) {
             let _ = window.hide();
         } else {
+            // Center window on the monitor where the cursor is
+            if let Ok(cursor_pos) = window.cursor_position() {
+                let monitors = window.available_monitors().unwrap_or_default();
+                let target_monitor = monitors.iter().find(|m| {
+                    let pos = m.position();
+                    let size = m.size();
+                    let (mx, my) = (pos.x as f64, pos.y as f64);
+                    let (mw, mh) = (size.width as f64, size.height as f64);
+                    cursor_pos.x >= mx
+                        && cursor_pos.x < mx + mw
+                        && cursor_pos.y >= my
+                        && cursor_pos.y < my + mh
+                });
+                if let Some(monitor) = target_monitor.or(monitors.first()) {
+                    let mon_pos = monitor.position();
+                    let mon_size = monitor.size();
+                    let scale = monitor.scale_factor();
+                    let win_size = window.outer_size().unwrap_or(tauri::PhysicalSize {
+                        width: 640,
+                        height: 480,
+                    });
+                    let cx = mon_pos.x as f64
+                        + (mon_size.width as f64 - win_size.width as f64) / 2.0;
+                    let cy = mon_pos.y as f64
+                        + (mon_size.height as f64 - win_size.height as f64) / (2.0 * scale);
+                    let _ = window
+                        .set_position(tauri::PhysicalPosition::new(cx as i32, cy as i32));
+                }
+            }
             let _ = window.show();
             let _ = window.set_focus();
         }
@@ -47,6 +76,9 @@ fn set_always_on_top(app: tauri::AppHandle, value: bool) -> Result<(), String> {
 #[tauri::command]
 fn update_global_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), String> {
     use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
+
+    let shortcut: tauri_plugin_global_shortcut::Shortcut =
+        shortcut.parse().map_err(|e| format!("{e:?}"))?;
 
     let manager = app.global_shortcut();
     manager.unregister_all().map_err(|e| e.to_string())?;

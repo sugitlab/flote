@@ -111,29 +111,11 @@
   border-bottom-color: var(--accent);
 }
 
-.filterWrap {
-  padding: 6px 8px;
-  border-bottom: 1px solid var(--border);
-}
-
-.filterInput {
-  width: 100%;
-  padding: 5px 8px;
-  font-size: 11px;
-  background: var(--bg-input);
-  border: 1px solid transparent;
-  border-radius: 7px;
-  color: var(--text-primary);
-  outline: none;
-  transition: border-color 0.15s ease;
-}
-
-.filterInput::placeholder {
+.tabKbd {
+  font-size: 9px;
   color: var(--text-muted);
-}
-
-.filterInput:focus {
-  border-color: var(--border-focus);
+  opacity: 0.6;
+  margin-left: 2px;
 }
 
 .sidebarList {
@@ -216,6 +198,22 @@
   background: var(--danger-bg);
 }
 
+/* Index badge for keyboard selection */
+.indexBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border-radius: 4px;
+  flex-shrink: 0;
+  margin-right: 6px;
+}
+
 /* Editor area */
 .editorArea {
   flex: 1;
@@ -231,6 +229,79 @@
   justify-content: center;
   color: var(--text-muted);
   font-size: 13px;
+}
+
+/* Task detail in editor area */
+.taskDetail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.taskDetailHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.taskDetailTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  min-width: 0;
+  flex: 1;
+}
+
+.taskDetailCheckbox {
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.taskDetailTitleInput {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 2px 0;
+}
+
+.taskDetailTitleInput:focus {
+  border-bottom: 1px solid var(--accent);
+}
+
+.taskDetailDateInput {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  outline: none;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.taskDetailDateInput:focus {
+  border-color: var(--accent);
+}
+
+/* Editor wrapper */
+.editorWrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  position: relative;
 }
 
 /* Statusbar */

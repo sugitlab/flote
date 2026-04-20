@@ -44,6 +44,8 @@ type Props = {
   onNewNote: () => void;
   onNewTask: () => void;
   onCycleTheme: () => void;
+  onShowNotes: () => void;
+  onShowTasks: () => void;
 };
 
 export default function CommandPalette({
@@ -54,12 +56,16 @@ export default function CommandPalette({
   onNewNote,
   onNewTask,
   onCycleTheme,
+  onShowNotes,
+  onShowTasks,
 }: Props) {
   const setOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
   const [query, setQuery] = useState("");
   const [focusIndex, setFocusIndex] = useState(0);
+  const [keyboardNav, setKeyboardNav] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -72,6 +78,8 @@ export default function CommandPalette({
 
   const commands: Command[] = useMemo(
     () => [
+      { id: "show-notes", label: "ノート一覧を表示", kbd: "⌘1", action: onShowNotes },
+      { id: "show-tasks", label: "タスク一覧を表示", kbd: "⌘2", action: onShowTasks },
       { id: "new-note", label: "新規ノートを作成", kbd: "⌘N", action: onNewNote },
       { id: "new-task", label: "新規タスクを追加", kbd: "⌘T", action: onNewTask },
       {
@@ -87,7 +95,7 @@ export default function CommandPalette({
         action: onCycleTheme,
       },
     ],
-    [onNewNote, onNewTask, setSettingsOpen, onCycleTheme]
+    [onShowNotes, onShowTasks, onNewNote, onNewTask, setSettingsOpen, onCycleTheme]
   );
 
   const items: PaletteItem[] = useMemo(() => {
@@ -141,6 +149,16 @@ export default function CommandPalette({
     setFocusIndex(0);
   }, [query]);
 
+  // Scroll focused item into view
+  useEffect(() => {
+    const container = resultsRef.current;
+    if (!container) return;
+    const focused = container.querySelector(`[data-index="${focusIndex}"]`);
+    if (focused) {
+      focused.scrollIntoView({ block: "nearest" });
+    }
+  }, [focusIndex]);
+
   const execute = useCallback(
     (item: PaletteItem) => {
       close();
@@ -153,9 +171,11 @@ export default function CommandPalette({
     (e: React.KeyboardEvent) => {
       if (e.key === "ArrowDown") {
         e.preventDefault();
+        setKeyboardNav(true);
         setFocusIndex((i) => Math.min(i + 1, items.length - 1));
       } else if (e.key === "ArrowUp") {
         e.preventDefault();
+        setKeyboardNav(true);
         setFocusIndex((i) => Math.max(i - 1, 0));
       } else if (e.key === "Enter" && items[focusIndex]) {
         e.preventDefault();
@@ -179,9 +199,15 @@ export default function CommandPalette({
     return (
       <div
         key={`${item.type}-${item.id}`}
+        data-index={idx}
         className={`${styles.item} ${idx === focusIndex ? styles.itemFocused : ""}`}
         onClick={() => execute(item)}
-        onMouseEnter={() => setFocusIndex(idx)}
+        onMouseMove={() => {
+          if (keyboardNav) setKeyboardNav(false);
+        }}
+        onMouseEnter={() => {
+          if (!keyboardNav) setFocusIndex(idx);
+        }}
       >
         <span className={styles.itemLabel}>{item.label}</span>
         {item.kbd && <span className={styles.itemKbd}>{item.kbd}</span>}
@@ -209,7 +235,7 @@ export default function CommandPalette({
           />
         </div>
 
-        <div className={styles.results}>
+        <div ref={resultsRef} className={styles.results}>
           {items.length === 0 && (
             <div className={styles.empty}>一致する結果がありません</div>
           )}
