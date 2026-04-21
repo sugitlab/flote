@@ -63,13 +63,38 @@ html, body, #root {
   margin: 0.5em 0;
 }
 
-.preview-content ul, .preview-content ol {
-  margin: 0.5em 0;
-  padding-left: 1.5em;
+.preview-content ul {
+  list-style-type: disc;
+  margin: 0.6em 0;
+  padding-left: 1.6em;
+}
+
+.preview-content ol {
+  list-style-type: decimal;
+  margin: 0.6em 0;
+  padding-left: 1.6em;
+}
+
+.preview-content ul ul {
+  list-style-type: circle;
+  margin: 0.2em 0;
+}
+
+.preview-content ul ul ul {
+  list-style-type: square;
+}
+
+.preview-content ol ol {
+  list-style-type: lower-alpha;
+}
+
+.preview-content ol ol ol {
+  list-style-type: lower-roman;
 }
 
 .preview-content li {
-  margin: 0.2em 0;
+  margin: 0.25em 0;
+  line-height: 1.6;
 }
 
 .preview-content code {
@@ -122,17 +147,22 @@ html, body, #root {
 .preview-content table {
   border-collapse: collapse;
   width: 100%;
-  margin: 0.8em 0;
+  margin: 1em 0;
+  font-size: 0.9em;
 }
 
 .preview-content th, .preview-content td {
   border: 1px solid var(--border);
-  padding: 6px 10px;
+  padding: 7px 13px;
   text-align: left;
-  font-size: 0.9em;
 }
 
 .preview-content th {
   background: var(--bg-input);
   font-weight: 600;
+  white-space: nowrap;
+}
+
+.preview-content tr:nth-child(even) td {
+  background: color-mix(in srgb, var(--bg-input) 40%, transparent);
 }

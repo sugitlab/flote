@@ -23,7 +23,15 @@ export const Colors = {
   },
 } as const;
 
-export type ThemeColors = (typeof Colors)["light"];
+export type ThemeColors = {
+  background: string;
+  surface: string;
+  text: string;
+  textSecondary: string;
+  border: string;
+  accent: string;
+  danger: string;
+};
 export type ThemeMode = "system" | "light" | "dark";
 
 const THEME_KEY = "flote_theme_mode";

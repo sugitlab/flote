@@ -15,18 +15,22 @@ import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import Markdown from "react-native-markdown-display";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../../src/theme";
+import { makeMarkdownStyles, markdownRules } from "../../../src/markdownStyles";
+import { scheduleTaskReminder, cancelTaskReminder } from "../../../src/lib/notifications";
+import { useSettingsStore } from "../../../src/store/settingsStore";
 import { useTaskStore } from "../../../src/store/taskStore";
 import { supabase } from "../../../src/lib/supabase";
 import type { Task } from "@flote/types";
 
 export default function TaskDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, edit } = useLocalSearchParams<{ id: string; edit?: string }>();
   const { colors } = useTheme();
   const router = useRouter();
   const tasks = useTaskStore((s) => s.tasks);
   const saveTask = useTaskStore((s) => s.saveTask);
   const deleteTask = useTaskStore((s) => s.deleteTask);
-  const [editing, setEditing] = useState(false);
+  const reminderHour = useSettingsStore((s) => s.reminderHour);
+  const [editing, setEditing] = useState(edit === "1");
   const [content, setContent] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -56,7 +60,7 @@ export default function TaskDetailScreen() {
         const updated: Task = {
           ...taskRef.current,
           body_md: text,
-          title: text.split("\n").find((l) => l.trim())?.replace(/^#{1,6}\s+/, "").trim() ?? "",
+          title: text.split("\n").find((l) => l.trim())?.replace(/^#{1,6}\s+/, "").trim() ?? "新しいタスク",
           updated_at: new Date().toISOString(),
         };
         taskRef.current = updated;
@@ -79,6 +83,7 @@ export default function TaskDetailScreen() {
         style: "destructive",
         onPress: async () => {
           if (id) {
+            cancelTaskReminder(id);
             await deleteTask(id);
             router.back();
           }
@@ -101,17 +106,20 @@ export default function TaskDetailScreen() {
   const handleDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === "ios");
     if (!userId || !taskRef.current || !selectedDate) return;
+    const due_date = selectedDate.toISOString().split("T")[0];
     const updated: Task = {
       ...taskRef.current,
-      due_date: selectedDate.toISOString().split("T")[0],
+      due_date,
       updated_at: new Date().toISOString(),
     };
     taskRef.current = updated;
     saveTask(updated, userId);
+    scheduleTaskReminder(updated, reminderHour);
   };
 
   const handleClearDate = () => {
     if (!userId || !taskRef.current) return;
+    cancelTaskReminder(taskRef.current.id);
     const updated: Task = {
       ...taskRef.current,
       due_date: null,
@@ -121,45 +129,7 @@ export default function TaskDetailScreen() {
     saveTask(updated, userId);
   };
 
-  const markdownStyles = {
-    body: { color: colors.text, fontSize: 16, lineHeight: 24, overflow: "visible" as const },
-    heading1: { color: colors.text, fontSize: 28, lineHeight: 36, fontWeight: "bold" as const, marginTop: 0, marginBottom: 8, paddingTop: 0, overflow: "visible" as const },
-    heading2: { color: colors.text, fontSize: 24, fontWeight: "bold" as const, marginVertical: 6 },
-    heading3: { color: colors.text, fontSize: 20, fontWeight: "bold" as const, marginVertical: 4 },
-    paragraph: { color: colors.text, marginVertical: 4 },
-    link: { color: colors.accent },
-    code_inline: {
-      backgroundColor: colors.surface,
-      color: colors.text,
-      paddingHorizontal: 4,
-      borderRadius: 4,
-      fontSize: 14,
-    },
-    code_block: {
-      backgroundColor: colors.surface,
-      color: colors.text,
-      padding: 12,
-      borderRadius: 8,
-      fontSize: 14,
-    },
-    fence: {
-      backgroundColor: colors.surface,
-      color: colors.text,
-      padding: 12,
-      borderRadius: 8,
-      fontSize: 14,
-    },
-    blockquote: {
-      borderLeftColor: colors.accent,
-      borderLeftWidth: 3,
-      paddingLeft: 12,
-      marginVertical: 8,
-    },
-    list_item: { color: colors.text },
-    bullet_list: { color: colors.text },
-    ordered_list: { color: colors.text },
-    hr: { backgroundColor: colors.border },
-  };
+  const markdownStyles = makeMarkdownStyles(colors);
 
   return (
     <>
@@ -188,7 +158,6 @@ export default function TaskDetailScreen() {
         behavior={Platform.OS === "ios" ? "padding" : undefined}
         keyboardVerticalOffset={90}
       >
-        {/* Task meta info */}
         {task && (
           <View style={[styles.metaBar, { borderBottomColor: colors.border }]}>
             <TouchableOpacity
@@ -262,7 +231,7 @@ export default function TaskDetailScreen() {
           <ScrollView style={styles.preview} contentContainerStyle={styles.previewContent}>
             <View style={{ height: 4 }} />
             {content ? (
-              <Markdown style={markdownStyles}>{content}</Markdown>
+              <Markdown style={markdownStyles} rules={markdownRules}>{content}</Markdown>
             ) : (
               <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
                 メモがありません。「編集」をタップして書き始めましょう。

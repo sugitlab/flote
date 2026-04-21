@@ -10,6 +10,7 @@ export type AppSettings = {
   launchAtLogin: boolean;
   startInTray: boolean;
   globalShortcut: string;
+  searchFullText: boolean;
 };
 
 const STORE_PATH = "settings.json";
@@ -22,6 +23,7 @@ const DEFAULTS: AppSettings = {
   launchAtLogin: false,
   startInTray: true,
   globalShortcut: "CmdOrCtrl+Shift+N",
+  searchFullText: false,
 };
 
 async function getStore() {

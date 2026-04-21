@@ -18,7 +18,7 @@ import { useUIStore } from "./store/uiStore";
 import Auth from "./components/Auth";
 import Editor from "./components/Editor";
 import NoteList from "./components/NoteList";
-import TaskList from "./components/TaskList";
+import TaskList, { groupTasks } from "./components/TaskList";
 import Settings from "./components/Settings";
 import CommandPalette from "./components/CommandPalette";
 import ConfirmDialog from "./components/ConfirmDialog";
@@ -91,6 +91,7 @@ function MainApp({
   const isSettingsOpen = useUIStore((s) => s.isSettingsOpen);
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
   const addToast = useUIStore((s) => s.addToast);
+  const setSearchFullText = useUIStore((s) => s.setSearchFullText);
 
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ type: "note" | "task"; id: string } | null>(null);
@@ -109,6 +110,10 @@ function MainApp({
     fetchNotes(userId);
     fetchTasks(userId);
   }, [userId, fetchNotes, fetchTasks]);
+
+  useEffect(() => {
+    getConfig().then((c) => setSearchFullText(c.searchFullText));
+  }, []);
 
   // Hide window when it loses focus (if setting enabled)
   useEffect(() => {
@@ -146,7 +151,6 @@ function MainApp({
       title: "新しいタスク",
       body_md: "",
       due_date: null,
-      remind_at: null,
       done: false,
       updated_at: new Date().toISOString(),
     };
@@ -205,16 +209,22 @@ function MainApp({
     if (activeTab === "notes") {
       const idx = notes.findIndex((n) => n.id === activeNoteId);
       if (idx > 0) setActiveNote(notes[idx - 1].id);
+    } else if (activeTab === "tasks") {
+      const idx = tasks.findIndex((t) => t.id === activeTaskId);
+      if (idx > 0) setActiveTask(tasks[idx - 1].id);
     }
-  }, [activeTab, notes, activeNoteId, setActiveNote]);
+  }, [activeTab, notes, activeNoteId, setActiveNote, tasks, activeTaskId, setActiveTask]);
 
   const handleNextItem = useCallback(() => {
     setIsEditing(false);
     if (activeTab === "notes") {
       const idx = notes.findIndex((n) => n.id === activeNoteId);
       if (idx < notes.length - 1) setActiveNote(notes[idx + 1].id);
+    } else if (activeTab === "tasks") {
+      const idx = tasks.findIndex((t) => t.id === activeTaskId);
+      if (idx < tasks.length - 1) setActiveTask(tasks[idx + 1].id);
     }
-  }, [activeTab, notes, activeNoteId, setActiveNote]);
+  }, [activeTab, notes, activeNoteId, setActiveNote, tasks, activeTaskId, setActiveTask]);
 
   const handleSelectNote = useCallback(
     (id: string) => {
@@ -295,7 +305,8 @@ function MainApp({
         const note = notes[index];
         if (note) setActiveNote(note.id);
       } else {
-        const task = tasks[index];
+        const ordered = groupTasks(tasks).flatMap((g) => g.tasks);
+        const task = ordered[index];
         if (task) setActiveTask(task.id);
       }
     },
@@ -313,6 +324,14 @@ function MainApp({
     setIsEditing(false);
   }, []);
 
+  const handleDeleteSelected = useCallback(() => {
+    if (activeTab === "notes" && activeNoteId) {
+      handleDeleteNote(activeNoteId);
+    } else if (activeTab === "tasks" && activeTaskId) {
+      handleDeleteTask(activeTaskId);
+    }
+  }, [activeTab, activeNoteId, activeTaskId, handleDeleteNote, handleDeleteTask]);
+
   const keyboardActions = useMemo(
     () => ({
       onNewNote: handleCreateNote,
@@ -322,8 +341,9 @@ function MainApp({
       onCycleTheme: cycleTheme,
       onSelectByIndex: handleSelectByIndex,
       onEnterEditor: handleEnterEditor,
+      onDeleteSelected: handleDeleteSelected,
     }),
-    [handleCreateNote, handleCreateTask, handlePrevItem, handleNextItem, cycleTheme, handleSelectByIndex, handleEnterEditor]
+    [handleCreateNote, handleCreateTask, handlePrevItem, handleNextItem, cycleTheme, handleSelectByIndex, handleEnterEditor, handleDeleteSelected]
   );
 
   useKeyboard(keyboardActions);

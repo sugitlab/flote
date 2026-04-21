@@ -14,24 +14,24 @@ import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import Markdown from "react-native-markdown-display";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../../src/theme";
+import { makeMarkdownStyles, markdownRules } from "../../../src/markdownStyles";
 import { useNoteStore } from "../../../src/store/noteStore";
 import { supabase } from "../../../src/lib/supabase";
 import type { Note } from "@flote/types";
 
 export default function NoteDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, edit } = useLocalSearchParams<{ id: string; edit?: string }>();
   const { colors } = useTheme();
   const router = useRouter();
   const notes = useNoteStore((s) => s.notes);
   const saveNote = useNoteStore((s) => s.saveNote);
   const deleteNote = useNoteStore((s) => s.deleteNote);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(edit === "1");
   const [content, setContent] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noteRef = useRef<Note | null>(null);
 
-  const isNew = id === "new";
   const note = notes.find((n) => n.id === id);
 
   useEffect(() => {
@@ -45,7 +45,6 @@ export default function NoteDetailScreen() {
       noteRef.current = note;
       if (!editing) setContent(note.body_md);
     }
-    if (isNew) setEditing(true);
   }, [note?.id]);
 
   const debouncedSave = useCallback(
@@ -87,45 +86,7 @@ export default function NoteDetailScreen() {
     ]);
   };
 
-  const markdownStyles = {
-    body: { color: colors.text, fontSize: 16, lineHeight: 24, overflow: "visible" as const },
-    heading1: { color: colors.text, fontSize: 28, lineHeight: 36, fontWeight: "bold" as const, marginTop: 0, marginBottom: 8, paddingTop: 0, overflow: "visible" as const },
-    heading2: { color: colors.text, fontSize: 24, fontWeight: "bold" as const, marginVertical: 6 },
-    heading3: { color: colors.text, fontSize: 20, fontWeight: "bold" as const, marginVertical: 4 },
-    paragraph: { color: colors.text, marginVertical: 4 },
-    link: { color: colors.accent },
-    code_inline: {
-      backgroundColor: colors.surface,
-      color: colors.text,
-      paddingHorizontal: 4,
-      borderRadius: 4,
-      fontSize: 14,
-    },
-    code_block: {
-      backgroundColor: colors.surface,
-      color: colors.text,
-      padding: 12,
-      borderRadius: 8,
-      fontSize: 14,
-    },
-    fence: {
-      backgroundColor: colors.surface,
-      color: colors.text,
-      padding: 12,
-      borderRadius: 8,
-      fontSize: 14,
-    },
-    blockquote: {
-      borderLeftColor: colors.accent,
-      borderLeftWidth: 3,
-      paddingLeft: 12,
-      marginVertical: 8,
-    },
-    list_item: { color: colors.text },
-    bullet_list: { color: colors.text },
-    ordered_list: { color: colors.text },
-    hr: { backgroundColor: colors.border },
-  };
+  const markdownStyles = makeMarkdownStyles(colors);
 
   return (
     <>
@@ -176,7 +137,7 @@ export default function NoteDetailScreen() {
           <ScrollView style={styles.preview} contentContainerStyle={styles.previewContent}>
             <View style={{ height: 4 }} />
             {content ? (
-              <Markdown style={markdownStyles}>{content}</Markdown>
+              <Markdown style={markdownStyles} rules={markdownRules}>{content}</Markdown>
             ) : (
               <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
                 ノートが空です。編集ボタンをタップして書き始めましょう。

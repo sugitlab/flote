@@ -4,6 +4,15 @@ import { useUIStore } from "../store/uiStore";
 import { relativeDate } from "../utils/date";
 import styles from "./CommandPalette.module.css";
 
+function bodySnippet(body: string, query: string, radius = 40): string {
+  const idx = body.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return "";
+  const start = Math.max(0, idx - radius);
+  const end = Math.min(body.length, idx + query.length + radius);
+  const snippet = body.slice(start, end).replace(/\n/g, " ");
+  return (start > 0 ? "…" : "") + snippet + (end < body.length ? "…" : "");
+}
+
 type Command = {
   id: string;
   label: string;
@@ -46,6 +55,7 @@ export default function CommandPalette({
 }: Props) {
   const setOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
+  const searchFullText = useUIStore((s) => s.searchFullText);
   const [query, setQuery] = useState("");
   const [focusIndex, setFocusIndex] = useState(0);
   const [keyboardNav, setKeyboardNav] = useState(false);
@@ -113,29 +123,45 @@ export default function CommandPalette({
     const q = query.toLowerCase();
     const result: PaletteItem[] = [];
 
-    const matchedNotes = notes.filter(
-      (n) =>
-        !q || n.title.toLowerCase().includes(q) || relativeDate(n.updated_at).includes(q)
-    );
+    const matchedNotes = notes.filter((n) => {
+      if (!q) return true;
+      if (n.title.toLowerCase().includes(q)) return true;
+      if (relativeDate(n.updated_at).includes(q)) return true;
+      if (searchFullText && n.body_md.toLowerCase().includes(q)) return true;
+      return false;
+    });
     for (const n of matchedNotes.slice(0, 8)) {
+      const inBody =
+        searchFullText &&
+        q &&
+        !n.title.toLowerCase().includes(q) &&
+        n.body_md.toLowerCase().includes(q);
       result.push({
         type: "note",
         id: n.id,
         label: n.title || "無題のノート",
-        meta: relativeDate(n.updated_at),
+        meta: inBody ? bodySnippet(n.body_md, query) : relativeDate(n.updated_at),
         action: () => onSelectNote(n.id),
       });
     }
 
-    const matchedTasks = tasks.filter(
-      (t) => !q || t.title.toLowerCase().includes(q)
-    );
+    const matchedTasks = tasks.filter((t) => {
+      if (!q) return true;
+      if (t.title.toLowerCase().includes(q)) return true;
+      if (searchFullText && t.body_md.toLowerCase().includes(q)) return true;
+      return false;
+    });
     for (const t of matchedTasks.slice(0, 5)) {
+      const inBody =
+        searchFullText &&
+        q &&
+        !t.title.toLowerCase().includes(q) &&
+        t.body_md.toLowerCase().includes(q);
       result.push({
         type: "task",
         id: t.id,
         label: `${t.done ? "✓ " : ""}${t.title}`,
-        meta: t.due_date ?? undefined,
+        meta: inBody ? bodySnippet(t.body_md, query) : (t.due_date ?? undefined),
         action: () => onSelectTask(t.id),
       });
     }
@@ -157,7 +183,7 @@ export default function CommandPalette({
     }
 
     return result;
-  }, [query, notes, tasks, commands, onSelectNote, onSelectTask]);
+  }, [query, notes, tasks, commands, searchFullText, onSelectNote, onSelectTask]);
 
   useEffect(() => {
     setFocusIndex(0);

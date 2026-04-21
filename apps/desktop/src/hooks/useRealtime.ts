@@ -19,7 +19,6 @@ function toTask(row: Record<string, unknown>): Task {
     title: row.title as string,
     body_md: (row.body_md as string) ?? "",
     due_date: row.due_date as string | null,
-    remind_at: row.remind_at as string | null,
     done: row.done as boolean,
     updated_at: row.updated_at as string,
   };

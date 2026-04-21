@@ -14,6 +14,7 @@ type UIStore = {
   isSettingsOpen: boolean;
   activeTab: "notes" | "tasks";
   toasts: Toast[];
+  searchFullText: boolean;
   setTheme: (theme: ThemeMode) => void;
   setCommandPaletteOpen: (open: boolean) => void;
   toggleCommandPalette: () => void;
@@ -21,6 +22,7 @@ type UIStore = {
   setActiveTab: (tab: "notes" | "tasks") => void;
   addToast: (type: Toast["type"], message: string) => void;
   removeToast: (id: string) => void;
+  setSearchFullText: (v: boolean) => void;
 };
 
 export const useUIStore = create<UIStore>((set, get) => ({
@@ -29,8 +31,10 @@ export const useUIStore = create<UIStore>((set, get) => ({
   isSettingsOpen: false,
   activeTab: "notes",
   toasts: [],
+  searchFullText: false,
 
   setTheme: (theme) => set({ theme }),
+  setSearchFullText: (v) => set({ searchFullText: v }),
 
   setCommandPaletteOpen: (open) => set({ isCommandPaletteOpen: open }),
 

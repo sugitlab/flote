@@ -11,16 +11,50 @@ type TaskListProps = {
   onSelectTask: (id: string) => void;
 };
 
+function todayStr(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 function isOverdue(task: Task): boolean {
   if (task.done || !task.due_date) return false;
-  const today = new Date().toISOString().slice(0, 10);
-  return task.due_date <= today;
+  return task.due_date < todayStr();
 }
 
 function formatDate(date: string | null): string {
   if (!date) return "";
   const d = new Date(date + "T00:00:00");
   return d.toLocaleDateString("ja-JP", { month: "short", day: "numeric" });
+}
+
+type Group = { label: string; tasks: Task[]; danger?: boolean };
+
+export function groupTasks(tasks: Task[]): Group[] {
+  const today = todayStr();
+  const overdue: Task[] = [];
+  const todayTasks: Task[] = [];
+  const upcoming: Task[] = [];
+  const done: Task[] = [];
+
+  for (const t of tasks) {
+    if (t.done) {
+      done.push(t);
+    } else if (t.due_date && t.due_date < today) {
+      overdue.push(t);
+    } else if (t.due_date === today) {
+      todayTasks.push(t);
+    } else {
+      upcoming.push(t);
+    }
+  }
+
+  const groups: Group[] = [];
+  if (overdue.length) groups.push({ label: "期限切れ", tasks: overdue, danger: true });
+  if (todayTasks.length) groups.push({ label: "今日", tasks: todayTasks });
+  if (upcoming.length) groups.push({ label: "今後", tasks: upcoming });
+  if (done.length) groups.push({ label: "完了済み", tasks: done });
+  return groups;
 }
 
 export default function TaskList({
@@ -71,12 +105,12 @@ export default function TaskList({
     clearSelect();
   }, [selectedIds, onDeleteMultiple, clearSelect]);
 
-  const pending = tasks.filter((t) => !t.done);
-  const completed = tasks.filter((t) => t.done);
+  const groups = groupTasks(tasks);
+  const orderedIds = groups.flatMap((g) => g.tasks.map((t) => t.id));
 
-  function renderTask(task: Task, strikethrough = false) {
+  function renderTask(task: Task) {
     const isSelected = selectedIds.has(task.id);
-    const globalIdx = tasks.indexOf(task);
+    const globalIdx = orderedIds.indexOf(task.id);
     const overdue = isOverdue(task);
 
     return (
@@ -127,14 +161,14 @@ export default function TaskList({
           <span
             className={[
               "flex-1 min-w-0 truncate",
-              strikethrough ? "line-through text-[var(--text-muted)]" : "",
-              !strikethrough && overdue ? "text-[var(--danger)]" : "",
-              !strikethrough && !overdue ? "text-[var(--text-primary)]" : "",
+              task.done ? "line-through text-[var(--text-muted)]" : "",
+              !task.done && overdue ? "text-[var(--danger)]" : "",
+              !task.done && !overdue ? "text-[var(--text-primary)]" : "",
             ].join(" ")}
           >
             {task.title}
           </span>
-          {task.due_date && !strikethrough && (
+          {task.due_date && !task.done && (
             <span className={`text-[10px] shrink-0 whitespace-nowrap ${overdue ? "text-[var(--danger)]" : "text-[var(--text-muted)]"}`}>
               {formatDate(task.due_date)}
             </span>
@@ -188,15 +222,22 @@ export default function TaskList({
       )}
 
       <div className="flex-1 overflow-y-auto">
-        {pending.map((task) => renderTask(task, false))}
-
-        {completed.length > 0 && (
-          <>
-            <div className="px-3 py-1 text-[10px] text-[var(--text-muted)] uppercase tracking-wider border-t border-[var(--border)] mt-1">
-              完了 ({completed.length})
+        {groups.map((group, gi) => (
+          <div key={group.label}>
+            <div
+              className={[
+                "px-3 py-1 text-[10px] font-semibold uppercase tracking-wider",
+                gi > 0 ? "border-t border-[var(--border)] mt-1" : "",
+                group.danger ? "text-[var(--danger)]" : "text-[var(--text-muted)]",
+              ].join(" ")}
+            >
+              {group.label}
             </div>
-            {completed.map((task) => renderTask(task, true))}
-          </>
+            {group.tasks.map((task) => renderTask(task))}
+          </div>
+        ))}
+        {tasks.length === 0 && (
+          <div className="px-3 py-4 text-[11px] text-[var(--text-muted)]">タスクがありません</div>
         )}
       </div>
     </div>

@@ -11,6 +11,9 @@ import {
 } from "react-native";
 import * as Notifications from "expo-notifications";
 import { useTheme, useThemeStore, type ThemeMode } from "../src/theme";
+import { useSettingsStore } from "../src/store/settingsStore";
+import { useTaskStore } from "../src/store/taskStore";
+import { rescheduleAllReminders } from "../src/lib/notifications";
 import { supabase } from "../src/lib/supabase";
 
 type Props = {
@@ -20,6 +23,9 @@ type Props = {
 export default function SettingsPage({ onSignOut }: Props) {
   const { colors, mode } = useTheme();
   const setThemeMode = useThemeStore((s) => s.setMode);
+  const reminderHour = useSettingsStore((s) => s.reminderHour);
+  const setReminderHour = useSettingsStore((s) => s.setReminderHour);
+  const tasks = useTaskStore((s) => s.tasks);
   const [email, setEmail] = useState<string | null>(null);
   const [notifEnabled, setNotifEnabled] = useState(false);
 
@@ -48,6 +54,12 @@ export default function SettingsPage({ onSignOut }: Props) {
       Alert.alert("通知が許可されませんでした", "設定アプリから通知を許可してください。");
     }
   }, [notifEnabled]);
+
+  const handleChangeReminderHour = useCallback(async (delta: number) => {
+    const next = Math.min(23, Math.max(0, reminderHour + delta));
+    await setReminderHour(next);
+    rescheduleAllReminders(tasks, next);
+  }, [reminderHour, setReminderHour, tasks]);
 
   const handleSignOut = useCallback(() => {
     Alert.alert("ログアウト", "ログアウトしますか？", [
@@ -116,6 +128,29 @@ export default function SettingsPage({ onSignOut }: Props) {
                 <Text style={s.badgeText}>{notifEnabled ? "ON" : "OFF"}</Text>
               </View>
             </TouchableOpacity>
+            <View style={s.separator} />
+            <View style={s.row}>
+              <Text style={s.label}>リマインダー時刻</Text>
+              <View style={s.hourPicker}>
+                <TouchableOpacity
+                  style={[s.hourBtn, { backgroundColor: colors.border }]}
+                  onPress={() => handleChangeReminderHour(-1)}
+                  activeOpacity={0.7}
+                  disabled={reminderHour <= 0}
+                >
+                  <Text style={[s.hourBtnText, { color: reminderHour <= 0 ? colors.textSecondary : colors.text }]}>−</Text>
+                </TouchableOpacity>
+                <Text style={[s.hourValue, { color: colors.text }]}>{String(reminderHour).padStart(2, "0")}:00</Text>
+                <TouchableOpacity
+                  style={[s.hourBtn, { backgroundColor: colors.border }]}
+                  onPress={() => handleChangeReminderHour(1)}
+                  activeOpacity={0.7}
+                  disabled={reminderHour >= 23}
+                >
+                  <Text style={[s.hourBtnText, { color: reminderHour >= 23 ? colors.textSecondary : colors.text }]}>＋</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </>
       )}
@@ -276,6 +311,29 @@ function makeStyles(colors: ReturnType<typeof import("../src/theme").useTheme>["
       fontSize: 13,
       fontWeight: "500",
       color: colors.text,
+    },
+    hourPicker: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+    },
+    hourBtn: {
+      width: 32,
+      height: 32,
+      borderRadius: 8,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    hourBtnText: {
+      fontSize: 18,
+      fontWeight: "400",
+      lineHeight: 22,
+    },
+    hourValue: {
+      fontSize: 16,
+      fontWeight: "600",
+      minWidth: 52,
+      textAlign: "center",
     },
   });
 }

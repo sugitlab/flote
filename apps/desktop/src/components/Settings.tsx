@@ -11,7 +11,7 @@ import { getConfig, setConfig, type AppSettings } from "../config";
 import { useAuth } from "../hooks/useAuth";
 import styles from "./Settings.module.css";
 
-type SettingsTab = "general" | "shortcuts" | "howto" | "account" | "storage";
+type SettingsTab = "general" | "shortcuts" | "howto" | "account" | "storage" | "legal";
 
 type Props = {
   currentMode: StorageMode;
@@ -38,6 +38,7 @@ export default function Settings({
               ["howto", "使い方"],
               ["account", "アカウント"],
               ["storage", "保存先"],
+              ["legal", "法的情報"],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -69,6 +70,7 @@ export default function Settings({
               onStorageModeChange={onStorageModeChange}
             />
           )}
+          {tab === "legal" && <LegalTab />}
         </div>
       </div>
     </div>
@@ -81,6 +83,8 @@ function GeneralTab() {
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
   const addToast = useUIStore((s) => s.addToast);
+  const searchFullText = useUIStore((s) => s.searchFullText);
+  const setSearchFullText = useUIStore((s) => s.setSearchFullText);
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [hideOnBlur, setHideOnBlur] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
@@ -92,6 +96,11 @@ function GeneralTab() {
       setLaunchAtLogin(c.launchAtLogin);
     });
   }, []);
+
+  const handleSearchFullText = (v: boolean) => {
+    setSearchFullText(v);
+    setConfig({ searchFullText: v });
+  };
 
   const handleTheme = (t: ThemeMode) => {
     setTheme(t);
@@ -162,6 +171,15 @@ function GeneralTab() {
         <div className={styles.switchRow}>
           <span className={styles.switchLabel}>ログイン時に起動</span>
           <Toggle checked={launchAtLogin} onChange={handleLaunchAtLogin} />
+        </div>
+      </div>
+
+      <h3 className={styles.sectionTitle}>検索</h3>
+
+      <div className={styles.field}>
+        <div className={styles.switchRow}>
+          <span className={styles.switchLabel}>コマンドパレットで本文も検索する</span>
+          <Toggle checked={searchFullText} onChange={handleSearchFullText} />
         </div>
       </div>
     </>
@@ -538,13 +556,24 @@ function HowToTab() {
         </div>
       </div>
 
-      <h3 className={styles.sectionTitle} style={{ marginTop: 24 }}>法的情報</h3>
+    </>
+  );
+}
+
+/* ─── Legal ─── */
+
+function LegalTab() {
+  const items = [
+    { label: "プライバシーポリシー", url: "https://example.com" },
+    { label: "利用規約", url: "https://example.com" },
+    { label: "ライセンス", url: "https://example.com" },
+  ];
+
+  return (
+    <>
+      <h3 className={styles.sectionTitle}>法的情報</h3>
       <div className={styles.helpSection}>
-        {[
-          ["プライバシーポリシー", "https://example.com"],
-          ["利用規約", "https://example.com"],
-          ["ライセンス", "https://example.com"],
-        ].map(([label, url]) => (
+        {items.map(({ label, url }) => (
           <div key={label} className={styles.helpItem}>
             <button
               className={styles.legalLink}

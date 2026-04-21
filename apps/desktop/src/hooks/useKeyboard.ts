@@ -9,6 +9,7 @@ type KeyboardActions = {
   onCycleTheme: () => void;
   onSelectByIndex: (index: number) => void;
   onEnterEditor: () => void;
+  onDeleteSelected: () => void;
 };
 
 export function useKeyboard(actions: KeyboardActions) {
@@ -123,6 +124,14 @@ export function useKeyboard(actions: KeyboardActions) {
       if (e.key === "Enter" && !meta && !e.shiftKey && !e.altKey && !inInput) {
         e.preventDefault();
         actions.onEnterEditor();
+        return;
+      }
+
+      // ⌘Backspace / Delete: delete selected item
+      const isDeleteKey = (meta && e.key === "Backspace") || e.key === "Delete";
+      if (isDeleteKey && !inEditor && !inInput) {
+        e.preventDefault();
+        actions.onDeleteSelected();
         return;
       }
     }

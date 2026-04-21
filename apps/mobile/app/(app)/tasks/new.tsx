@@ -61,7 +61,6 @@ export default function NewTaskScreen() {
       title: title.trim(),
       body_md: `# ${title.trim()}`,
       due_date: dueDate ? dueDate.toISOString().split("T")[0] : null,
-      remind_at: null,
       done: false,
       updated_at: now,
     };

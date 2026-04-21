@@ -13,11 +13,12 @@ import {
 import { useRouter, Stack } from "expo-router";
 import { useTheme } from "../../src/theme";
 import { useNoteStore } from "../../src/store/noteStore";
+import { useTaskStore } from "../../src/store/taskStore";
 import { supabase } from "../../src/lib/supabase";
 import NotesList from "../../components/NotesList";
 import TasksList from "../../components/TasksList";
 import SettingsPage from "../../components/SettingsPage";
-import type { Note } from "@flote/types";
+import type { Note, Task } from "@flote/types";
 
 function generateId(): string {
   const hex = "0123456789abcdef";
@@ -46,6 +47,7 @@ export default function HomeScreen() {
   const [activeTab, setActiveTab] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
   const saveNote = useNoteStore((s) => s.saveNote);
+  const saveTask = useTaskStore((s) => s.saveTask);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -76,14 +78,28 @@ export default function HomeScreen() {
       };
       try {
         await saveNote(newNote, userId);
-        router.push(`/(app)/notes/${newNote.id}` as never);
+        router.push(`/(app)/notes/${newNote.id}?edit=1` as never);
       } catch {
         Alert.alert("エラー", "ノートの作成に失敗しました");
       }
     } else {
-      router.push("/(app)/tasks/new" as never);
+      const now = new Date().toISOString();
+      const newTask: Task = {
+        id: generateId(),
+        title: "新しいタスク",
+        body_md: "",
+        due_date: null,
+        done: false,
+        updated_at: now,
+      };
+      try {
+        await saveTask(newTask, userId);
+        router.push(`/(app)/tasks/${newTask.id}?edit=1` as never);
+      } catch {
+        Alert.alert("エラー", "タスクの作成に失敗しました");
+      }
     }
-  }, [userId, activeTab]);
+  }, [userId, activeTab, saveNote, saveTask]);
 
   const handleSignOut = useCallback(() => {
     // Auth state change will trigger redirect via _layout.tsx

@@ -17,7 +17,6 @@ function toTask(row: Record<string, unknown>): Task {
     title: row.title as string,
     body_md: (row.body_md as string) ?? "",
     due_date: row.due_date as string | null,
-    remind_at: row.remind_at as string | null,
     done: row.done as boolean,
     updated_at: row.updated_at as string,
   };
@@ -56,7 +55,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         title: task.title,
         body_md: task.body_md,
         due_date: task.due_date,
-        remind_at: task.remind_at,
         done: task.done,
         updated_at: task.updated_at,
         user_id: userId,
@@ -65,6 +63,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     } catch (e) {
       console.error("[taskStore] saveTask failed:", e);
       set({ tasks: prev });
+      throw e;
     }
   },
 

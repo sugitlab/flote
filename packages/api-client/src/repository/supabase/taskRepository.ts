@@ -8,7 +8,6 @@ function toTask(row: Record<string, unknown>): Task {
     title: String(row.title ?? ""),
     body_md: String(row.body_md ?? ""),
     due_date: row.due_date != null ? String(row.due_date) : null,
-    remind_at: row.remind_at != null ? String(row.remind_at) : null,
     done: Boolean(row.done),
     updated_at: String(row.updated_at ?? new Date().toISOString()),
   };
@@ -35,7 +34,6 @@ export class SupabaseTaskRepository implements TaskRepository {
         title: task.title,
         body_md: task.body_md,
         due_date: task.due_date,
-        remind_at: task.remind_at,
         done: task.done,
         updated_at: task.updated_at,
         user_id: userId,
