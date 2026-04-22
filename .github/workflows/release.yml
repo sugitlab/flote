@@ -51,6 +51,7 @@ jobs:
           # -----------------------------------------------------------------
         with:
           projectPath: apps/desktop
+          tauriScript: pnpm tauri
           args: --target aarch64-apple-darwin
           tagName: ${{ github.ref_name }}
           releaseName: "Flote ${{ github.ref_name }}"
@@ -83,6 +84,7 @@ jobs:
           # -----------------------------------------------------------------
         with:
           projectPath: apps/desktop
+          tauriScript: pnpm tauri
           args: --target x86_64-apple-darwin
           tagName: ${{ github.ref_name }}
           releaseName: "Flote ${{ github.ref_name }}"
