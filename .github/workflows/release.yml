@@ -63,9 +63,18 @@ jobs:
                - **Apple Silicon (M1/M2/M3)**: `flote_*_aarch64.dmg`
                - **Intel Mac**: `flote_*_x86_64.dmg`
             2. DMGを開いてApplicationsフォルダにドラッグ
-            3. 初回起動時はGatekeeperの警告が出るので、**システム設定 → プライバシーとセキュリティ** から「このまま開く」を選択
 
-            > ⚠️ このリリースはコード署名なしの野良アプリです。
+            ### ⚠️ 初回起動時の注意（署名なし野良アプリのため）
+
+            macOS Sequoia 以降では「壊れているため開けません」と表示されます。
+            **ターミナルで以下を実行してから起動してください：**
+
+            ```bash
+            xattr -cr /Applications/flote.app
+            ```
+
+            > このコマンドはmacOSが付与した隔離フラグを除去します。
+            > コード署名対応版がリリースされたら不要になります。
           releaseDraft: false
           prerelease: false
 
