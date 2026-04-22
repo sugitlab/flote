@@ -649,10 +649,17 @@ function App() {
   // Load config on mount
   useEffect(() => {
     getConfig().then((config) => {
-      setStorageMode(config.storageMode);
+      // supabase未設定なのにcloudモードになっている場合はlocalにフォールバック
+      const mode =
+        config.storageMode === "supabase" && !supabaseConfigured
+          ? "local"
+          : config.storageMode;
+      if (mode !== config.storageMode) setConfig({ storageMode: mode });
 
-      const noteRepo = createNoteRepository(config.storageMode);
-      const taskRepo = createTaskRepository(config.storageMode);
+      setStorageMode(mode);
+
+      const noteRepo = createNoteRepository(mode);
+      const taskRepo = createTaskRepository(mode);
       initNoteStore(noteRepo);
       initTaskStore(taskRepo);
 
