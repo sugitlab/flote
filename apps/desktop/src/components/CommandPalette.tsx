@@ -56,6 +56,7 @@ export default function CommandPalette({
   const setOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
   const searchFullText = useUIStore((s) => s.searchFullText);
+  const hideCompletedInSearch = useUIStore((s) => s.hideCompletedInSearch);
   const [query, setQuery] = useState("");
   const [focusIndex, setFocusIndex] = useState(0);
   const [keyboardNav, setKeyboardNav] = useState(false);
@@ -147,6 +148,7 @@ export default function CommandPalette({
     }
 
     const matchedTasks = tasks.filter((t) => {
+      if (hideCompletedInSearch && t.done) return false;
       if (!q) return true;
       if (t.title.toLowerCase().includes(q)) return true;
       if (searchFullText && t.body_md.toLowerCase().includes(q)) return true;
@@ -184,7 +186,7 @@ export default function CommandPalette({
     }
 
     return result;
-  }, [query, notes, tasks, commands, searchFullText, onSelectNote, onSelectTask]);
+  }, [query, notes, tasks, commands, searchFullText, hideCompletedInSearch, onSelectNote, onSelectTask]);
 
   useEffect(() => {
     setFocusIndex(0);

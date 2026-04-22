@@ -12,8 +12,8 @@
 
 .modal {
   display: flex;
-  width: 560px;
-  height: 400px;
+  width: 840px;
+  height: 600px;
   background: var(--bg-window);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -424,6 +424,43 @@
   margin-top: 8px;
 }
 
+/* Data directory path button */
+.dataDirBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.dataDirBtn:hover {
+  border-color: var(--border-focus);
+  background: var(--bg-hover);
+}
+
+.dataDirPath {
+  flex: 1;
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-family: "SF Mono", "Fira Code", monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.dataDirIcon {
+  font-size: 11px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
 .badge {
   display: inline-block;
   font-size: 9px;
@@ -501,4 +538,37 @@
 
 .legalLink:hover {
   text-decoration: underline;
+}
+
+.editorThemeGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.editorThemeBtn {
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.editorThemeBtn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-focus);
+}
+
+.editorThemeBtnActive {
+  color: var(--accent);
+  background: var(--bg-active);
+  border-color: var(--accent);
 }

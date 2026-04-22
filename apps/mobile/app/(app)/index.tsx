@@ -18,6 +18,7 @@ import { supabase } from "../../src/lib/supabase";
 import NotesList from "../../components/NotesList";
 import TasksList from "../../components/TasksList";
 import SettingsPage from "../../components/SettingsPage";
+import FloteLogo from "../../components/FloteLogo";
 import type { Note, Task } from "@flote/types";
 
 function generateId(): string {
@@ -116,6 +117,11 @@ export default function HomeScreen() {
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerShadowVisible: false,
+          headerLeft: () => (
+            <View style={{ marginRight: 12 }}>
+              <FloteLogo size={28} />
+            </View>
+          ),
           headerRight: showAddButton
             ? () => (
                 <TouchableOpacity

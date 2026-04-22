@@ -74,6 +74,27 @@ fn set_always_on_top(app: tauri::AppHandle, value: bool) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn open_path(path: String) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("open")
+        .arg("-R")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    #[cfg(target_os = "windows")]
+    std::process::Command::new("explorer")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    #[cfg(target_os = "linux")]
+    std::process::Command::new("xdg-open")
+        .arg(&path)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
 fn update_global_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), String> {
     use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
@@ -117,7 +138,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             update_tray_badge,
             set_always_on_top,
-            update_global_shortcut
+            update_global_shortcut,
+            open_path
         ])
         .setup(|app| {
             let open_i = MenuItem::with_id(app, "open", "開く", true, None::<&str>)?;
@@ -125,7 +147,7 @@ pub fn run() {
             let menu = Menu::with_items(app, &[&open_i, &quit_i])?;
 
             TrayIconBuilder::with_id("main-tray")
-                .icon(app.default_window_icon().unwrap().clone())
+                .icon(tauri::include_image!("icons/tray.png"))
                 .icon_as_template(true)
                 .menu(&menu)
                 .show_menu_on_left_click(false)
@@ -137,7 +159,11 @@ pub fn run() {
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
-                    if let tauri::tray::TrayIconEvent::Click { .. } = event {
+                    if let tauri::tray::TrayIconEvent::Click {
+                        button: tauri::tray::MouseButton::Left,
+                        button_state: tauri::tray::MouseButtonState::Up,
+                        ..
+                    } = event {
                         toggle_window(tray.app_handle());
                     }
                 })

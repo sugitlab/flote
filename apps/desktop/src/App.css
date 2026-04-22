@@ -22,11 +22,20 @@ html, body, #root {
 /* CodeMirror fills its container */
 .cm-editor {
   height: 100% !important;
+  background: transparent !important;
+}
+
+.cm-editor .cm-scroller {
+  background: transparent !important;
+}
+
+.cm-editor .cm-content {
+  background: transparent !important;
 }
 
 /* Markdown preview styles */
 .preview-area {
-  background: var(--bg-editor);
+  background: transparent;
 }
 
 .preview-content {
@@ -106,14 +115,20 @@ html, body, #root {
 }
 
 .preview-content pre {
-  background: var(--bg-input);
-  padding: 12px;
-  border-radius: 6px;
+  border-radius: 8px;
   overflow-x: auto;
   margin: 0.8em 0;
 }
 
-.preview-content pre code {
+/* hljs handles background/padding for code blocks */
+.preview-content pre code.hljs {
+  border-radius: 8px;
+  font-size: 0.88em;
+  font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+}
+
+/* inline code (no hljs class) */
+.preview-content pre code:not(.hljs) {
   background: none;
   padding: 0;
 }

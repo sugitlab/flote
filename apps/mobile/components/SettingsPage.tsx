@@ -11,7 +11,8 @@ import {
 } from "react-native";
 import * as Notifications from "expo-notifications";
 import { useTheme, useThemeStore, type ThemeMode } from "../src/theme";
-import { useSettingsStore } from "../src/store/settingsStore";
+import { useSettingsStore, CODE_THEME_OPTIONS } from "../src/store/settingsStore";
+import Dropdown from "./Dropdown";
 import { useTaskStore } from "../src/store/taskStore";
 import { rescheduleAllReminders } from "../src/lib/notifications";
 import { supabase } from "../src/lib/supabase";
@@ -27,6 +28,8 @@ export default function SettingsPage({ onSignOut }: Props) {
   const setReminderHour = useSettingsStore((s) => s.setReminderHour);
   const searchFullText = useSettingsStore((s) => s.searchFullText);
   const setSearchFullText = useSettingsStore((s) => s.setSearchFullText);
+  const codeTheme = useSettingsStore((s) => s.codeTheme);
+  const setCodeTheme = useSettingsStore((s) => s.setCodeTheme);
   const tasks = useTaskStore((s) => s.tasks);
   const [email, setEmail] = useState<string | null>(null);
   const [notifEnabled, setNotifEnabled] = useState(false);
@@ -114,6 +117,19 @@ export default function SettingsPage({ onSignOut }: Props) {
               </Text>
             </TouchableOpacity>
           ))}
+        </View>
+      </View>
+
+      {/* エディタ */}
+      <Text style={s.sectionTitle}>エディタ</Text>
+      <View style={s.card}>
+        <View style={s.row}>
+          <Text style={s.label}>コードテーマ</Text>
+          <Dropdown
+            options={CODE_THEME_OPTIONS}
+            value={codeTheme}
+            onChange={setCodeTheme}
+          />
         </View>
       </View>
 

@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
 import type { ThemeColors } from "./theme";
+import CodeBlock from "../components/CodeBlock";
 
 export function makeMarkdownStyles(colors: ThemeColors) {
   return {
@@ -152,6 +153,15 @@ export function makeMarkdownStyles(colors: ThemeColors) {
 const BULLET_CHARS = ["•", "◦", "▸"];
 
 export const markdownRules = {
+  fence: (node: any) => {
+    const lang = node.sourceInfo?.trim() || undefined;
+    return <CodeBlock key={node.key} code={node.content} language={lang} />;
+  },
+
+  code_block: (node: any) => {
+    return <CodeBlock key={node.key} code={node.content} />;
+  },
+
   list_item: (
     node: any,
     children: any,

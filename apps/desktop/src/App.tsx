@@ -24,6 +24,7 @@ import CommandPalette from "./components/CommandPalette";
 import ConfirmDialog from "./components/ConfirmDialog";
 import ResizeHandles from "./components/ResizeHandles";
 import ToastContainer from "./components/Toast";
+import FloteLogo from "./components/FloteLogo";
 import styles from "./App.module.css";
 
 // Initialize Supabase client if env vars present
@@ -62,10 +63,12 @@ function MainApp({
   userId,
   storageMode,
   onSignOut,
+  onRequestLogin,
 }: {
   userId?: string;
   storageMode: StorageMode;
   onSignOut?: () => void;
+  onRequestLogin?: () => void;
 }) {
   const {
     notes,
@@ -73,6 +76,7 @@ function MainApp({
     fetchNotes,
     saveNote,
     deleteNote,
+    deleteNotesBatch,
     setActiveNote,
   } = useNoteStore();
   const {
@@ -81,6 +85,7 @@ function MainApp({
     fetchTasks,
     saveTask,
     deleteTask,
+    deleteTasksBatch,
     toggleDone,
     setActiveTask,
   } = useTaskStore();
@@ -92,6 +97,9 @@ function MainApp({
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
   const addToast = useUIStore((s) => s.addToast);
   const setSearchFullText = useUIStore((s) => s.setSearchFullText);
+  const setHideCompletedInSearch = useUIStore((s) => s.setHideCompletedInSearch);
+  const editorTheme = useUIStore((s) => s.editorTheme);
+  const setEditorTheme = useUIStore((s) => s.setEditorTheme);
 
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ type: "note" | "task"; id: string } | null>(null);
@@ -113,7 +121,11 @@ function MainApp({
   }, [userId, fetchNotes, fetchTasks]);
 
   useEffect(() => {
-    getConfig().then((c) => setSearchFullText(c.searchFullText));
+    getConfig().then((c) => {
+      setSearchFullText(c.searchFullText);
+      setHideCompletedInSearch(c.hideCompletedInSearch);
+      setEditorTheme(c.editorTheme);
+    });
   }, []);
 
   // Hide window when it loses focus (if setting enabled)
@@ -287,16 +299,16 @@ function MainApp({
 
   const handleDeleteNotes = useCallback(
     (ids: string[]) => {
-      ids.forEach((id) => deleteNote(id));
+      deleteNotesBatch(ids);
     },
-    [deleteNote]
+    [deleteNotesBatch]
   );
 
   const handleDeleteTasks = useCallback(
     (ids: string[]) => {
-      ids.forEach((id) => deleteTask(id));
+      deleteTasksBatch(ids);
     },
-    [deleteTask]
+    [deleteTasksBatch]
   );
 
   const handleSelectByIndex = useCallback(
@@ -397,6 +409,7 @@ function MainApp({
       {/* Titlebar */}
       <div data-tauri-drag-region className={styles.titlebar}>
         <div className={styles.titlebarLeft}>
+          <FloteLogo size={18} />
           <span className={styles.titleLabel}>Flote</span>
           {storageMode === "local" && (
             <span className={styles.storageLabel}>local</span>
@@ -471,6 +484,7 @@ function MainApp({
                   onChange={handleEditorChange}
                   editing={isEditing}
                   onExitEdit={handleExitEditor}
+                  editorTheme={editorTheme}
                 />
               </div>
             </div>
@@ -522,6 +536,7 @@ function MainApp({
                   onChange={handleEditorChange}
                   editing={isEditing}
                   onExitEdit={handleExitEditor}
+                  editorTheme={editorTheme}
                 />
               </div>
             </div>
@@ -591,6 +606,7 @@ function MainApp({
           currentMode={storageMode}
           onClose={() => setSettingsOpen(false)}
           onStorageModeChange={handleStorageModeChange}
+          onRequestLogin={onRequestLogin ? () => { setSettingsOpen(false); onRequestLogin(); } : undefined}
         />
       )}
 
@@ -622,6 +638,7 @@ function MainApp({
 function App() {
   const [storageMode, setStorageMode] = useState<StorageMode | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showLoginForCloud, setShowLoginForCloud] = useState(false);
   const { session, loading: authLoading, signIn, signUp, signOut } = useAuth();
 
   const initNoteStore = useNoteStore((s) => s.initStore);
@@ -643,6 +660,16 @@ function App() {
     });
   }, [initNoteStore, initTaskStore]);
 
+  const handleUseLocal = async () => {
+    await setConfig({ storageMode: "local" });
+    const noteRepo = createNoteRepository("local");
+    const taskRepo = createTaskRepository("local");
+    initNoteStore(noteRepo);
+    initTaskStore(taskRepo);
+    setStorageMode("local");
+    setShowLoginForCloud(false);
+  };
+
   if (loading || storageMode === null) {
     return (
       <div className={styles.loading}>
@@ -652,20 +679,52 @@ function App() {
     );
   }
 
-  // Local mode: no auth needed
+  // Local mode: no auth needed (but user may want to log in for cloud)
   if (storageMode === "local") {
-    return <MainApp storageMode={storageMode} />;
+    if (showLoginForCloud && supabaseConfigured) {
+      return (
+        <Auth
+          onSignIn={async (email, password) => {
+            await signIn(email, password);
+            setShowLoginForCloud(false);
+            await setConfig({ storageMode: "supabase" });
+            setStorageMode("supabase");
+            const noteRepo = createNoteRepository("supabase");
+            const taskRepo = createTaskRepository("supabase");
+            initNoteStore(noteRepo);
+            initTaskStore(taskRepo);
+          }}
+          onSignUp={async (email, password) => {
+            await signUp(email, password);
+            setShowLoginForCloud(false);
+            await setConfig({ storageMode: "supabase" });
+            setStorageMode("supabase");
+            const noteRepo = createNoteRepository("supabase");
+            const taskRepo = createTaskRepository("supabase");
+            initNoteStore(noteRepo);
+            initTaskStore(taskRepo);
+          }}
+          onUseLocal={() => setShowLoginForCloud(false)}
+        />
+      );
+    }
+    return (
+      <MainApp
+        storageMode={storageMode}
+        onRequestLogin={() => setShowLoginForCloud(true)}
+      />
+    );
   }
 
-  // Supabase mode: need config
+  // Cloud mode: need config
   if (!supabaseConfigured) {
     return (
       <div className={styles.loading}>
         <div data-tauri-drag-region className={styles.loadingDrag} />
         <div className={styles.supabaseWarning}>
           <div className={styles.warningBox}>
-            <p className={styles.warningTitle}>Supabase未設定</p>
-            <p>保存先がSupabaseに設定されていますが、接続情報がありません。</p>
+            <p className={styles.warningTitle}>クラウド未設定</p>
+            <p>保存先がクラウドに設定されていますが、接続情報がありません。</p>
             <p>
               <code className={styles.warningCode}>
                 apps/desktop/.env.local
@@ -688,9 +747,15 @@ function App() {
     );
   }
 
-  // Not logged in
+  // Not logged in → show login with local option
   if (!session) {
-    return <Auth onSignIn={signIn} onSignUp={signUp} />;
+    return (
+      <Auth
+        onSignIn={signIn}
+        onSignUp={signUp}
+        onUseLocal={handleUseLocal}
+      />
+    );
   }
 
   // Logged in

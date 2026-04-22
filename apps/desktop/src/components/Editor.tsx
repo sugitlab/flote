@@ -1,12 +1,12 @@
 import { useRef, useEffect, useMemo } from "react";
-import { EditorState } from "@codemirror/state";
+import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, placeholder } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
-import { oneDark } from "@codemirror/theme-one-dark";
-import { marked } from "marked";
-import DOMPurify from "dompurify";
+import type { EditorTheme } from "../store/uiStore";
+import { resolveEditorTheme } from "../editorThemes";
+import { HLJS_THEME_CSS, renderPreview } from "../previewRenderer";
 
 type EditorProps = {
   docId: string;
@@ -15,6 +15,7 @@ type EditorProps = {
   editing: boolean;
   onRequestEdit?: () => void;
   onExitEdit?: () => void;
+  editorTheme?: EditorTheme;
 };
 
 const baseTheme = EditorView.theme({
@@ -23,38 +24,28 @@ const baseTheme = EditorView.theme({
     fontSize: "14px",
     fontFamily: "'JetBrains Mono', 'Fira Code', 'SF Mono', monospace",
   },
-  ".cm-scroller": {
-    overflow: "auto",
-  },
-  ".cm-content": {
-    padding: "16px",
-  },
-  "&.cm-focused": {
-    outline: "none",
-  },
+  ".cm-scroller": { overflow: "auto" },
+  ".cm-content": { padding: "16px" },
+  "&.cm-focused": { outline: "none" },
 });
 
-export default function Editor({ docId, value, onChange, editing, onExitEdit }: EditorProps) {
+const themeCompartment = new Compartment();
+
+export default function Editor({ docId, value, onChange, editing, onExitEdit, editorTheme }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const onExitEditRef = useRef(onExitEdit);
   onExitEditRef.current = onExitEdit;
-  const editingRef = useRef(editing);
-  editingRef.current = editing;
 
-  // Create the CodeMirror instance once
   useEffect(() => {
     if (!containerRef.current) return;
 
     const escKeymap = keymap.of([
       {
         key: "Escape",
-        run: () => {
-          onExitEditRef.current?.();
-          return true;
-        },
+        run: () => { onExitEditRef.current?.(); return true; },
       },
     ]);
 
@@ -65,7 +56,7 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit }: 
         keymap.of([...defaultKeymap, ...historyKeymap]),
         history(),
         markdown({ codeLanguages: languages }),
-        oneDark,
+        themeCompartment.of(resolveEditorTheme(editorTheme)),
         baseTheme,
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
@@ -80,62 +71,67 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit }: 
     const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
 
-    return () => {
-      view.destroy();
-    };
+    return () => { view.destroy(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Focus when entering edit mode
+  // Swap editor theme without recreating the editor
   useEffect(() => {
-    if (editing && viewRef.current) {
-      viewRef.current.focus();
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: themeCompartment.reconfigure(resolveEditorTheme(editorTheme)),
+    });
+  }, [editorTheme]);
+
+  // Inject highlight.js CSS for preview code blocks
+  useEffect(() => {
+    const id = "hljs-theme";
+    let el = document.getElementById(id) as HTMLStyleElement | null;
+    if (!el) {
+      el = document.createElement("style");
+      el.id = id;
+      document.head.appendChild(el);
     }
+    el.textContent = HLJS_THEME_CSS[editorTheme ?? "oneDark"];
+  }, [editorTheme]);
+
+  useEffect(() => {
+    if (editing && viewRef.current) viewRef.current.focus();
   }, [editing]);
 
-  // Sync content when switching to a different document (always replace)
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
     const current = view.state.doc.toString();
     if (current !== value) {
-      view.dispatch({
-        changes: { from: 0, to: current.length, insert: value },
-      });
+      view.dispatch({ changes: { from: 0, to: current.length, insert: value } });
     }
-    // docId changing means the user switched notes — always sync
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId]);
 
-  // Sync remote updates only while NOT editing (preview mode)
-  // While editing, trust CodeMirror's internal state to avoid cursor jumps
   useEffect(() => {
     if (editing) return;
     const view = viewRef.current;
     if (!view) return;
     const current = view.state.doc.toString();
     if (current !== value) {
-      view.dispatch({
-        changes: { from: 0, to: current.length, insert: value },
-      });
+      view.dispatch({ changes: { from: 0, to: current.length, insert: value } });
     }
   }, [value, editing]);
 
   const previewHtml = useMemo(() => {
     if (editing) return "";
-    const raw = marked.parse(value || "*ノートが空です*") as string;
-    return DOMPurify.sanitize(raw);
+    return renderPreview(value);
   }, [value, editing]);
 
   return (
     <div className="h-full w-full overflow-hidden relative">
-      {/* CodeMirror editor */}
       <div
         ref={containerRef}
         className="h-full w-full overflow-hidden"
         style={{ display: editing ? "block" : "none" }}
       />
-      {/* Markdown preview */}
       {!editing && (
         <div className="h-full w-full overflow-auto preview-area">
           <div

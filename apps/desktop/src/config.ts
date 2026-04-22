@@ -1,16 +1,18 @@
 import { load } from "@tauri-apps/plugin-store";
 import type { StorageMode } from "@flote/types";
-import type { ThemeMode } from "./store/uiStore";
+import type { ThemeMode, EditorTheme } from "./store/uiStore";
 
 export type AppSettings = {
   storageMode: StorageMode;
   theme: ThemeMode;
+  editorTheme: EditorTheme;
   alwaysOnTop: boolean;
   hideOnBlur: boolean;
   launchAtLogin: boolean;
   startInTray: boolean;
   globalShortcut: string;
   searchFullText: boolean;
+  hideCompletedInSearch: boolean;
 };
 
 const STORE_PATH = "settings.json";
@@ -18,12 +20,14 @@ const STORE_PATH = "settings.json";
 const DEFAULTS: AppSettings = {
   storageMode: "local",
   theme: "system",
+  editorTheme: "oneDark",
   alwaysOnTop: true,
   hideOnBlur: false,
   launchAtLogin: false,
   startInTray: true,
   globalShortcut: "CmdOrCtrl+Shift+N",
   searchFullText: false,
+  hideCompletedInSearch: true,
 };
 
 async function getStore() {

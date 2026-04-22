@@ -29,7 +29,7 @@
 .titleLabel {
   font-size: 11px;
   font-weight: 600;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   letter-spacing: 0.5px;
   text-transform: uppercase;
 }
@@ -72,7 +72,7 @@
   cursor: pointer;
   border: none;
   background: none;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   transition: all 0.15s ease;
   border-bottom: 2px solid transparent;
 }
@@ -88,8 +88,8 @@
 
 .tabKbd {
   font-size: 9px;
-  color: var(--text-muted);
-  opacity: 0.6;
+  color: var(--text-secondary);
+  opacity: 0.7;
   margin-left: 2px;
 }
 
@@ -309,7 +309,7 @@
 .taskDetailDateInput {
   display: block;
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-primary);
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -379,7 +379,7 @@
 .settingsBtn {
   border: none;
   background: none;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 12px;
   padding: 2px;
@@ -452,6 +452,6 @@
 
 .storageLabel {
   font-size: 10px;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-left: 6px;
 }

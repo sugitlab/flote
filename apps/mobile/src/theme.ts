@@ -4,22 +4,22 @@ import { create } from "zustand";
 
 export const Colors = {
   light: {
-    background: "#ffffff",
-    surface: "#f2f2f7",
-    text: "#000000",
-    textSecondary: "#3c3c43",
-    border: "rgba(0,0,0,0.1)",
-    accent: "#007aff",
-    danger: "#ff3b30",
+    background: "#FAFAFE",
+    surface: "#F3F3F8",
+    text: "#3D3D5C",
+    textSecondary: "#5C5C7A",
+    border: "#D5D5E0",
+    accent: "#4A4AEB",
+    danger: "#E03131",
   },
   dark: {
-    background: "#000000",
-    surface: "#1c1c1e",
-    text: "#ffffff",
-    textSecondary: "rgba(235,235,245,0.6)",
-    border: "rgba(255,255,255,0.1)",
-    accent: "#0a84ff",
-    danger: "#ff453a",
+    background: "#161625",
+    surface: "#212136",
+    text: "#EAEAF4",
+    textSecondary: "#8585A8",
+    border: "rgba(255,255,255,0.08)",
+    accent: "#7B84FC",
+    danger: "#F03E3E",
   },
 } as const;
 

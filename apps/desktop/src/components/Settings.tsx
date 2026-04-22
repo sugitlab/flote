@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { appDataDir } from "@tauri-apps/api/path";
 import {
   enable as enableAutostart,
   disable as disableAutostart,
@@ -7,6 +8,8 @@ import {
 } from "@tauri-apps/plugin-autostart";
 import type { StorageMode } from "@flote/types";
 import { useUIStore, type ThemeMode } from "../store/uiStore";
+import { CODE_THEME_OPTIONS } from "@flote/types";
+import type { EditorTheme } from "../store/uiStore";
 import { getConfig, setConfig, type AppSettings } from "../config";
 import { useAuth } from "../hooks/useAuth";
 import styles from "./Settings.module.css";
@@ -17,12 +20,14 @@ type Props = {
   currentMode: StorageMode;
   onClose: () => void;
   onStorageModeChange: (mode: StorageMode) => void;
+  onRequestLogin?: () => void;
 };
 
 export default function Settings({
   currentMode,
   onClose,
   onStorageModeChange,
+  onRequestLogin,
 }: Props) {
   const [tab, setTab] = useState<SettingsTab>("general");
 
@@ -68,6 +73,7 @@ export default function Settings({
             <StorageTab
               currentMode={currentMode}
               onStorageModeChange={onStorageModeChange}
+              onRequestLogin={onRequestLogin}
             />
           )}
           {tab === "legal" && <LegalTab />}
@@ -79,12 +85,17 @@ export default function Settings({
 
 /* ─── General ─── */
 
+
 function GeneralTab() {
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
+  const editorTheme = useUIStore((s) => s.editorTheme);
+  const setEditorTheme = useUIStore((s) => s.setEditorTheme);
   const addToast = useUIStore((s) => s.addToast);
   const searchFullText = useUIStore((s) => s.searchFullText);
   const setSearchFullText = useUIStore((s) => s.setSearchFullText);
+  const hideCompletedInSearch = useUIStore((s) => s.hideCompletedInSearch);
+  const setHideCompletedInSearch = useUIStore((s) => s.setHideCompletedInSearch);
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [hideOnBlur, setHideOnBlur] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
@@ -102,9 +113,19 @@ function GeneralTab() {
     setConfig({ searchFullText: v });
   };
 
+  const handleHideCompletedInSearch = (v: boolean) => {
+    setHideCompletedInSearch(v);
+    setConfig({ hideCompletedInSearch: v });
+  };
+
   const handleTheme = (t: ThemeMode) => {
     setTheme(t);
     setConfig({ theme: t });
+  };
+
+  const handleEditorTheme = (t: EditorTheme) => {
+    setEditorTheme(t);
+    setConfig({ editorTheme: t });
   };
 
   const handleAlwaysOnTop = async (v: boolean) => {
@@ -174,12 +195,36 @@ function GeneralTab() {
         </div>
       </div>
 
+      <h3 className={styles.sectionTitle}>エディタ</h3>
+
+      <div className={styles.field}>
+        <div className={styles.fieldLabel}>Syntax highlight テーマ</div>
+        <div className={styles.editorThemeGrid}>
+          {CODE_THEME_OPTIONS.map((t) => (
+            <button
+              key={t.value}
+              className={`${styles.editorThemeBtn} ${editorTheme === t.value ? styles.editorThemeBtnActive : ""}`}
+              onClick={() => handleEditorTheme(t.value)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <h3 className={styles.sectionTitle}>検索</h3>
 
       <div className={styles.field}>
         <div className={styles.switchRow}>
           <span className={styles.switchLabel}>コマンドパレットで本文も検索する</span>
           <Toggle checked={searchFullText} onChange={handleSearchFullText} />
+        </div>
+      </div>
+
+      <div className={styles.field}>
+        <div className={styles.switchRow}>
+          <span className={styles.switchLabel}>完了済みタスクを検索から除外する</span>
+          <Toggle checked={hideCompletedInSearch} onChange={handleHideCompletedInSearch} />
         </div>
       </div>
     </>
@@ -357,8 +402,7 @@ function AccountTab({
       <>
         <h3 className={styles.sectionTitle}>アカウント</h3>
         <div className={styles.storageInfo}>
-          Supabaseが設定されていません。
-          <code>apps/desktop/.env.local</code> に接続情報を追加してください。
+          クラウド同期が設定されていません。
         </div>
       </>
     );
@@ -431,18 +475,30 @@ function AccountTab({
 function StorageTab({
   currentMode,
   onStorageModeChange,
+  onRequestLogin,
 }: {
   currentMode: StorageMode;
   onStorageModeChange: (mode: StorageMode) => void;
+  onRequestLogin?: () => void;
 }) {
   const { session } = useAuth();
-  const addToast = useUIStore((s) => s.addToast);
   const isLoggedIn = !!session;
+  const [dataDir, setDataDir] = useState<string>("");
 
-  const handleChange = (mode: StorageMode) => {
-    if (mode === "supabase" && !isLoggedIn) return;
-    onStorageModeChange(mode);
-    addToast("info", "設定を反映するにはアプリを再起動してください");
+  useEffect(() => {
+    appDataDir().then(setDataDir).catch(() => {});
+  }, []);
+
+  const handleCloudClick = () => {
+    if (!isLoggedIn) {
+      onRequestLogin?.();
+    } else {
+      onStorageModeChange("supabase");
+    }
+  };
+
+  const handleOpenDataDir = () => {
+    if (dataDir) invoke("open_path", { path: dataDir });
   };
 
   return (
@@ -453,16 +509,15 @@ function StorageTab({
         <div className={styles.toggleGroup}>
           <button
             className={`${styles.toggleBtn} ${currentMode === "local" ? styles.toggleBtnActive : ""}`}
-            onClick={() => handleChange("local")}
+            onClick={() => onStorageModeChange("local")}
           >
             ローカル
           </button>
           <button
-            className={`${styles.toggleBtn} ${currentMode === "supabase" ? styles.toggleBtnActive : ""} ${!isLoggedIn ? styles.toggleBtnDisabled : ""}`}
-            onClick={() => handleChange("supabase")}
-            disabled={!isLoggedIn}
+            className={`${styles.toggleBtn} ${currentMode === "supabase" ? styles.toggleBtnActive : ""}`}
+            onClick={handleCloudClick}
           >
-            クラウド (Supabase)
+            クラウド
             {!isLoggedIn && <span className={styles.badge}>要ログイン</span>}
           </button>
         </div>
@@ -471,8 +526,19 @@ function StorageTab({
       <div className={styles.storageInfo}>
         {currentMode === "local"
           ? "ノートとタスクはこのデバイスにローカル保存されます。"
-          : "ノートとタスクはSupabaseクラウドに保存されます。"}
+          : "ノートとタスクはクラウドに保存されます。"}
       </div>
+
+      {currentMode === "local" && dataDir && (
+        <div className={styles.field}>
+          <div className={styles.fieldLabel}>データ保存場所</div>
+          <button className={styles.dataDirBtn} onClick={handleOpenDataDir} title="Finderで開く">
+            <span className={styles.dataDirPath}>{dataDir}</span>
+            <span className={styles.dataDirIcon}>↗</span>
+          </button>
+          <div className={styles.fieldHint}>クリックするとFinderで開きます</div>
+        </div>
+      )}
 
       <div className={styles.storageInfo}>
         ローカルデータは保持されます。保存先を切り替えてもデータは削除されません。

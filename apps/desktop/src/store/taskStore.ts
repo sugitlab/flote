@@ -10,6 +10,7 @@ type TaskStore = {
   fetchTasks: (userId?: string) => Promise<void>;
   saveTask: (task: Task, userId?: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
+  deleteTasksBatch: (ids: string[]) => Promise<void>;
   toggleDone: (id: string, userId?: string) => Promise<void>;
   setActiveTask: (id: string | null) => void;
   applyRemoteChange: (
@@ -29,14 +30,14 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
 
   fetchTasks: async (userId?: string) => {
     const { repo } = get();
-    if (!repo || !userId) return;
-    const tasks = await repo.getTasks(userId);
+    if (!repo) return;
+    const tasks = await repo.getTasks(userId ?? "");
     set({ tasks });
   },
 
   saveTask: async (task: Task, userId?: string) => {
     const { repo } = get();
-    if (!repo || !userId) return;
+    if (!repo) return;
     const prev = get().tasks;
     const exists = prev.some((t) => t.id === task.id);
     const optimistic = exists
@@ -45,7 +46,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set({ tasks: optimistic });
 
     try {
-      await repo.saveTask(task, userId);
+      await repo.saveTask(task, userId ?? "");
     } catch (e) {
       console.error("[taskStore] saveTask failed:", e);
       set({ tasks: prev });
@@ -65,6 +66,26 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       await repo.deleteTask(id);
     } catch (e) {
       console.error("[taskStore] deleteTask failed:", e);
+      set({ tasks: prev });
+    }
+  },
+
+  deleteTasksBatch: async (ids: string[]) => {
+    const { repo } = get();
+    if (!repo) return;
+    const prev = get().tasks;
+    const idSet = new Set(ids);
+    set({
+      tasks: prev.filter((t) => !idSet.has(t.id)),
+      activeTaskId: idSet.has(get().activeTaskId ?? "") ? null : get().activeTaskId,
+    });
+
+    try {
+      for (const id of ids) {
+        await repo.deleteTask(id);
+      }
+    } catch (e) {
+      console.error("[taskStore] deleteTasksBatch failed:", e);
       set({ tasks: prev });
     }
   },

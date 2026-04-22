@@ -10,6 +10,7 @@ type NoteStore = {
   fetchNotes: (userId?: string) => Promise<void>;
   saveNote: (note: Note, userId?: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
+  deleteNotesBatch: (ids: string[]) => Promise<void>;
   setActiveNote: (id: string | null) => void;
   applyRemoteChange: (
     eventType: "INSERT" | "UPDATE" | "DELETE",
@@ -28,14 +29,14 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
 
   fetchNotes: async (userId?: string) => {
     const { repo } = get();
-    if (!repo || !userId) return;
-    const notes = await repo.getNotes(userId);
+    if (!repo) return;
+    const notes = await repo.getNotes(userId ?? "");
     set({ notes });
   },
 
   saveNote: async (note: Note, userId?: string) => {
     const { repo } = get();
-    if (!repo || !userId) return;
+    if (!repo) return;
     const prev = get().notes;
     const exists = prev.some((n) => n.id === note.id);
     const optimistic = exists
@@ -44,7 +45,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     set({ notes: optimistic });
 
     try {
-      await repo.saveNote(note, userId);
+      await repo.saveNote(note, userId ?? "");
     } catch (e) {
       console.error("[noteStore] saveNote failed:", e);
       set({ notes: prev });
@@ -64,6 +65,26 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
       await repo.deleteNote(id);
     } catch (e) {
       console.error("[noteStore] deleteNote failed:", e);
+      set({ notes: prev });
+    }
+  },
+
+  deleteNotesBatch: async (ids: string[]) => {
+    const { repo } = get();
+    if (!repo) return;
+    const prev = get().notes;
+    const idSet = new Set(ids);
+    set({
+      notes: prev.filter((n) => !idSet.has(n.id)),
+      activeNoteId: idSet.has(get().activeNoteId ?? "") ? null : get().activeNoteId,
+    });
+
+    try {
+      for (const id of ids) {
+        await repo.deleteNote(id);
+      }
+    } catch (e) {
+      console.error("[noteStore] deleteNotesBatch failed:", e);
       set({ notes: prev });
     }
   },

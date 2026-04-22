@@ -1,11 +1,14 @@
 import { useState } from "react";
+import FloteLogo from "./FloteLogo";
+import styles from "./Auth.module.css";
 
 type AuthProps = {
   onSignIn: (email: string, password: string) => Promise<void>;
   onSignUp: (email: string, password: string) => Promise<void>;
+  onUseLocal?: () => void;
 };
 
-export default function Auth({ onSignIn, onSignUp }: AuthProps) {
+export default function Auth({ onSignIn, onSignUp, onUseLocal }: AuthProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -30,25 +33,19 @@ export default function Auth({ onSignIn, onSignUp }: AuthProps) {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900 text-gray-100 rounded-lg overflow-hidden">
-      <div
-        data-tauri-drag-region
-        className="h-8 shrink-0 bg-gray-900/80 select-none cursor-move"
-      />
-      <div className="flex-1 flex items-center justify-center">
-        <form
-          onSubmit={handleSubmit}
-          className="w-80 flex flex-col gap-4 p-6 bg-gray-800 rounded-lg"
-        >
-          <h2 className="text-lg font-semibold text-center">
+    <div className={styles.container}>
+      <div data-tauri-drag-region className={styles.dragRegion} />
+      <div className={styles.body}>
+        <form onSubmit={handleSubmit} className={styles.form}>
+          <div className={styles.logoWrap}>
+            <FloteLogo size={56} />
+            <span className={styles.appName}>Flote</span>
+          </div>
+          <p className={styles.subtitle}>
             {isSignUp ? "アカウント作成" : "ログイン"}
-          </h2>
+          </p>
 
-          {error && (
-            <div className="text-sm text-red-400 bg-red-900/30 px-3 py-2 rounded">
-              {error}
-            </div>
-          )}
+          {error && <div className={styles.error}>{error}</div>}
 
           <input
             type="email"
@@ -56,7 +53,7 @@ export default function Auth({ onSignIn, onSignUp }: AuthProps) {
             onChange={(e) => setEmail(e.target.value)}
             placeholder="メールアドレス"
             required
-            className="bg-gray-700 text-sm text-white px-3 py-2 rounded outline-none placeholder-gray-500 focus:ring-1 focus:ring-blue-500"
+            className={styles.input}
           />
           <input
             type="password"
@@ -65,19 +62,11 @@ export default function Auth({ onSignIn, onSignUp }: AuthProps) {
             placeholder="パスワード"
             required
             minLength={6}
-            className="bg-gray-700 text-sm text-white px-3 py-2 rounded outline-none placeholder-gray-500 focus:ring-1 focus:ring-blue-500"
+            className={styles.input}
           />
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-sm font-medium py-2 rounded transition-colors"
-          >
-            {loading
-              ? "処理中..."
-              : isSignUp
-                ? "サインアップ"
-                : "ログイン"}
+          <button type="submit" disabled={loading} className={styles.submitBtn}>
+            {loading ? "処理中..." : isSignUp ? "サインアップ" : "ログイン"}
           </button>
 
           <button
@@ -86,12 +75,16 @@ export default function Auth({ onSignIn, onSignUp }: AuthProps) {
               setIsSignUp(!isSignUp);
               setError(null);
             }}
-            className="text-xs text-gray-400 hover:text-gray-200 transition-colors"
+            className={styles.toggleBtn}
           >
-            {isSignUp
-              ? "アカウントをお持ちの方はこちら"
-              : "アカウントを作成する"}
+            {isSignUp ? "アカウントをお持ちの方はこちら" : "アカウントを作成する"}
           </button>
+
+          {onUseLocal && (
+            <button type="button" onClick={onUseLocal} className={styles.localBtn}>
+              ローカルに保存して利用する
+            </button>
+          )}
         </form>
       </div>
     </div>

@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { useTheme } from "../../src/theme";
 import { supabase } from "../../src/lib/supabase";
+import FloteLogo from "../../components/FloteLogo";
 
 type Mode = "login" | "signup";
 
@@ -50,7 +51,10 @@ export default function AuthScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.inner}>
-        <Text style={[styles.title, { color: colors.text }]}>Flote</Text>
+        <View style={styles.logoWrap}>
+          <FloteLogo size={72} />
+          <Text style={[styles.title, { color: colors.text }]}>Flote</Text>
+        </View>
 
         <View style={[styles.segmented, { backgroundColor: colors.surface }]}>
           <TouchableOpacity
@@ -112,7 +116,8 @@ export default function AuthScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: "center" },
   inner: { paddingHorizontal: 32 },
-  title: { fontSize: 32, fontWeight: "bold", textAlign: "center", marginBottom: 40 },
+  logoWrap: { alignItems: "center", gap: 20, marginBottom: 40 },
+  title: { fontSize: 28, fontWeight: "700", textAlign: "center" },
   segmented: {
     flexDirection: "row",
     borderRadius: 8,

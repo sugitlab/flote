@@ -4,7 +4,7 @@
   "private": true,
   "main": "expo-router/entry",
   "scripts": {
-    "dev": "expo start",
+    "dev": "expo start --clear",
     "build:ios": "eas build --platform ios",
     "build:android": "eas build --platform android",
     "typecheck": "tsc --noEmit",
@@ -28,6 +28,7 @@
     "expo-secure-store": "~13.0.2",
     "expo-status-bar": "~1.12.1",
     "expo-system-ui": "~3.0.7",
+    "prism-react-renderer": "^2.4.1",
     "react": "18.2.0",
     "react-native": "0.74.5",
     "react-native-markdown-display": "^7.0.2",
