@@ -1,0 +1,91 @@
+name: Release Desktop
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release-macos:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Rust
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop/src-tauri
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # arm64 (Apple Silicon) ビルド
+      - name: Build (arm64)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # --- コード署名・公証 (Apple Developer Program 登録後に有効化) ---
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # -----------------------------------------------------------------
+        with:
+          projectPath: apps/desktop
+          args: --target aarch64-apple-darwin
+          tagName: ${{ github.ref_name }}
+          releaseName: "Flote ${{ github.ref_name }}"
+          releaseBody: |
+            ## Flote ${{ github.ref_name }}
+
+            ### インストール方法
+            1. お使いのMacに合わせてDMGをダウンロード
+               - **Apple Silicon (M1/M2/M3)**: `flote_*_aarch64.dmg`
+               - **Intel Mac**: `flote_*_x86_64.dmg`
+            2. DMGを開いてApplicationsフォルダにドラッグ
+            3. 初回起動時はGatekeeperの警告が出るので、**システム設定 → プライバシーとセキュリティ** から「このまま開く」を選択
+
+            > ⚠️ このリリースはコード署名なしの野良アプリです。
+          releaseDraft: false
+          prerelease: false
+
+      # x86_64 (Intel) ビルド — リリースは上で作成済みなので updater フラグなし
+      - name: Build (x86_64)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # --- コード署名・公証 (Apple Developer Program 登録後に有効化) ---
+          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          # APPLE_ID: ${{ secrets.APPLE_ID }}
+          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # -----------------------------------------------------------------
+        with:
+          projectPath: apps/desktop
+          args: --target x86_64-apple-darwin
+          tagName: ${{ github.ref_name }}
+          releaseName: "Flote ${{ github.ref_name }}"
+          releaseBody: ""
