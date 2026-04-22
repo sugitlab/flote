@@ -95,6 +95,7 @@ function MainApp({
 
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ type: "note" | "task"; id: string } | null>(null);
+  const [confirmConvert, setConfirmConvert] = useState<{ type: "note" | "task"; id: string } | null>(null);
 
   const { cycleTheme } = useTheme();
 
@@ -332,6 +333,48 @@ function MainApp({
     }
   }, [activeTab, activeNoteId, activeTaskId, handleDeleteNote, handleDeleteTask]);
 
+  const handleConfirmConvert = useCallback(() => {
+    if (!confirmConvert) return;
+    if (confirmConvert.type === "note") {
+      const note = notes.find((n) => n.id === confirmConvert.id);
+      if (note) {
+        const task: Task = {
+          id: crypto.randomUUID(),
+          title: note.title || extractTitle(note.body_md),
+          body_md: note.body_md,
+          due_date: null,
+          done: false,
+          updated_at: new Date().toISOString(),
+        };
+        saveTask(task, userId);
+        deleteNote(note.id);
+        setActiveTask(task.id);
+        setActiveNote(null);
+        setActiveTab("tasks");
+        setIsEditing(false);
+        addToast("success", "ノートをタスクに変換しました");
+      }
+    } else {
+      const task = tasks.find((t) => t.id === confirmConvert.id);
+      if (task) {
+        const note: Note = {
+          id: crypto.randomUUID(),
+          title: task.title,
+          body_md: task.body_md,
+          updated_at: new Date().toISOString(),
+        };
+        saveNote(note, userId);
+        deleteTask(task.id);
+        setActiveNote(note.id);
+        setActiveTask(null);
+        setActiveTab("notes");
+        setIsEditing(false);
+        addToast("success", "タスクをノートに変換しました");
+      }
+    }
+    setConfirmConvert(null);
+  }, [confirmConvert, notes, tasks, userId, saveNote, saveTask, deleteNote, deleteTask, setActiveNote, setActiveTask, setActiveTab, addToast]);
+
   const keyboardActions = useMemo(
     () => ({
       onNewNote: handleCreateNote,
@@ -409,17 +452,27 @@ function MainApp({
         {/* Editor area */}
         <div className={styles.editorArea}>
           {activeTab === "notes" && selectedNote ? (
-            <div
-              className={styles.editorWrap}
-              onDoubleClick={() => setIsEditing(true)}
-            >
-              <Editor
-                docId={selectedNote.id}
-                value={selectedNote.body_md}
-                onChange={handleEditorChange}
-                editing={isEditing}
-                onExitEdit={handleExitEditor}
-              />
+            <div className={styles.noteDetail}>
+              <div className={styles.noteDetailHeader}>
+                <button
+                  className={`${styles.convertBtn} ${styles.convertBtnNote}`}
+                  onClick={() => setConfirmConvert({ type: "note", id: selectedNote.id })}
+                >
+                  ↻
+                </button>
+              </div>
+              <div
+                className={styles.editorWrap}
+                onDoubleClick={() => setIsEditing(true)}
+              >
+                <Editor
+                  docId={selectedNote.id}
+                  value={selectedNote.body_md}
+                  onChange={handleEditorChange}
+                  editing={isEditing}
+                  onExitEdit={handleExitEditor}
+                />
+              </div>
             </div>
           ) : activeTab === "tasks" && selectedTask ? (
             <div className={styles.taskDetail}>
@@ -452,6 +505,12 @@ function MainApp({
                     className={styles.datePickerHidden}
                   />
                 </div>
+                <button
+                  className={`${styles.convertBtn} ${styles.convertBtnTask}`}
+                  onClick={() => setConfirmConvert({ type: "task", id: selectedTask.id })}
+                >
+                  ↻
+                </button>
               </div>
               <div
                 className={styles.editorWrap}
@@ -541,6 +600,14 @@ function MainApp({
           message={confirmDelete.type === "note" ? "このノートを削除しますか？" : "このタスクを削除しますか？"}
           onConfirm={handleConfirmDelete}
           onCancel={() => setConfirmDelete(null)}
+        />
+      )}
+
+      {confirmConvert && (
+        <ConfirmDialog
+          message={confirmConvert.type === "note" ? "このノートをタスクに変換しますか？元のノートは削除されます。" : "このタスクをノートに変換しますか？元のタスクは削除されます。"}
+          onConfirm={handleConfirmConvert}
+          onCancel={() => setConfirmConvert(null)}
         />
       )}
 

@@ -206,6 +206,65 @@
   font-size: 13px;
 }
 
+/* Note detail in editor area */
+.noteDetail {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.noteDetailHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* Convert button (shared between note and task headers) */
+.convertBtn {
+  position: relative;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+}
+
+.convertBtn:hover {
+  color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.convertBtn::after {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease 0.4s;
+  z-index: 100;
+}
+
+.convertBtn:hover::after {
+  opacity: 1;
+}
+
+.convertBtnNote::after { content: "タスクに変換"; }
+.convertBtnTask::after { content: "ノートに変換"; }
+
 /* Task detail in editor area */
 .taskDetail {
   display: flex;

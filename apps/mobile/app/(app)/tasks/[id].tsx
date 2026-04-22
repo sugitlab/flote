@@ -19,8 +19,10 @@ import { makeMarkdownStyles, markdownRules } from "../../../src/markdownStyles";
 import { scheduleTaskReminder, cancelTaskReminder } from "../../../src/lib/notifications";
 import { useSettingsStore } from "../../../src/store/settingsStore";
 import { useTaskStore } from "../../../src/store/taskStore";
+import { useNoteStore } from "../../../src/store/noteStore";
 import { supabase } from "../../../src/lib/supabase";
-import type { Task } from "@flote/types";
+import { generateId } from "../../../src/utils";
+import type { Task, Note } from "@flote/types";
 
 export default function TaskDetailScreen() {
   const { id, edit } = useLocalSearchParams<{ id: string; edit?: string }>();
@@ -29,6 +31,7 @@ export default function TaskDetailScreen() {
   const tasks = useTaskStore((s) => s.tasks);
   const saveTask = useTaskStore((s) => s.saveTask);
   const deleteTask = useTaskStore((s) => s.deleteTask);
+  const saveNote = useNoteStore((s) => s.saveNote);
   const reminderHour = useSettingsStore((s) => s.reminderHour);
   const [editing, setEditing] = useState(edit === "1");
   const [content, setContent] = useState("");
@@ -73,6 +76,28 @@ export default function TaskDetailScreen() {
   const handleChangeText = (text: string) => {
     setContent(text);
     debouncedSave(text);
+  };
+
+  const handleConvertToNote = () => {
+    Alert.alert("ノートに変換", "このタスクをノートに変換しますか？元のタスクは削除されます。", [
+      { text: "キャンセル", style: "cancel" },
+      {
+        text: "変換",
+        onPress: async () => {
+          if (!userId || !taskRef.current) return;
+          const task = taskRef.current;
+          const newNote: Note = {
+            id: generateId(),
+            title: task.title,
+            body_md: task.body_md,
+            updated_at: new Date().toISOString(),
+          };
+          await saveNote(newNote, userId);
+          await deleteTask(task.id);
+          router.replace(`/(app)/notes/${newNote.id}` as never);
+        },
+      },
+    ]);
   };
 
   const handleDelete = () => {
@@ -140,7 +165,12 @@ export default function TaskDetailScreen() {
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerRight: () => (
-            <View style={{ flexDirection: "row", gap: 12 }}>
+            <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+              <TouchableOpacity onPress={handleConvertToNote} style={{ marginRight: 4 }}>
+                <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 9, paddingVertical: 4 }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 20, lineHeight: 24 }}>↻</Text>
+                </View>
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => setEditing(!editing)}>
                 <Text style={{ color: colors.accent, fontSize: 16 }}>
                   {editing ? "完了" : "編集"}

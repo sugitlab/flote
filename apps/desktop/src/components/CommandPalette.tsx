@@ -61,6 +61,7 @@ export default function CommandPalette({
   const [keyboardNav, setKeyboardNav] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const composingRef = useRef(false);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -217,7 +218,7 @@ export default function CommandPalette({
         e.preventDefault();
         setKeyboardNav(true);
         setFocusIndex((i) => Math.max(i - 1, 0));
-      } else if (e.key === "Enter" && items[focusIndex]) {
+      } else if (e.key === "Enter" && items[focusIndex] && !composingRef.current) {
         e.preventDefault();
         execute(items[focusIndex]);
       } else if (e.key === "Escape") {
@@ -271,6 +272,8 @@ export default function CommandPalette({
             className={styles.searchInput}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onCompositionStart={() => { composingRef.current = true; }}
+            onCompositionEnd={() => { setTimeout(() => { composingRef.current = false; }, 0); }}
             placeholder="検索..."
           />
         </div>

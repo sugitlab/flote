@@ -25,6 +25,8 @@ export default function SettingsPage({ onSignOut }: Props) {
   const setThemeMode = useThemeStore((s) => s.setMode);
   const reminderHour = useSettingsStore((s) => s.reminderHour);
   const setReminderHour = useSettingsStore((s) => s.setReminderHour);
+  const searchFullText = useSettingsStore((s) => s.searchFullText);
+  const setSearchFullText = useSettingsStore((s) => s.setSearchFullText);
   const tasks = useTaskStore((s) => s.tasks);
   const [email, setEmail] = useState<string | null>(null);
   const [notifEnabled, setNotifEnabled] = useState(false);
@@ -79,6 +81,17 @@ export default function SettingsPage({ onSignOut }: Props) {
 
   return (
     <ScrollView style={s.container} contentContainerStyle={s.content}>
+
+      {/* 検索 */}
+      <Text style={s.sectionTitle}>検索</Text>
+      <View style={s.card}>
+        <TouchableOpacity style={s.row} onPress={() => setSearchFullText(!searchFullText)} activeOpacity={0.7}>
+          <Text style={s.label}>本文も検索する</Text>
+          <View style={[s.badge, { backgroundColor: searchFullText ? colors.accent : colors.border }]}>
+            <Text style={s.badgeText}>{searchFullText ? "ON" : "OFF"}</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
 
       {/* テーマ */}
       <Text style={s.sectionTitle}>テーマ</Text>

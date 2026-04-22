@@ -13,6 +13,7 @@ import {
 import { useRouter } from "expo-router";
 import { useTheme } from "../src/theme";
 import { useNoteStore } from "../src/store/noteStore";
+import { useSettingsStore } from "../src/store/settingsStore";
 import type { Note } from "@flote/types";
 
 function relativeDate(dateStr: string): string {
@@ -32,6 +33,15 @@ function extractTitle(note: Note): string {
   return firstLine.replace(/^#{1,6}\s+/, "").trim() || "無題のノート";
 }
 
+function bodySnippet(body: string, query: string, radius = 40): string {
+  const idx = body.toLowerCase().indexOf(query.toLowerCase());
+  if (idx === -1) return "";
+  const start = Math.max(0, idx - radius);
+  const end = Math.min(body.length, idx + query.length + radius);
+  const snippet = body.slice(start, end).replace(/\n/g, " ");
+  return (start > 0 ? "…" : "") + snippet + (end < body.length ? "…" : "");
+}
+
 type Props = {
   userId: string | null;
 };
@@ -43,6 +53,7 @@ export default function NotesList({ userId }: Props) {
   const loading = useNoteStore((s) => s.loading);
   const fetchNotes = useNoteStore((s) => s.fetchNotes);
   const deleteNote = useNoteStore((s) => s.deleteNote);
+  const searchFullText = useSettingsStore((s) => s.searchFullText);
   const [search, setSearch] = useState("");
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -54,12 +65,12 @@ export default function NotesList({ userId }: Props) {
   const filtered = useMemo(() => {
     if (!search) return notes;
     const q = search.toLowerCase();
-    return notes.filter(
-      (n) =>
-        extractTitle(n).toLowerCase().includes(q) ||
-        n.body_md.toLowerCase().includes(q)
-    );
-  }, [notes, search]);
+    return notes.filter((n) => {
+      if (extractTitle(n).toLowerCase().includes(q)) return true;
+      if (searchFullText && n.body_md.toLowerCase().includes(q)) return true;
+      return false;
+    });
+  }, [notes, search, searchFullText]);
 
   const handleRefresh = useCallback(() => {
     if (userId) fetchNotes(userId);
@@ -116,6 +127,7 @@ export default function NotesList({ userId }: Props) {
           <TouchableOpacity
             style={[
               styles.item,
+              styles.itemRow,
               {
                 backgroundColor: isSelected ? colors.accent + "22" : colors.surface,
                 borderColor: isSelected ? colors.accent : colors.border,
@@ -143,6 +155,13 @@ export default function NotesList({ userId }: Props) {
         );
       }
 
+      const q = search.trim();
+      const titleMatches = q ? extractTitle(item).toLowerCase().includes(q.toLowerCase()) : false;
+      const snippet =
+        searchFullText && q && !titleMatches
+          ? bodySnippet(item.body_md, q)
+          : "";
+
       return (
         <TouchableOpacity
           style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -151,16 +170,23 @@ export default function NotesList({ userId }: Props) {
           delayLongPress={400}
           activeOpacity={0.7}
         >
-          <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>
-            {title}
-          </Text>
-          <Text style={[styles.itemDate, { color: colors.textSecondary }]} numberOfLines={1}>
-            {relativeDate(item.updated_at)}
-          </Text>
+          <View style={styles.itemRow}>
+            <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>
+              {title}
+            </Text>
+            <Text style={[styles.itemDate, { color: colors.textSecondary }]} numberOfLines={1}>
+              {relativeDate(item.updated_at)}
+            </Text>
+          </View>
+          {snippet ? (
+            <Text style={[styles.itemSnippet, { color: colors.textSecondary }]} numberOfLines={2}>
+              {snippet}
+            </Text>
+          ) : null}
         </TouchableOpacity>
       );
     },
-    [colors, selectMode, selectedIds, toggleSelect, enterSelectMode]
+    [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, enterSelectMode]
   );
 
   return (
@@ -175,13 +201,22 @@ export default function NotesList({ userId }: Props) {
           </TouchableOpacity>
         </View>
       ) : (
-        <TextInput
-          style={[styles.searchInput, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
-          placeholder="検索..."
-          placeholderTextColor={colors.textSecondary}
-          value={search}
-          onChangeText={setSearch}
-        />
+        <View style={[styles.searchWrap, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+          <TextInput
+            style={[styles.searchInput, { color: colors.text }]}
+            placeholder="検索..."
+            placeholderTextColor={colors.textSecondary}
+            value={search}
+            onChangeText={setSearch}
+          />
+          {search.length > 0 && (
+            <TouchableOpacity onPress={() => setSearch("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} activeOpacity={0.6}>
+              <View style={[styles.clearBtn, { backgroundColor: colors.textSecondary }]}>
+                <Text style={styles.clearBtnText}>✕</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+        </View>
       )}
 
       <FlatList
@@ -228,14 +263,33 @@ export default function NotesList({ userId }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  searchInput: {
+  searchWrap: {
+    flexDirection: "row",
+    alignItems: "center",
     height: 40,
     marginHorizontal: 16,
     marginTop: 8,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 12,
+  },
+  searchInput: {
+    flex: 1,
     fontSize: 15,
+    paddingVertical: 0,
+  },
+  clearBtn: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  clearBtnText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
+    lineHeight: 12,
   },
   selectHeader: {
     flexDirection: "row",
@@ -254,12 +308,15 @@ const styles = StyleSheet.create({
   },
   list: { padding: 16, paddingBottom: 40 },
   item: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: "column",
     padding: 14,
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 8,
+  },
+  itemRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   checkbox: {
     width: 22,
@@ -274,6 +331,7 @@ const styles = StyleSheet.create({
   checkmark: { color: "#fff", fontSize: 13, fontWeight: "bold" },
   itemTitle: { fontSize: 16, fontWeight: "600", flex: 1, marginRight: 8 },
   itemDate: { fontSize: 12, flexShrink: 0 },
+  itemSnippet: { fontSize: 13, marginTop: 4, lineHeight: 18 },
   empty: { alignItems: "center", marginTop: 80 },
   emptyText: { fontSize: 16 },
   actionBar: {

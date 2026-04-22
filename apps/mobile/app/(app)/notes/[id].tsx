@@ -16,8 +16,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../../src/theme";
 import { makeMarkdownStyles, markdownRules } from "../../../src/markdownStyles";
 import { useNoteStore } from "../../../src/store/noteStore";
+import { useTaskStore } from "../../../src/store/taskStore";
 import { supabase } from "../../../src/lib/supabase";
-import type { Note } from "@flote/types";
+import { generateId } from "../../../src/utils";
+import type { Note, Task } from "@flote/types";
 
 export default function NoteDetailScreen() {
   const { id, edit } = useLocalSearchParams<{ id: string; edit?: string }>();
@@ -26,6 +28,7 @@ export default function NoteDetailScreen() {
   const notes = useNoteStore((s) => s.notes);
   const saveNote = useNoteStore((s) => s.saveNote);
   const deleteNote = useNoteStore((s) => s.deleteNote);
+  const saveTask = useTaskStore((s) => s.saveTask);
   const [editing, setEditing] = useState(edit === "1");
   const [content, setContent] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -70,6 +73,30 @@ export default function NoteDetailScreen() {
     debouncedSave(text);
   };
 
+  const handleConvertToTask = () => {
+    Alert.alert("タスクに変換", "このノートをタスクに変換しますか？元のノートは削除されます。", [
+      { text: "キャンセル", style: "cancel" },
+      {
+        text: "変換",
+        onPress: async () => {
+          if (!userId || !noteRef.current) return;
+          const note = noteRef.current;
+          const newTask: Task = {
+            id: generateId(),
+            title: note.title || content.split("\n").find((l) => l.trim())?.replace(/^#{1,6}\s+/, "").trim() || "新しいタスク",
+            body_md: note.body_md,
+            due_date: null,
+            done: false,
+            updated_at: new Date().toISOString(),
+          };
+          await saveTask(newTask, userId);
+          await deleteNote(note.id);
+          router.replace(`/(app)/tasks/${newTask.id}` as never);
+        },
+      },
+    ]);
+  };
+
   const handleDelete = () => {
     Alert.alert("削除確認", "このノートを削除しますか？", [
       { text: "キャンセル", style: "cancel" },
@@ -97,7 +124,12 @@ export default function NoteDetailScreen() {
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerRight: () => (
-            <View style={{ flexDirection: "row", gap: 12 }}>
+            <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+              <TouchableOpacity onPress={handleConvertToTask} style={{ marginRight: 4 }}>
+                <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 9, paddingVertical: 4 }}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 20, lineHeight: 24 }}>↻</Text>
+                </View>
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => setEditing(!editing)}>
                 <Text style={{ color: colors.accent, fontSize: 16 }}>
                   {editing ? "完了" : "編集"}

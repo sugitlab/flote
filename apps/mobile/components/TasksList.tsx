@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
   },
-  itemTitle: { fontSize: 16, flex: 1, marginRight: 8 },
+  itemTitle: { fontSize: 16, fontWeight: "600", flex: 1, marginRight: 8 },
   doneTitle: { textDecorationLine: "line-through" },
   itemDate: { fontSize: 12, flexShrink: 0 },
   empty: { alignItems: "center", marginTop: 80 },
