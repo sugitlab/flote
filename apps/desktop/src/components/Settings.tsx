@@ -482,7 +482,7 @@ function StorageTab({
   onStorageModeChange: (mode: StorageMode) => void;
   onRequestLogin?: () => void;
 }) {
-  const { session } = useAuth();
+  const { session, supabaseConfigured } = useAuth();
   const isLoggedIn = !!session;
   const [dataDir, setDataDir] = useState<string>("");
 
@@ -515,11 +515,14 @@ function StorageTab({
             ローカル
           </button>
           <button
-            className={`${styles.toggleBtn} ${currentMode === "supabase" ? styles.toggleBtnActive : ""}`}
-            onClick={handleCloudClick}
+            className={`${styles.toggleBtn} ${currentMode === "supabase" ? styles.toggleBtnActive : ""} ${!supabaseConfigured ? styles.toggleBtnDisabled : ""}`}
+            onClick={supabaseConfigured ? handleCloudClick : undefined}
+            disabled={!supabaseConfigured}
+            title={!supabaseConfigured ? "このビルドはクラウド未対応です" : undefined}
           >
             クラウド
-            {!isLoggedIn && <span className={styles.badge}>要ログイン</span>}
+            {supabaseConfigured && !isLoggedIn && <span className={styles.badge}>要ログイン</span>}
+            {!supabaseConfigured && <span className={styles.badge}>未対応</span>}
           </button>
         </div>
       </div>
