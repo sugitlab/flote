@@ -359,10 +359,10 @@ function AccountTab({
         await signIn(email, password);
         addToast("success", "ログインしました");
       }
-      // Auto-switch to supabase — 少し待ってセッション伝播を確実にする
+      // ローカルモードの場合はクラウドに切り替えてリロード（session伝播の問題を回避）
       if (currentMode === "local") {
-        await new Promise((r) => setTimeout(r, 100));
-        onStorageModeChange("supabase");
+        await setConfig({ storageMode: "supabase" });
+        window.location.reload();
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");

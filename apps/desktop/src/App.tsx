@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import type { Note, Task, StorageMode } from "@flote/types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
@@ -646,8 +646,6 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [showLoginForCloud, setShowLoginForCloud] = useState(false);
   const { session, loading: authLoading, signIn, signUp, signOut } = useAuth();
-  const sessionRef = useRef(session);
-  useEffect(() => { sessionRef.current = session; }, [session]);
 
   const initNoteStore = useNoteStore((s) => s.initStore);
   const initTaskStore = useTaskStore((s) => s.initStore);
@@ -690,15 +688,8 @@ function App() {
       await handleUseLocal();
       return;
     }
-    // supabase への切り替え
+    // supabase への切り替え（StorageTab経由 — ログイン済みの場合のみ呼ばれる）
     if (!supabaseConfigured) return;
-    // React state の session は stale になりうるため、Supabase から直接取得
-    const { getSupabase } = await import("@flote/api-client");
-    const { data: { session: currentSession } } = await getSupabase().auth.getSession();
-    if (!currentSession) {
-      setShowLoginForCloud(true);
-      return;
-    }
     await setConfig({ storageMode: "supabase" });
     const noteRepo = createNoteRepository("supabase");
     const taskRepo = createTaskRepository("supabase");
