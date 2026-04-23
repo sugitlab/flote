@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import type { Note, Task, StorageMode } from "@flote/types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { invoke } from "@tauri-apps/api/core";
 import {
   initSupabase,
   createNoteRepository,
@@ -673,6 +674,8 @@ function App() {
       if (mode !== config.storageMode) setConfig({ storageMode: mode });
 
       setStorageMode(mode);
+
+      invoke("set_dock_visible", { visible: !config.hideDockIcon });
 
       const noteRepo = createNoteRepository(mode);
       const taskRepo = createTaskRepository(mode);

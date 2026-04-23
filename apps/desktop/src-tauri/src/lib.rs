@@ -95,6 +95,21 @@ fn open_path(path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+fn set_dock_visible(app: tauri::AppHandle, visible: bool) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri::ActivationPolicy;
+        let _ = app.set_activation_policy(if visible {
+            ActivationPolicy::Regular
+        } else {
+            ActivationPolicy::Accessory
+        });
+    }
+    let _ = (app, visible);
+    Ok(())
+}
+
+#[tauri::command]
 fn update_global_shortcut(app: tauri::AppHandle, shortcut: String) -> Result<(), String> {
     use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
@@ -138,6 +153,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             update_tray_badge,
             set_always_on_top,
+            set_dock_visible,
             update_global_shortcut,
             open_path
         ])

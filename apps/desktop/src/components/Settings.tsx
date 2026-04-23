@@ -101,12 +101,14 @@ function GeneralTab() {
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [hideOnBlur, setHideOnBlur] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
+  const [hideDockIcon, setHideDockIcon] = useState(false);
 
   useEffect(() => {
     getConfig().then((c) => {
       setAlwaysOnTop(c.alwaysOnTop);
       setHideOnBlur(c.hideOnBlur);
       setLaunchAtLogin(c.launchAtLogin);
+      setHideDockIcon(c.hideDockIcon);
     });
   }, []);
 
@@ -160,6 +162,12 @@ function GeneralTab() {
     }
   };
 
+  const handleHideDockIcon = async (v: boolean) => {
+    setHideDockIcon(v);
+    await setConfig({ hideDockIcon: v });
+    await invoke("set_dock_visible", { visible: !v });
+  };
+
   return (
     <>
       <h3 className={styles.sectionTitle}>一般</h3>
@@ -199,6 +207,13 @@ function GeneralTab() {
         <div className={styles.switchRow}>
           <span className={styles.switchLabel}>ログイン時に起動</span>
           <Toggle checked={launchAtLogin} onChange={handleLaunchAtLogin} />
+        </div>
+      </div>
+
+      <div className={styles.field}>
+        <div className={styles.switchRow}>
+          <span className={styles.switchLabel}>Dockアイコンを非表示</span>
+          <Toggle checked={hideDockIcon} onChange={handleHideDockIcon} />
         </div>
       </div>
 

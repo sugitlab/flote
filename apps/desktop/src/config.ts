@@ -14,6 +14,7 @@ export type AppSettings = {
   globalShortcut: string;
   searchFullText: boolean;
   hideCompletedInSearch: boolean;
+  hideDockIcon: boolean;
 };
 
 const STORE_PATH = "settings.json";
@@ -30,6 +31,7 @@ const DEFAULTS: AppSettings = {
   globalShortcut: "CmdOrCtrl+Shift+N",
   searchFullText: false,
   hideCompletedInSearch: true,
+  hideDockIcon: false,
 };
 
 async function getStore() {
