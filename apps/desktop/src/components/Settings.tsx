@@ -359,8 +359,9 @@ function AccountTab({
         await signIn(email, password);
         addToast("success", "ログインしました");
       }
-      // Auto-switch to supabase
+      // Auto-switch to supabase — 少し待ってセッション伝播を確実にする
       if (currentMode === "local") {
+        await new Promise((r) => setTimeout(r, 100));
         onStorageModeChange("supabase");
       }
     } catch (err: unknown) {
