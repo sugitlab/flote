@@ -19,16 +19,16 @@ import markdown from "highlight.js/lib/languages/markdown";
 import { Marked } from "marked";
 import DOMPurify from "dompurify";
 
-import oneDarkCss    from "highlight.js/styles/atom-one-dark.min.css?inline";
-import draculaCss    from "highlight.js/styles/base16/dracula.css?inline";
-import nightOwlCss   from "highlight.js/styles/night-owl.min.css?inline";
-import palenightCss  from "highlight.js/styles/base16/material-palenight.css?inline";
-import vsDarkCss     from "highlight.js/styles/vs2015.min.css?inline";
-import githubCss     from "highlight.js/styles/github.min.css?inline";
-import oneLightCss   from "highlight.js/styles/atom-one-light.min.css?inline";
-import vsLightCss    from "highlight.js/styles/vs.min.css?inline";
+import oneDarkCss       from "highlight.js/styles/atom-one-dark.min.css?inline";
+import draculaCss       from "highlight.js/styles/base16/dracula.css?inline";
+import nightOwlCss      from "highlight.js/styles/night-owl.min.css?inline";
+import vsDarkCss        from "highlight.js/styles/vs2015.min.css?inline";
+import githubCss        from "highlight.js/styles/github.min.css?inline";
+import oneLightCss      from "highlight.js/styles/atom-one-light.min.css?inline";
+import vsLightCss       from "highlight.js/styles/vs.min.css?inline";
+import solarizedLightCss from "highlight.js/styles/base16/solarized-light.css?inline";
 
-import type { EditorTheme } from "./store/uiStore";
+import type { EditorTheme } from "./editorThemes";
 
 hljs.registerLanguage("javascript", javascript);
 hljs.registerLanguage("typescript", typescript);
@@ -52,14 +52,14 @@ hljs.registerLanguage("yaml", yaml);
 hljs.registerLanguage("markdown", markdown);
 
 export const HLJS_THEME_CSS: Record<EditorTheme, string> = {
-  oneDark:   oneDarkCss,
-  dracula:   draculaCss,
-  nightOwl:  nightOwlCss,
-  palenight: palenightCss,
-  vsDark:    vsDarkCss,
-  github:    githubCss,
-  oneLight:  oneLightCss,
-  vsLight:   vsLightCss,
+  oneDark:        oneDarkCss,
+  dracula:        draculaCss,
+  nightOwl:       nightOwlCss,
+  vsDark:         vsDarkCss,
+  github:         githubCss,
+  oneLight:       oneLightCss,
+  vsLight:        vsLightCss,
+  solarizedLight: solarizedLightCss,
 };
 
 const previewMarked = new Marked({

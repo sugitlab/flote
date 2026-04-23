@@ -4,7 +4,7 @@ import { EditorView, keymap, placeholder } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
-import type { EditorTheme } from "../store/uiStore";
+import type { EditorTheme } from "../editorThemes";
 import { resolveEditorTheme } from "../editorThemes";
 import { HLJS_THEME_CSS, renderPreview } from "../previewRenderer";
 

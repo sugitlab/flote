@@ -1,17 +1,22 @@
-import { ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View, useColorScheme } from "react-native";
 import { Highlight, themes } from "prism-react-renderer";
-import { useSettingsStore, type CodeTheme } from "../src/store/settingsStore";
+import { useSettingsStore, type DarkCodeTheme, type LightCodeTheme } from "../src/store/settingsStore";
 
-function resolveTheme(name: CodeTheme) {
+function resolveDarkTheme(name: DarkCodeTheme) {
   switch (name) {
-    case "dracula":   return themes.dracula;
-    case "nightOwl":  return themes.nightOwl;
-    case "palenight": return themes.palenight;
-    case "vsDark":    return themes.vsDark;
-    case "github":    return themes.github;
-    case "oneLight":  return themes.oneLight;
-    case "vsLight":   return themes.vsLight;
-    default:          return themes.oneDark;
+    case "dracula":  return themes.dracula;
+    case "nightOwl": return themes.nightOwl;
+    case "vsDark":   return themes.vsDark;
+    default:         return themes.oneDark;
+  }
+}
+
+function resolveLightTheme(name: LightCodeTheme) {
+  switch (name) {
+    case "oneLight":      return themes.oneLight;
+    case "vsLight":       return themes.vsLight;
+    case "solarizedLight": return themes.vsLight; // closest available
+    default:              return themes.github;
   }
 }
 
@@ -21,8 +26,11 @@ type Props = {
 };
 
 export default function CodeBlock({ code, language }: Props) {
-  const codeTheme = useSettingsStore((s) => s.codeTheme);
-  const theme = resolveTheme(codeTheme);
+  const colorScheme = useColorScheme();
+  const codeThemeDark = useSettingsStore((s) => s.codeThemeDark);
+  const codeThemeLight = useSettingsStore((s) => s.codeThemeLight);
+  const isDark = colorScheme === "dark";
+  const theme = isDark ? resolveDarkTheme(codeThemeDark) : resolveLightTheme(codeThemeLight);
   const lang = (language ?? "text") as Parameters<typeof Highlight>[0]["language"];
 
   return (

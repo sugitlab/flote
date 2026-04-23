@@ -100,14 +100,23 @@ function MainApp({
   const addToast = useUIStore((s) => s.addToast);
   const setSearchFullText = useUIStore((s) => s.setSearchFullText);
   const setHideCompletedInSearch = useUIStore((s) => s.setHideCompletedInSearch);
-  const editorTheme = useUIStore((s) => s.editorTheme);
-  const setEditorTheme = useUIStore((s) => s.setEditorTheme);
+  const editorThemeDark = useUIStore((s) => s.editorThemeDark);
+  const editorThemeLight = useUIStore((s) => s.editorThemeLight);
+  const setEditorThemeDark = useUIStore((s) => s.setEditorThemeDark);
+  const setEditorThemeLight = useUIStore((s) => s.setEditorThemeLight);
+  const uiTheme = useUIStore((s) => s.theme);
 
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ type: "note" | "task"; id: string } | null>(null);
   const [confirmConvert, setConfirmConvert] = useState<{ type: "note" | "task"; id: string } | null>(null);
 
   const { cycleTheme } = useTheme();
+
+  const resolvedDark =
+    uiTheme === "system"
+      ? window.matchMedia("(prefers-color-scheme: dark)").matches
+      : uiTheme === "dark";
+  const activeEditorTheme = resolvedDark ? editorThemeDark : editorThemeLight;
 
   const selectedNote = notes.find((n) => n.id === activeNoteId) ?? null;
   const selectedTask = tasks.find((t) => t.id === activeTaskId) ?? null;
@@ -126,7 +135,8 @@ function MainApp({
     getConfig().then((c) => {
       setSearchFullText(c.searchFullText);
       setHideCompletedInSearch(c.hideCompletedInSearch);
-      setEditorTheme(c.editorTheme);
+      setEditorThemeDark(c.editorThemeDark);
+      setEditorThemeLight(c.editorThemeLight);
     });
   }, []);
 
@@ -490,7 +500,7 @@ function MainApp({
                   onChange={handleEditorChange}
                   editing={isEditing}
                   onExitEdit={handleExitEditor}
-                  editorTheme={editorTheme}
+                  editorTheme={activeEditorTheme}
                 />
               </div>
             </div>
@@ -542,7 +552,7 @@ function MainApp({
                   onChange={handleEditorChange}
                   editing={isEditing}
                   onExitEdit={handleExitEditor}
-                  editorTheme={editorTheme}
+                  editorTheme={activeEditorTheme}
                 />
               </div>
             </div>

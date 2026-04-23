@@ -3,7 +3,9 @@ import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
 import { oneDark } from "@codemirror/theme-one-dark";
 import type { Extension } from "@codemirror/state";
-import type { EditorTheme } from "./store/uiStore";
+import type { DarkEditorTheme, LightEditorTheme } from "./store/uiStore";
+
+export type EditorTheme = DarkEditorTheme | LightEditorTheme;
 
 type ThemeColors = {
   bg: string;
@@ -61,16 +63,15 @@ function buildTheme(c: ThemeColors): Extension[] {
   return [base, hl];
 }
 
-// Colors derived from prism-react-renderer theme sources
-const themes: Record<Exclude<EditorTheme, "oneDark">, Extension[]> = {
+const darkThemes: Record<Exclude<DarkEditorTheme, "oneDark">, Extension[]> = {
   dracula: buildTheme({
     dark: true,
     bg: "#282A36", fg: "#F8F8F2", cursor: "#F8F8F2",
     selection: "#44475a", lineHighlight: "#44475a33",
-    heading:  "#bd93f9",         // purple
-    link:     "#8be9fd",         // cyan
-    code:     "#f1fa8c",         // yellow
-    keyword:  "#ff79c6",         // pink
+    heading:  "#bd93f9",
+    link:     "#8be9fd",
+    code:     "#f1fa8c",
+    keyword:  "#ff79c6",
     string:   "#f1fa8c",
     comment:  "#6272a4",
     number:   "#bd93f9",
@@ -81,53 +82,41 @@ const themes: Record<Exclude<EditorTheme, "oneDark">, Extension[]> = {
     dark: true,
     bg: "#011627", fg: "#d6deeb", cursor: "#80a4c2",
     selection: "#1d3b53", lineHighlight: "#ffffff08",
-    heading:  "#82aaff",         // blue
-    link:     "#addb67",         // green
-    code:     "#ecc48d",         // orange
-    keyword:  "#c792ea",         // purple
+    heading:  "#82aaff",
+    link:     "#addb67",
+    code:     "#ecc48d",
+    keyword:  "#c792ea",
     string:   "#ecc48d",
     comment:  "#637777",
     number:   "#f78c6c",
     operator: "#7fdbca",
   }),
 
-  palenight: buildTheme({
-    dark: true,
-    bg: "#292d3e", fg: "#bfc7d5", cursor: "#bfc7d5",
-    selection: "#343b51", lineHighlight: "#ffffff08",
-    heading:  "#82aaff",         // blue
-    link:     "#c3e88d",         // green
-    code:     "#ffcb6b",         // yellow
-    keyword:  "#c792ea",         // purple
-    string:   "#c3e88d",
-    comment:  "#697098",
-    number:   "#f78c6c",
-    operator: "#89ddff",
-  }),
-
   vsDark: buildTheme({
     dark: true,
     bg: "#1E1E1E", fg: "#9CDCFE", cursor: "#aeafad",
     selection: "#264f78", lineHighlight: "#ffffff08",
-    heading:  "#569cd6",         // VS blue
+    heading:  "#569cd6",
     link:     "#9CDCFE",
-    code:     "#ce9178",         // string orange
+    code:     "#ce9178",
     keyword:  "#569cd6",
     string:   "#ce9178",
     comment:  "#6a9955",
     number:   "#b5cea8",
     operator: "#d4d4d4",
   }),
+};
 
+const lightThemes: Record<LightEditorTheme, Extension[]> = {
   github: buildTheme({
     dark: false,
     bg: "#f6f8fa", fg: "#393A34", cursor: "#393A34",
     selection: "#0366d625", lineHighlight: "#f1f8ff",
-    heading:  "#005cc5",         // blue
+    heading:  "#005cc5",
     link:     "#0366d6",
-    code:     "#d73a49",         // red
+    code:     "#d73a49",
     keyword:  "#d73a49",
-    string:   "#032f62",         // dark blue
+    string:   "#032f62",
     comment:  "#6a737d",
     number:   "#005cc5",
     operator: "#393A34",
@@ -137,13 +126,13 @@ const themes: Record<Exclude<EditorTheme, "oneDark">, Extension[]> = {
     dark: false,
     bg: "hsl(230,1%,98%)", fg: "hsl(230,8%,24%)", cursor: "hsl(230,8%,24%)",
     selection: "#e5e5e9", lineHighlight: "#f0f0f2",
-    heading:  "hsl(221,87%,60%)",   // blue
+    heading:  "hsl(221,87%,60%)",
     link:     "hsl(221,87%,60%)",
-    code:     "hsl(5,74%,59%)",     // red
-    keyword:  "hsl(301,63%,40%)",   // purple
-    string:   "hsl(119,34%,47%)",   // green
+    code:     "hsl(5,74%,59%)",
+    keyword:  "hsl(301,63%,40%)",
+    string:   "hsl(119,34%,47%)",
     comment:  "hsl(230,4%,64%)",
-    number:   "hsl(35,99%,36%)",    // orange
+    number:   "hsl(35,99%,36%)",
     operator: "hsl(230,8%,24%)",
   }),
 
@@ -153,16 +142,31 @@ const themes: Record<Exclude<EditorTheme, "oneDark">, Extension[]> = {
     selection: "#add6ff", lineHighlight: "#f5f5f5",
     heading:  "#0000ff",
     link:     "#0070c1",
-    code:     "#a31515",         // red (string)
+    code:     "#a31515",
     keyword:  "#0000ff",
     string:   "#a31515",
     comment:  "#008000",
     number:   "#098658",
     operator: "#000000",
   }),
+
+  solarizedLight: buildTheme({
+    dark: false,
+    bg: "#fdf6e3", fg: "#657b83", cursor: "#657b83",
+    selection: "#eee8d5", lineHighlight: "#eee8d533",
+    heading:  "#268bd2",
+    link:     "#268bd2",
+    code:     "#2aa198",
+    keyword:  "#859900",
+    string:   "#2aa198",
+    comment:  "#93a1a1",
+    number:   "#d33682",
+    operator: "#657b83",
+  }),
 };
 
 export function resolveEditorTheme(name: EditorTheme = "oneDark"): Extension[] {
   if (name === "oneDark") return [oneDark] as Extension[];
-  return themes[name];
+  if (name in darkThemes) return darkThemes[name as keyof typeof darkThemes];
+  return lightThemes[name as LightEditorTheme];
 }

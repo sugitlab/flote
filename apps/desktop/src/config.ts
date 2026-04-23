@@ -1,11 +1,12 @@
 import { load } from "@tauri-apps/plugin-store";
 import type { StorageMode } from "@flote/types";
-import type { ThemeMode, EditorTheme } from "./store/uiStore";
+import type { ThemeMode, DarkEditorTheme, LightEditorTheme } from "./store/uiStore";
 
 export type AppSettings = {
   storageMode: StorageMode;
   theme: ThemeMode;
-  editorTheme: EditorTheme;
+  editorThemeDark: DarkEditorTheme;
+  editorThemeLight: LightEditorTheme;
   alwaysOnTop: boolean;
   hideOnBlur: boolean;
   launchAtLogin: boolean;
@@ -20,7 +21,8 @@ const STORE_PATH = "settings.json";
 const DEFAULTS: AppSettings = {
   storageMode: "local",
   theme: "system",
-  editorTheme: "oneDark",
+  editorThemeDark: "oneDark",
+  editorThemeLight: "github",
   alwaysOnTop: true,
   hideOnBlur: false,
   launchAtLogin: false,

@@ -1,9 +1,10 @@
 import { create } from "zustand";
-import type { CodeTheme } from "@flote/types";
+import type { DarkCodeTheme, LightCodeTheme } from "@flote/types";
 
 export type ThemeMode = "dark" | "light" | "system";
-export type EditorTheme = CodeTheme;
-export type { CodeTheme };
+export type DarkEditorTheme = DarkCodeTheme;
+export type LightEditorTheme = LightCodeTheme;
+export type { DarkCodeTheme, LightCodeTheme };
 
 export type Toast = {
   id: string;
@@ -13,7 +14,8 @@ export type Toast = {
 
 type UIStore = {
   theme: ThemeMode;
-  editorTheme: EditorTheme;
+  editorThemeDark: DarkEditorTheme;
+  editorThemeLight: LightEditorTheme;
   isCommandPaletteOpen: boolean;
   isSettingsOpen: boolean;
   activeTab: "notes" | "tasks";
@@ -21,7 +23,8 @@ type UIStore = {
   searchFullText: boolean;
   hideCompletedInSearch: boolean;
   setTheme: (theme: ThemeMode) => void;
-  setEditorTheme: (theme: EditorTheme) => void;
+  setEditorThemeDark: (theme: DarkEditorTheme) => void;
+  setEditorThemeLight: (theme: LightEditorTheme) => void;
   setCommandPaletteOpen: (open: boolean) => void;
   toggleCommandPalette: () => void;
   setSettingsOpen: (open: boolean) => void;
@@ -34,7 +37,8 @@ type UIStore = {
 
 export const useUIStore = create<UIStore>((set, get) => ({
   theme: "system",
-  editorTheme: "oneDark",
+  editorThemeDark: "oneDark",
+  editorThemeLight: "github",
   isCommandPaletteOpen: true,
   isSettingsOpen: false,
   activeTab: "notes",
@@ -43,7 +47,8 @@ export const useUIStore = create<UIStore>((set, get) => ({
   hideCompletedInSearch: true,
 
   setTheme: (theme) => set({ theme }),
-  setEditorTheme: (editorTheme) => set({ editorTheme }),
+  setEditorThemeDark: (editorThemeDark) => set({ editorThemeDark }),
+  setEditorThemeLight: (editorThemeLight) => set({ editorThemeLight }),
   setSearchFullText: (v) => set({ searchFullText: v }),
   setHideCompletedInSearch: (v) => set({ hideCompletedInSearch: v }),
 

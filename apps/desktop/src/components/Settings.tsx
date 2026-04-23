@@ -8,8 +8,8 @@ import {
 } from "@tauri-apps/plugin-autostart";
 import type { StorageMode } from "@flote/types";
 import { useUIStore, type ThemeMode } from "../store/uiStore";
-import { CODE_THEME_OPTIONS } from "@flote/types";
-import type { EditorTheme } from "../store/uiStore";
+import { DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS } from "@flote/types";
+import type { DarkEditorTheme, LightEditorTheme } from "../store/uiStore";
 import { getConfig, setConfig, type AppSettings } from "../config";
 import { useAuth } from "../hooks/useAuth";
 import styles from "./Settings.module.css";
@@ -89,8 +89,10 @@ export default function Settings({
 function GeneralTab() {
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
-  const editorTheme = useUIStore((s) => s.editorTheme);
-  const setEditorTheme = useUIStore((s) => s.setEditorTheme);
+  const editorThemeDark = useUIStore((s) => s.editorThemeDark);
+  const editorThemeLight = useUIStore((s) => s.editorThemeLight);
+  const setEditorThemeDark = useUIStore((s) => s.setEditorThemeDark);
+  const setEditorThemeLight = useUIStore((s) => s.setEditorThemeLight);
   const addToast = useUIStore((s) => s.addToast);
   const searchFullText = useUIStore((s) => s.searchFullText);
   const setSearchFullText = useUIStore((s) => s.setSearchFullText);
@@ -123,9 +125,14 @@ function GeneralTab() {
     setConfig({ theme: t });
   };
 
-  const handleEditorTheme = (t: EditorTheme) => {
-    setEditorTheme(t);
-    setConfig({ editorTheme: t });
+  const handleEditorThemeDark = (t: DarkEditorTheme) => {
+    setEditorThemeDark(t);
+    setConfig({ editorThemeDark: t });
+  };
+
+  const handleEditorThemeLight = (t: LightEditorTheme) => {
+    setEditorThemeLight(t);
+    setConfig({ editorThemeLight: t });
   };
 
   const handleAlwaysOnTop = async (v: boolean) => {
@@ -198,13 +205,28 @@ function GeneralTab() {
       <h3 className={styles.sectionTitle}>エディタ</h3>
 
       <div className={styles.field}>
-        <div className={styles.fieldLabel}>Syntax highlight テーマ</div>
+        <div className={styles.fieldLabel}>Syntax highlight — ダークモード</div>
         <div className={styles.editorThemeGrid}>
-          {CODE_THEME_OPTIONS.map((t) => (
+          {DARK_CODE_THEME_OPTIONS.map((t) => (
             <button
               key={t.value}
-              className={`${styles.editorThemeBtn} ${editorTheme === t.value ? styles.editorThemeBtnActive : ""}`}
-              onClick={() => handleEditorTheme(t.value)}
+              className={`${styles.editorThemeBtn} ${editorThemeDark === t.value ? styles.editorThemeBtnActive : ""}`}
+              onClick={() => handleEditorThemeDark(t.value)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.field}>
+        <div className={styles.fieldLabel}>Syntax highlight — ライトモード</div>
+        <div className={styles.editorThemeGrid}>
+          {LIGHT_CODE_THEME_OPTIONS.map((t) => (
+            <button
+              key={t.value}
+              className={`${styles.editorThemeBtn} ${editorThemeLight === t.value ? styles.editorThemeBtnActive : ""}`}
+              onClick={() => handleEditorThemeLight(t.value)}
             >
               {t.label}
             </button>
