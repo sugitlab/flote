@@ -64,11 +64,13 @@ function MainApp({
   storageMode,
   onSignOut,
   onRequestLogin,
+  onStorageModeChange,
 }: {
   userId?: string;
   storageMode: StorageMode;
   onSignOut?: () => void;
   onRequestLogin?: () => void;
+  onStorageModeChange?: (mode: StorageMode) => void;
 }) {
   const {
     notes,
@@ -259,10 +261,14 @@ function MainApp({
 
   const handleStorageModeChange = useCallback(
     (mode: StorageMode) => {
-      setConfig({ storageMode: mode });
-      addToast("info", "設定を反映するにはアプリを再起動してください");
+      if (onStorageModeChange) {
+        onStorageModeChange(mode);
+      } else {
+        setConfig({ storageMode: mode });
+        addToast("info", "設定を反映するにはアプリを再起動してください");
+      }
     },
-    [addToast]
+    [onStorageModeChange, addToast]
   );
 
   const handleShowNotes = useCallback(() => {
@@ -677,6 +683,27 @@ function App() {
     setShowLoginForCloud(false);
   };
 
+  const handleStorageModeChange = useCallback(async (mode: StorageMode) => {
+    if (mode === "local") {
+      await handleUseLocal();
+      return;
+    }
+    // supabase への切り替え
+    if (!supabaseConfigured) return;
+    if (!session) {
+      // 未ログイン → ログイン画面へ
+      setShowLoginForCloud(true);
+      return;
+    }
+    // ログイン済み → 動的に切り替え（再起動不要）
+    await setConfig({ storageMode: "supabase" });
+    const noteRepo = createNoteRepository("supabase");
+    const taskRepo = createTaskRepository("supabase");
+    initNoteStore(noteRepo);
+    initTaskStore(taskRepo);
+    setStorageMode("supabase");
+  }, [session, initNoteStore, initTaskStore]);
+
   if (loading || storageMode === null) {
     return (
       <div className={styles.loading}>
@@ -719,6 +746,7 @@ function App() {
       <MainApp
         storageMode={storageMode}
         onRequestLogin={() => setShowLoginForCloud(true)}
+        onStorageModeChange={handleStorageModeChange}
       />
     );
   }
@@ -771,6 +799,7 @@ function App() {
       userId={session.user.id}
       storageMode={storageMode}
       onSignOut={signOut}
+      onStorageModeChange={handleStorageModeChange}
     />
   );
 }
