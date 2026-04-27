@@ -28,6 +28,8 @@ export default function SettingsPage({ onSignOut }: Props) {
   const setReminderHour = useSettingsStore((s) => s.setReminderHour);
   const searchFullText = useSettingsStore((s) => s.searchFullText);
   const setSearchFullText = useSettingsStore((s) => s.setSearchFullText);
+  const hideCompletedTasks = useSettingsStore((s) => s.hideCompletedTasks);
+  const setHideCompletedTasks = useSettingsStore((s) => s.setHideCompletedTasks);
   const codeThemeDark = useSettingsStore((s) => s.codeThemeDark);
   const codeThemeLight = useSettingsStore((s) => s.codeThemeLight);
   const setCodeThemeDark = useSettingsStore((s) => s.setCodeThemeDark);
@@ -94,6 +96,13 @@ export default function SettingsPage({ onSignOut }: Props) {
           <Text style={s.label}>本文も検索する</Text>
           <View style={[s.badge, { backgroundColor: searchFullText ? colors.accent : colors.border }]}>
             <Text style={s.badgeText}>{searchFullText ? "ON" : "OFF"}</Text>
+          </View>
+        </TouchableOpacity>
+        <View style={s.separator} />
+        <TouchableOpacity style={s.row} onPress={() => setHideCompletedTasks(!hideCompletedTasks)} activeOpacity={0.7}>
+          <Text style={s.label}>完了済みのタスクを非表示</Text>
+          <View style={[s.badge, { backgroundColor: hideCompletedTasks ? colors.accent : colors.border }]}>
+            <Text style={s.badgeText}>{hideCompletedTasks ? "ON" : "OFF"}</Text>
           </View>
         </TouchableOpacity>
       </View>

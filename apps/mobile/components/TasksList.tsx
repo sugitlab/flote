@@ -12,6 +12,7 @@ import {
 import { useRouter } from "expo-router";
 import { useTheme } from "../src/theme";
 import { useTaskStore } from "../src/store/taskStore";
+import { useSettingsStore } from "../src/store/settingsStore";
 import type { Task } from "@flote/types";
 
 function todayStr(): string {
@@ -61,6 +62,7 @@ export default function TasksList({ userId }: Props) {
   const fetchTasks = useTaskStore((s) => s.fetchTasks);
   const toggleDone = useTaskStore((s) => s.toggleDone);
   const deleteTask = useTaskStore((s) => s.deleteTask);
+  const hideCompletedTasks = useSettingsStore((s) => s.hideCompletedTasks);
 
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -69,7 +71,11 @@ export default function TasksList({ userId }: Props) {
     if (userId) fetchTasks(userId);
   }, [userId]);
 
-  const sections = useMemo(() => groupTasks(tasks), [tasks]);
+  const visibleTasks = useMemo(
+    () => hideCompletedTasks ? tasks.filter((t) => !t.done) : tasks,
+    [tasks, hideCompletedTasks]
+  );
+  const sections = useMemo(() => groupTasks(visibleTasks), [visibleTasks]);
 
   const handleRefresh = useCallback(() => {
     if (userId) fetchTasks(userId);
