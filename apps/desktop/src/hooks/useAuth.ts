@@ -1,17 +1,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { getSupabase } from "@flote/api-client";
 import type { Session } from "@supabase/supabase-js";
-
-const supabaseConfigured =
-  !!import.meta.env.VITE_SUPABASE_URL && !!import.meta.env.VITE_SUPABASE_ANON_KEY;
+import { useUIStore } from "../store/uiStore";
 
 export function useAuth() {
+  const supabaseReady = useUIStore((s) => s.supabaseReady);
   const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(supabaseConfigured);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!supabaseConfigured) return;
+    if (!supabaseReady) {
+      setLoading(false);
+      return;
+    }
 
+    setLoading(true);
     const supabase = getSupabase();
 
     supabase.auth.getSession().then(({ data: { session: s } }) => {
@@ -29,14 +32,11 @@ export function useAuth() {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [supabaseReady]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     const supabase = getSupabase();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
   }, []);
 
@@ -52,5 +52,5 @@ export function useAuth() {
     if (error) throw error;
   }, []);
 
-  return { session, loading, supabaseConfigured, signIn, signUp, signOut };
+  return { session, loading, supabaseConfigured: supabaseReady, signIn, signUp, signOut };
 }

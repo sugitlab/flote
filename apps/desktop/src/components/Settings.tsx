@@ -520,11 +520,20 @@ function StorageTab({
   onRequestLogin?: () => void;
 }) {
   const { session, supabaseConfigured } = useAuth();
+  const addToast = useUIStore((s) => s.addToast);
   const isLoggedIn = !!session;
   const [dataDir, setDataDir] = useState<string>("");
+  const [customUrl, setCustomUrl] = useState("");
+  const [customKey, setCustomKey] = useState("");
+  const [showSupabaseForm, setShowSupabaseForm] = useState(false);
+  const [savingSupabase, setSavingSupabase] = useState(false);
 
   useEffect(() => {
     appDataDir().then(setDataDir).catch(() => {});
+    getConfig().then((c) => {
+      setCustomUrl(c.customSupabaseUrl);
+      setCustomKey(c.customSupabaseAnonKey);
+    });
   }, []);
 
   const handleCloudClick = () => {
@@ -538,6 +547,25 @@ function StorageTab({
   const handleOpenDataDir = () => {
     if (dataDir) invoke("open_path", { path: dataDir });
   };
+
+  const handleSaveSupabase = async () => {
+    const url = customUrl.trim();
+    const key = customKey.trim();
+    if (!url || !key) {
+      addToast("error", "URLとAnon Keyを両方入力してください");
+      return;
+    }
+    setSavingSupabase(true);
+    await setConfig({ customSupabaseUrl: url, customSupabaseAnonKey: key });
+    window.location.reload();
+  };
+
+  const handleClearSupabase = async () => {
+    await setConfig({ customSupabaseUrl: "", customSupabaseAnonKey: "", storageMode: "local" });
+    window.location.reload();
+  };
+
+  const hasCustomConfig = !!customUrl;
 
   return (
     <>
@@ -555,11 +583,11 @@ function StorageTab({
             className={`${styles.toggleBtn} ${currentMode === "supabase" ? styles.toggleBtnActive : ""} ${!supabaseConfigured ? styles.toggleBtnDisabled : ""}`}
             onClick={supabaseConfigured ? handleCloudClick : undefined}
             disabled={!supabaseConfigured}
-            title={!supabaseConfigured ? "このビルドはクラウド未対応です" : undefined}
+            title={!supabaseConfigured ? "Supabase接続設定が必要です" : undefined}
           >
             クラウド
             {supabaseConfigured && !isLoggedIn && <span className={styles.badge}>要ログイン</span>}
-            {!supabaseConfigured && <span className={styles.badge}>未対応</span>}
+            {!supabaseConfigured && <span className={styles.badge}>未設定</span>}
           </button>
         </div>
       </div>
@@ -584,6 +612,54 @@ function StorageTab({
       <div className={styles.storageInfo}>
         ローカルデータは保持されます。保存先を切り替えてもデータは削除されません。
       </div>
+
+      {/* Supabase接続設定 */}
+      <h3 className={styles.sectionTitle}>Supabase接続設定</h3>
+
+      {hasCustomConfig && !showSupabaseForm ? (
+        <div className={styles.field}>
+          <div className={styles.fieldLabel}>接続先</div>
+          <div className={styles.fieldHint} style={{ wordBreak: "break-all" }}>{customUrl}</div>
+          <div className={styles.supabaseActions}>
+            <button className={styles.shortcutChangeBtn} onClick={() => setShowSupabaseForm(true)}>変更</button>
+            <button className={styles.shortcutChangeBtn} style={{ color: "var(--danger, #e53e3e)" }} onClick={handleClearSupabase}>削除</button>
+          </div>
+        </div>
+      ) : (
+        <div className={styles.field}>
+          <div className={styles.fieldLabel}>Supabase URL</div>
+          <input
+            className={styles.authInput}
+            type="url"
+            placeholder="https://xxxx.supabase.co"
+            value={customUrl}
+            onChange={(e) => setCustomUrl(e.target.value)}
+          />
+          <div className={styles.fieldLabel} style={{ marginTop: 8 }}>Anon Key</div>
+          <input
+            className={styles.authInput}
+            type="password"
+            placeholder="eyJ..."
+            value={customKey}
+            onChange={(e) => setCustomKey(e.target.value)}
+          />
+          <div className={styles.fieldHint}>
+            Supabase Cloud または セルフホスト版の「プロジェクト設定 → API」から取得できます。
+          </div>
+          <div className={styles.supabaseActions}>
+            <button
+              className={styles.authSubmit}
+              onClick={handleSaveSupabase}
+              disabled={savingSupabase}
+            >
+              {savingSupabase ? "保存中..." : "保存して接続"}
+            </button>
+            {hasCustomConfig && (
+              <button className={styles.shortcutChangeBtn} onClick={() => setShowSupabaseForm(false)}>キャンセル</button>
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }

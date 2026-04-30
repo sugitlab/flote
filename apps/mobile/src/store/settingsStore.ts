@@ -15,6 +15,8 @@ const SEARCH_FULL_TEXT_KEY = "flote_search_full_text";
 const HIDE_COMPLETED_TASKS_KEY = "flote_hide_completed_tasks";
 const CODE_THEME_DARK_KEY = "flote_code_theme_dark";
 const CODE_THEME_LIGHT_KEY = "flote_code_theme_light";
+const CUSTOM_SUPABASE_URL_KEY = "flote_custom_supabase_url";
+const CUSTOM_SUPABASE_KEY_KEY = "flote_custom_supabase_key";
 const DEFAULT_REMINDER_HOUR = 9;
 
 type SettingsStore = {
@@ -23,11 +25,14 @@ type SettingsStore = {
   hideCompletedTasks: boolean;
   codeThemeDark: DarkCodeTheme;
   codeThemeLight: LightCodeTheme;
+  customSupabaseUrl: string;
+  customSupabaseAnonKey: string;
   setReminderHour: (hour: number) => Promise<void>;
   setSearchFullText: (v: boolean) => Promise<void>;
   setHideCompletedTasks: (v: boolean) => Promise<void>;
   setCodeThemeDark: (theme: DarkCodeTheme) => Promise<void>;
   setCodeThemeLight: (theme: LightCodeTheme) => Promise<void>;
+  setCustomSupabase: (url: string, anonKey: string) => Promise<void>;
   loadSettings: () => Promise<void>;
 };
 
@@ -37,6 +42,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   hideCompletedTasks: false,
   codeThemeDark: "oneDark",
   codeThemeLight: "github",
+  customSupabaseUrl: "",
+  customSupabaseAnonKey: "",
 
   setReminderHour: async (hour) => {
     set({ reminderHour: hour });
@@ -63,13 +70,25 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     await SecureStore.setItemAsync(CODE_THEME_LIGHT_KEY, theme);
   },
 
+  setCustomSupabase: async (url, anonKey) => {
+    set({ customSupabaseUrl: url, customSupabaseAnonKey: anonKey });
+    await SecureStore.setItemAsync(CUSTOM_SUPABASE_URL_KEY, url);
+    await SecureStore.setItemAsync(CUSTOM_SUPABASE_KEY_KEY, anonKey);
+  },
+
   loadSettings: async () => {
-    const [hourStr, searchStr, hideCompletedStr, darkThemeStr, lightThemeStr] = await Promise.all([
+    const [
+      hourStr, searchStr, hideCompletedStr,
+      darkThemeStr, lightThemeStr,
+      customUrlStr, customKeyStr,
+    ] = await Promise.all([
       SecureStore.getItemAsync(REMINDER_HOUR_KEY),
       SecureStore.getItemAsync(SEARCH_FULL_TEXT_KEY),
       SecureStore.getItemAsync(HIDE_COMPLETED_TASKS_KEY),
       SecureStore.getItemAsync(CODE_THEME_DARK_KEY),
       SecureStore.getItemAsync(CODE_THEME_LIGHT_KEY),
+      SecureStore.getItemAsync(CUSTOM_SUPABASE_URL_KEY),
+      SecureStore.getItemAsync(CUSTOM_SUPABASE_KEY_KEY),
     ]);
     const next: Partial<SettingsStore> = {};
     if (hourStr !== null) {
@@ -80,6 +99,8 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     if (hideCompletedStr !== null) next.hideCompletedTasks = hideCompletedStr === "1";
     if (darkThemeStr !== null) next.codeThemeDark = darkThemeStr as DarkCodeTheme;
     if (lightThemeStr !== null) next.codeThemeLight = lightThemeStr as LightCodeTheme;
+    if (customUrlStr !== null) next.customSupabaseUrl = customUrlStr;
+    if (customKeyStr !== null) next.customSupabaseAnonKey = customKeyStr;
     if (Object.keys(next).length > 0) set(next as SettingsStore);
   },
 }));

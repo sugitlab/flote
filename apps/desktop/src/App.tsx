@@ -4,10 +4,14 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import {
   initSupabase,
+  reinitSupabase,
+  getSupabase,
   createNoteRepository,
   createTaskRepository,
 } from "@flote/api-client";
 import { getConfig, setConfig } from "./config";
+import { checkSchema } from "./migrations";
+import SchemaSetup from "./components/SchemaSetup";
 import { useAuth } from "./hooks/useAuth";
 import { useRealtime } from "./hooks/useRealtime";
 import { useBadge } from "./hooks/useBadge";
@@ -28,13 +32,12 @@ import ToastContainer from "./components/Toast";
 import FloteLogo from "./components/FloteLogo";
 import styles from "./App.module.css";
 
-// Initialize Supabase client if env vars present
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
-const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
-if (supabaseUrl && supabaseKey) {
-  initSupabase(supabaseUrl, supabaseKey);
+// Initialize Supabase client from env vars (fast path for developer builds)
+const envSupabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const envSupabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+if (envSupabaseUrl && envSupabaseKey) {
+  initSupabase(envSupabaseUrl, envSupabaseKey);
 }
-const supabaseConfigured = !!supabaseUrl && !!supabaseKey;
 
 function extractTitle(bodyMd: string): string {
   const firstLine = bodyMd.split("\n")[0]?.replace(/^#+\s*/, "").trim();
@@ -656,19 +659,31 @@ function App() {
   const [storageMode, setStorageMode] = useState<StorageMode | null>(null);
   const [loading, setLoading] = useState(true);
   const [showLoginForCloud, setShowLoginForCloud] = useState(false);
+  const [schemaStatus, setSchemaStatus] = useState<"unchecked" | "ok" | "not_initialized">("unchecked");
   const { session, loading: authLoading, signIn, signUp, signOut } = useAuth();
+  const supabaseReady = useUIStore((s) => s.supabaseReady);
+  const setSupabaseReady = useUIStore((s) => s.setSupabaseReady);
 
   const initNoteStore = useNoteStore((s) => s.initStore);
   const initTaskStore = useTaskStore((s) => s.initStore);
 
   useTheme();
 
-  // Load config on mount
+  // Load config on mount — initialize Supabase (custom config takes precedence over env vars)
   useEffect(() => {
     getConfig().then((config) => {
+      const url = config.customSupabaseUrl || envSupabaseUrl;
+      const key = config.customSupabaseAnonKey || envSupabaseKey;
+
+      if (url && key) {
+        reinitSupabase(url, key);
+        setSupabaseReady(true);
+      }
+
       // supabase未設定なのにcloudモードになっている場合はlocalにフォールバック
+      const supabaseAvailable = !!(url && key);
       const mode =
-        config.storageMode === "supabase" && !supabaseConfigured
+        config.storageMode === "supabase" && !supabaseAvailable
           ? "local"
           : config.storageMode;
       if (mode !== config.storageMode) setConfig({ storageMode: mode });
@@ -686,6 +701,18 @@ function App() {
     });
   }, [initNoteStore, initTaskStore]);
 
+  // schema check after login (cloud mode only)
+  useEffect(() => {
+    if (!session || storageMode !== "supabase") return;
+    if (schemaStatus !== "unchecked") return;
+    checkSchema(getSupabase()).then(setSchemaStatus);
+  }, [session, storageMode, schemaStatus]);
+
+  const handleSchemaRetry = async () => {
+    const status = await checkSchema(getSupabase());
+    setSchemaStatus(status);
+  };
+
   const handleUseLocal = async () => {
     await setConfig({ storageMode: "local" });
     const noteRepo = createNoteRepository("local");
@@ -702,7 +729,7 @@ function App() {
       return;
     }
     // supabase への切り替え（StorageTab経由 — ログイン済みの場合のみ呼ばれる）
-    if (!supabaseConfigured) return;
+    if (!supabaseReady) return;
     await setConfig({ storageMode: "supabase" });
     const noteRepo = createNoteRepository("supabase");
     const taskRepo = createTaskRepository("supabase");
@@ -722,7 +749,7 @@ function App() {
 
   // Local mode: no auth needed (but user may want to log in for cloud)
   if (storageMode === "local") {
-    if (showLoginForCloud && supabaseConfigured) {
+    if (showLoginForCloud && supabaseReady) {
       return (
         <Auth
           onSignIn={async (email, password) => {
@@ -759,7 +786,7 @@ function App() {
   }
 
   // Cloud mode: need config
-  if (!supabaseConfigured) {
+  if (!supabaseReady) {
     return (
       <div className={styles.loading}>
         <div data-tauri-drag-region className={styles.loadingDrag} />
@@ -796,6 +823,19 @@ function App() {
         onSignIn={signIn}
         onSignUp={signUp}
         onUseLocal={handleUseLocal}
+      />
+    );
+  }
+
+  // Schema not initialized → show setup screen
+  if (schemaStatus === "not_initialized") {
+    return (
+      <SchemaSetup
+        onRetry={handleSchemaRetry}
+        onSignOut={async () => {
+          await signOut();
+          setSchemaStatus("unchecked");
+        }}
       />
     );
   }

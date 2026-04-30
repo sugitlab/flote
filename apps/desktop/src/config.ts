@@ -15,6 +15,8 @@ export type AppSettings = {
   searchFullText: boolean;
   hideCompletedInSearch: boolean;
   hideDockIcon: boolean;
+  customSupabaseUrl: string;
+  customSupabaseAnonKey: string;
 };
 
 const STORE_PATH = "settings.json";
@@ -32,6 +34,8 @@ const DEFAULTS: AppSettings = {
   searchFullText: false,
   hideCompletedInSearch: true,
   hideDockIcon: false,
+  customSupabaseUrl: "",
+  customSupabaseAnonKey: "",
 };
 
 async function getStore() {

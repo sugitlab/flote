@@ -9,6 +9,11 @@ export function initSupabase(url: string, anonKey: string): SupabaseClient {
   return _supabase;
 }
 
+export function reinitSupabase(url: string, anonKey: string): SupabaseClient {
+  _supabase = _createClient(url, anonKey);
+  return _supabase;
+}
+
 export function getSupabase(): SupabaseClient {
   if (!_supabase) {
     throw new Error(

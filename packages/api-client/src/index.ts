@@ -1,4 +1,4 @@
-export { initSupabase, getSupabase } from "./supabase";
+export { initSupabase, reinitSupabase, getSupabase } from "./supabase";
 export { createClient, getClient } from "./client";
 export * from "./notes";
 export * from "./tasks";

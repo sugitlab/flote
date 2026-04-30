@@ -22,6 +22,8 @@ type UIStore = {
   toasts: Toast[];
   searchFullText: boolean;
   hideCompletedInSearch: boolean;
+  supabaseReady: boolean;
+  setSupabaseReady: (v: boolean) => void;
   setTheme: (theme: ThemeMode) => void;
   setEditorThemeDark: (theme: DarkEditorTheme) => void;
   setEditorThemeLight: (theme: LightEditorTheme) => void;
@@ -45,7 +47,9 @@ export const useUIStore = create<UIStore>((set, get) => ({
   toasts: [],
   searchFullText: false,
   hideCompletedInSearch: true,
+  supabaseReady: false,
 
+  setSupabaseReady: (v) => set({ supabaseReady: v }),
   setTheme: (theme) => set({ theme }),
   setEditorThemeDark: (editorThemeDark) => set({ editorThemeDark }),
   setEditorThemeLight: (editorThemeLight) => set({ editorThemeLight }),

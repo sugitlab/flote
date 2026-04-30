@@ -8,10 +8,12 @@ import {
   Alert,
   Platform,
   Linking,
+  TextInput,
 } from "react-native";
 import * as Notifications from "expo-notifications";
 import { useTheme, useThemeStore, type ThemeMode } from "../src/theme";
 import { useSettingsStore, DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS } from "../src/store/settingsStore";
+import { reinitSupabase } from "../src/lib/supabase";
 import Dropdown from "./Dropdown";
 import { useTaskStore } from "../src/store/taskStore";
 import { rescheduleAllReminders } from "../src/lib/notifications";
@@ -34,6 +36,12 @@ export default function SettingsPage({ onSignOut }: Props) {
   const codeThemeLight = useSettingsStore((s) => s.codeThemeLight);
   const setCodeThemeDark = useSettingsStore((s) => s.setCodeThemeDark);
   const setCodeThemeLight = useSettingsStore((s) => s.setCodeThemeLight);
+  const customSupabaseUrl = useSettingsStore((s) => s.customSupabaseUrl);
+  const customSupabaseAnonKey = useSettingsStore((s) => s.customSupabaseAnonKey);
+  const setCustomSupabase = useSettingsStore((s) => s.setCustomSupabase);
+  const [supabaseUrlInput, setSupabaseUrlInput] = useState(customSupabaseUrl);
+  const [supabaseKeyInput, setSupabaseKeyInput] = useState(customSupabaseAnonKey);
+  const [showSupabaseForm, setShowSupabaseForm] = useState(false);
   const tasks = useTaskStore((s) => s.tasks);
   const [email, setEmail] = useState<string | null>(null);
   const [notifEnabled, setNotifEnabled] = useState(false);
@@ -83,6 +91,39 @@ export default function SettingsPage({ onSignOut }: Props) {
       },
     ]);
   }, [onSignOut]);
+
+  const handleSaveSupabase = useCallback(async () => {
+    const url = supabaseUrlInput.trim();
+    const key = supabaseKeyInput.trim();
+    if (!url || !key) {
+      Alert.alert("入力エラー", "URLとAnon Keyの両方を入力してください。");
+      return;
+    }
+    await setCustomSupabase(url, key);
+    reinitSupabase(url, key);
+    await supabase.auth.signOut();
+    setShowSupabaseForm(false);
+    Alert.alert(
+      "接続先を変更しました",
+      "新しいSupabaseに接続しました。再度ログインしてください。"
+    );
+  }, [supabaseUrlInput, supabaseKeyInput, setCustomSupabase]);
+
+  const handleClearSupabase = useCallback(() => {
+    Alert.alert("接続設定を削除", "カスタム接続設定を削除しますか？", [
+      { text: "キャンセル", style: "cancel" },
+      {
+        text: "削除",
+        style: "destructive",
+        onPress: async () => {
+          await setCustomSupabase("", "");
+          setSupabaseUrlInput("");
+          setSupabaseKeyInput("");
+          await supabase.auth.signOut();
+        },
+      },
+    ]);
+  }, [setCustomSupabase]);
 
   const s = makeStyles(colors);
 
@@ -151,6 +192,70 @@ export default function SettingsPage({ onSignOut }: Props) {
             onChange={setCodeThemeLight}
           />
         </View>
+      </View>
+
+      {/* Supabase接続設定 */}
+      <Text style={s.sectionTitle}>Supabase接続設定</Text>
+      <View style={s.card}>
+        {customSupabaseUrl && !showSupabaseForm ? (
+          <>
+            <View style={s.row}>
+              <Text style={s.label}>接続先</Text>
+              <Text style={[s.value, { maxWidth: "50%" }]} numberOfLines={1}>{customSupabaseUrl}</Text>
+            </View>
+            <View style={s.separator} />
+            <View style={[s.row, { gap: 12 }]}>
+              <TouchableOpacity onPress={() => setShowSupabaseForm(true)} activeOpacity={0.7}>
+                <Text style={[s.label, { color: colors.accent }]}>変更</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleClearSupabase} activeOpacity={0.7}>
+                <Text style={[s.label, { color: colors.danger }]}>削除</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        ) : (
+          <View style={{ padding: 16, gap: 10 }}>
+            <TextInput
+              style={[s.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+              placeholder="Supabase URL (https://xxxx.supabase.co)"
+              placeholderTextColor={colors.textSecondary}
+              value={supabaseUrlInput}
+              onChangeText={setSupabaseUrlInput}
+              autoCapitalize="none"
+              keyboardType="url"
+            />
+            <TextInput
+              style={[s.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+              placeholder="Anon Key (eyJ...)"
+              placeholderTextColor={colors.textSecondary}
+              value={supabaseKeyInput}
+              onChangeText={setSupabaseKeyInput}
+              autoCapitalize="none"
+              secureTextEntry
+            />
+            <Text style={[s.hint, { color: colors.textSecondary }]}>
+              Supabase Cloud またはセルフホスト版の「プロジェクト設定 → API」から取得できます。
+            </Text>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <TouchableOpacity
+                style={[s.saveBtn, { backgroundColor: colors.accent }]}
+                onPress={handleSaveSupabase}
+                activeOpacity={0.8}
+              >
+                <Text style={s.saveBtnText}>保存して接続</Text>
+              </TouchableOpacity>
+              {customSupabaseUrl && (
+                <TouchableOpacity
+                  style={[s.saveBtn, { backgroundColor: colors.border }]}
+                  onPress={() => setShowSupabaseForm(false)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[s.saveBtnText, { color: colors.text }]}>キャンセル</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
       </View>
 
       {/* アカウント */}
@@ -383,6 +488,28 @@ function makeStyles(colors: ReturnType<typeof import("../src/theme").useTheme>["
       fontWeight: "600",
       minWidth: 52,
       textAlign: "center",
+    },
+    input: {
+      borderWidth: 1,
+      borderRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 14,
+    },
+    hint: {
+      fontSize: 12,
+      lineHeight: 17,
+    },
+    saveBtn: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 8,
+      alignItems: "center",
+    },
+    saveBtnText: {
+      color: "#fff",
+      fontSize: 14,
+      fontWeight: "600",
     },
   });
 }

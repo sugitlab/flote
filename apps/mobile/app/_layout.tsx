@@ -11,7 +11,7 @@ import {
 } from "@expo-google-fonts/noto-sans-jp";
 import * as Notifications from "expo-notifications";
 import type { Session } from "@supabase/supabase-js";
-import { supabase } from "../src/lib/supabase";
+import { supabase, reinitSupabase } from "../src/lib/supabase";
 import { useThemeStore } from "../src/theme";
 import { useSettingsStore } from "../src/store/settingsStore";
 import { setupNotifications } from "../src/lib/notifications";
@@ -41,7 +41,13 @@ export default function RootLayout() {
 
   useEffect(() => {
     setupNotifications();
-    loadSettings();
+    // Load settings first so custom Supabase config can be applied before auth
+    loadSettings().then(() => {
+      const { customSupabaseUrl, customSupabaseAnonKey } = useSettingsStore.getState();
+      if (customSupabaseUrl && customSupabaseAnonKey) {
+        reinitSupabase(customSupabaseUrl, customSupabaseAnonKey);
+      }
+    });
     notifListenerRef.current = Notifications.addNotificationResponseReceivedListener(
       (response) => {
         const taskId = response.notification.request.content.data?.taskId as string | undefined;

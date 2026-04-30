@@ -572,3 +572,10 @@
   background: var(--bg-active);
   border-color: var(--accent);
 }
+
+.supabaseActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
