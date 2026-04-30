@@ -681,13 +681,7 @@ function App() {
         } else {
           mode = "local"; // env vars not available → fallback
         }
-      } else if (mode === "local" && envSupabaseUrl && envSupabaseKey) {
-        // Even in local mode, Supabase is usable if env vars exist —
-        // mark ready so the user can switch to cloud without reload
-        setSupabaseReady(true);
-      }
-
-      if (mode === "selfhost") {
+      } else if (mode === "selfhost") {
         if (config.customSupabaseUrl && config.customSupabaseAnonKey) {
           reinitSupabase(config.customSupabaseUrl, config.customSupabaseAnonKey);
           setSupabaseReady(true);
@@ -789,7 +783,14 @@ function App() {
     return (
       <MainApp
         storageMode={storageMode}
-        onRequestLogin={() => setShowLoginForCloud(true)}
+        onRequestLogin={() => {
+          // Ensure Supabase client is ready the moment the user asks to log in
+          if (envSupabaseUrl && envSupabaseKey) {
+            reinitSupabase(envSupabaseUrl, envSupabaseKey);
+            setSupabaseReady(true);
+          }
+          setShowLoginForCloud(true);
+        }}
         onStorageModeChange={handleStorageModeChange}
       />
     );
