@@ -681,7 +681,13 @@ function App() {
         } else {
           mode = "local"; // env vars not available → fallback
         }
-      } else if (mode === "selfhost") {
+      } else if (mode === "local" && envSupabaseUrl && envSupabaseKey) {
+        // Even in local mode, Supabase is usable if env vars exist —
+        // mark ready so the user can switch to cloud without reload
+        setSupabaseReady(true);
+      }
+
+      if (mode === "selfhost") {
         if (config.customSupabaseUrl && config.customSupabaseAnonKey) {
           reinitSupabase(config.customSupabaseUrl, config.customSupabaseAnonKey);
           setSupabaseReady(true);
