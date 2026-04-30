@@ -526,6 +526,7 @@ function StorageTab({
   const [customUrl, setCustomUrl] = useState("");
   const [customKey, setCustomKey] = useState("");
   const [savingSupabase, setSavingSupabase] = useState(false);
+  const [showSelfhostForm, setShowSelfhostForm] = useState(false);
 
   // Developer's cloud is available when env vars are compiled in
   const cloudAvailable = !!(
@@ -543,12 +544,19 @@ function StorageTab({
   const handleModeClick = (mode: StorageMode) => {
     if (mode === "local") {
       onStorageModeChange("local");
+      setShowSelfhostForm(false);
     } else if (mode === "supabase") {
+      // クラウド: env vars 前提なので未ログインなら login フローへ
       if (!isLoggedIn) onRequestLogin?.();
       else onStorageModeChange("supabase");
     } else if (mode === "selfhost") {
-      if (!isLoggedIn) onRequestLogin?.();
-      else onStorageModeChange("selfhost");
+      // セルフホスト: まずフォームを開いて URL/key を設定してもらう
+      // ログイン済み+設定済みなら即切り替え、それ以外はフォームを開くだけ
+      if (isLoggedIn && supabaseConfigured && currentMode !== "selfhost") {
+        onStorageModeChange("selfhost");
+      } else {
+        setShowSelfhostForm(true);
+      }
     }
   };
 
@@ -608,7 +616,10 @@ function StorageTab({
             onClick={() => handleModeClick("selfhost")}
           >
             セルフホスト
-            {currentMode !== "selfhost" && !isLoggedIn && (
+            {currentMode !== "selfhost" && !customUrl && (
+              <span className={styles.badge}>未設定</span>
+            )}
+            {currentMode !== "selfhost" && !!customUrl && !isLoggedIn && (
               <span className={styles.badge}>要ログイン</span>
             )}
           </button>
@@ -633,7 +644,7 @@ function StorageTab({
       </div>
 
       {/* セルフホスト接続設定 */}
-      {(currentMode === "selfhost" || !!(customUrl)) && (
+      {(currentMode === "selfhost" || showSelfhostForm || !!(customUrl)) && (
         <>
           <h3 className={styles.sectionTitle}>セルフホスト接続設定</h3>
           <div className={styles.field}>
