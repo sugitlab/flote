@@ -131,7 +131,7 @@ function MainApp({
   useEffect(() => {
     fetchNotes(userId);
     fetchTasks(userId);
-  }, [userId, fetchNotes, fetchTasks]);
+  }, [userId, storageMode, fetchNotes, fetchTasks]);
 
   useEffect(() => {
     getConfig().then((c) => {
