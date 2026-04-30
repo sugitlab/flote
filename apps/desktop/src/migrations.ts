@@ -45,8 +45,20 @@ export type SchemaStatus = "ok" | "not_initialized";
 
 export async function checkSchema(supabase: SupabaseClient): Promise<SchemaStatus> {
   const { error } = await supabase.from("notes").select("id").limit(0);
-  if (error && (error.code === "42P01" || error.message?.includes("does not exist"))) {
-    return "not_initialized";
+  if (error) {
+    const code = error.code ?? "";
+    const msg = (error.message ?? "").toLowerCase();
+    // 42P01: PostgreSQL undefined_table
+    // PGRST200: PostgREST schema cache miss (table not found via REST API)
+    if (
+      code === "42P01" ||
+      code === "PGRST200" ||
+      msg.includes("does not exist") ||
+      msg.includes("relation") ||
+      msg.includes("schema cache")
+    ) {
+      return "not_initialized";
+    }
   }
   return "ok";
 }
