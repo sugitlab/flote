@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
 import { tags as t } from "@lezer/highlight";
-import { oneDark } from "@codemirror/theme-one-dark";
+import { oneDarkHighlightStyle } from "@codemirror/theme-one-dark";
 import type { Extension } from "@codemirror/state";
 import type { DarkEditorTheme, LightEditorTheme } from "./store/uiStore";
 
@@ -31,7 +31,10 @@ function buildTheme(c: ThemeColors): Extension[] {
       ".cm-content": { caretColor: c.cursor },
       "&.cm-focused .cm-cursor": { borderLeftColor: c.cursor },
       ".cm-activeLine": { backgroundColor: c.lineHighlight },
-      "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection": {
+      "&.cm-focused .cm-selectionBackground, .cm-selectionBackground": {
+        backgroundColor: c.selection,
+      },
+      ".cm-content ::selection": {
         backgroundColor: c.selection,
       },
       ".cm-gutters": { backgroundColor: c.bg, borderRight: "none" },
@@ -63,11 +66,29 @@ function buildTheme(c: ThemeColors): Extension[] {
   return [base, hl];
 }
 
-const darkThemes: Record<Exclude<DarkEditorTheme, "oneDark">, Extension[]> = {
+const oneDarkCustom: Extension[] = [
+  EditorView.theme(
+    {
+      "&": { backgroundColor: "#282c34", color: "#abb2bf" },
+      ".cm-content": { caretColor: "#528bff" },
+      "&.cm-focused .cm-cursor": { borderLeftColor: "#528bff" },
+      ".cm-activeLine": { backgroundColor: "#2c313a" },
+      "&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
+        backgroundColor: "#1d538c",
+      },
+      ".cm-gutters": { backgroundColor: "#282c34", borderRight: "none" },
+    },
+    { dark: true }
+  ),
+  syntaxHighlighting(oneDarkHighlightStyle),
+];
+
+const darkThemes: Record<DarkEditorTheme, Extension[]> = {
+  oneDark: oneDarkCustom,
   dracula: buildTheme({
     dark: true,
     bg: "#282A36", fg: "#F8F8F2", cursor: "#F8F8F2",
-    selection: "#44475a", lineHighlight: "#44475a33",
+    selection: "#6272a4", lineHighlight: "#44475a55",
     heading:  "#bd93f9",
     link:     "#8be9fd",
     code:     "#f1fa8c",
@@ -81,7 +102,7 @@ const darkThemes: Record<Exclude<DarkEditorTheme, "oneDark">, Extension[]> = {
   nightOwl: buildTheme({
     dark: true,
     bg: "#011627", fg: "#d6deeb", cursor: "#80a4c2",
-    selection: "#1d3b53", lineHighlight: "#ffffff08",
+    selection: "#1d538c", lineHighlight: "#ffffff10",
     heading:  "#82aaff",
     link:     "#addb67",
     code:     "#ecc48d",
@@ -95,7 +116,7 @@ const darkThemes: Record<Exclude<DarkEditorTheme, "oneDark">, Extension[]> = {
   vsDark: buildTheme({
     dark: true,
     bg: "#1E1E1E", fg: "#9CDCFE", cursor: "#aeafad",
-    selection: "#264f78", lineHighlight: "#ffffff08",
+    selection: "#3a6fa8", lineHighlight: "#ffffff10",
     heading:  "#569cd6",
     link:     "#9CDCFE",
     code:     "#ce9178",
@@ -166,7 +187,6 @@ const lightThemes: Record<LightEditorTheme, Extension[]> = {
 };
 
 export function resolveEditorTheme(name: EditorTheme = "oneDark"): Extension[] {
-  if (name === "oneDark") return [oneDark] as Extension[];
-  if (name in darkThemes) return darkThemes[name as keyof typeof darkThemes];
+  if (name in darkThemes) return darkThemes[name as DarkEditorTheme];
   return lightThemes[name as LightEditorTheme];
 }

@@ -1,10 +1,10 @@
-import { useRef, useEffect, useMemo } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, placeholder } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
-import { vim, Vim } from "@replit/codemirror-vim";
+import { vim, Vim, getCM } from "@replit/codemirror-vim";
 import type { EditorTheme } from "../editorThemes";
 import { resolveEditorTheme } from "../editorThemes";
 import { HLJS_THEME_CSS, renderPreview } from "../previewRenderer";
@@ -44,6 +44,8 @@ function ensureVimExCommands(onExit: () => void) {
   Vim.defineEx("wq", "", () => onExit());
   Vim.defineEx("x", "", () => onExit());
   Vim.defineEx("write", "w", () => { /* auto-saved */ });
+  // ESC in normal mode → exit to preview
+  Vim.map("<Esc>", ":q<CR>", "normal");
 }
 
 export default function Editor({ docId, value, onChange, editing, onExitEdit, editorTheme, vimMode = false }: EditorProps) {
@@ -55,6 +57,7 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
   onExitEditRef.current = onExitEdit;
   const vimModeRef = useRef(vimMode);
   vimModeRef.current = vimMode;
+  const [vimModeLabel, setVimModeLabel] = useState<string>("NORMAL");
 
   const escExt = useRef(
     keymap.of([{
@@ -91,6 +94,14 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     const view = new EditorView({ state, parent: containerRef.current });
     viewRef.current = view;
 
+    // Listen for vim mode changes to update the status label
+    const cm = getCM(view);
+    if (cm) {
+      cm.on("vim-mode-change", (e: { mode: string }) => {
+        setVimModeLabel(e.mode.toUpperCase());
+      });
+    }
+
     return () => { view.destroy(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -104,6 +115,19 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
         vimCompartment.reconfigure(vimMode ? vim() : []),
         escCompartment.reconfigure(vimMode ? [] : escExt.current),
       ],
+    });
+    if (!vimMode) {
+      setVimModeLabel("NORMAL");
+      return;
+    }
+    // Re-attach mode change listener after vim is re-enabled
+    requestAnimationFrame(() => {
+      const cm = getCM(view);
+      if (cm) {
+        cm.on("vim-mode-change", (e: { mode: string }) => {
+          setVimModeLabel(e.mode.toUpperCase());
+        });
+      }
     });
   }, [vimMode]);
 
@@ -128,9 +152,22 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     el.textContent = HLJS_THEME_CSS[editorTheme ?? "oneDark"];
   }, [editorTheme]);
 
+
   useEffect(() => {
-    if (editing && viewRef.current) viewRef.current.focus();
-  }, [editing]);
+    const view = viewRef.current;
+    if (!view) return;
+    if (editing) {
+      view.focus();
+    } else {
+      view.contentDOM.blur();
+      // Reset vim to normal mode so next entry is always clean
+      if (vimMode) {
+        const cm = getCM(view);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (cm && (cm as any).state?.vim?.insertMode) Vim.exitInsertMode(cm as any);
+      }
+    }
+  }, [editing, vimMode]);
 
   useEffect(() => {
     const view = viewRef.current;
@@ -170,6 +207,20 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
             className="preview-content"
             dangerouslySetInnerHTML={{ __html: previewHtml }}
           />
+        </div>
+      )}
+      {vimMode && editing && (
+        <div style={{
+          position: "absolute",
+          bottom: 6,
+          left: 10,
+          fontSize: 11,
+          fontFamily: "monospace",
+          color: "var(--text-secondary)",
+          pointerEvents: "none",
+          userSelect: "none",
+        }}>
+          -- {vimModeLabel} --
         </div>
       )}
     </div>
