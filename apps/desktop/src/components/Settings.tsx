@@ -706,7 +706,10 @@ function SelfhostPane({
               {currentMode !== "selfhost" && (
                 <button
                   className={styles.useModeBtn}
-                  onClick={() => onStorageModeChange("selfhost")}
+                  onClick={async () => {
+                    await setConfig({ storageMode: "selfhost" });
+                    window.location.reload();
+                  }}
                 >
                   セルフホストを使う
                 </button>
