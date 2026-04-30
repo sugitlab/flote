@@ -669,23 +669,27 @@ function App() {
 
   useTheme();
 
-  // Load config on mount — initialize Supabase (custom config takes precedence over env vars)
+  // Load config on mount — initialize Supabase based on storage mode
   useEffect(() => {
     getConfig().then((config) => {
-      const url = config.customSupabaseUrl || envSupabaseUrl;
-      const key = config.customSupabaseAnonKey || envSupabaseKey;
+      let mode = config.storageMode;
 
-      if (url && key) {
-        reinitSupabase(url, key);
-        setSupabaseReady(true);
+      if (mode === "supabase") {
+        if (envSupabaseUrl && envSupabaseKey) {
+          reinitSupabase(envSupabaseUrl, envSupabaseKey);
+          setSupabaseReady(true);
+        } else {
+          mode = "local"; // env vars not available → fallback
+        }
+      } else if (mode === "selfhost") {
+        if (config.customSupabaseUrl && config.customSupabaseAnonKey) {
+          reinitSupabase(config.customSupabaseUrl, config.customSupabaseAnonKey);
+          setSupabaseReady(true);
+        } else {
+          mode = "local"; // custom config not set → fallback
+        }
       }
 
-      // supabase未設定なのにcloudモードになっている場合はlocalにフォールバック
-      const supabaseAvailable = !!(url && key);
-      const mode =
-        config.storageMode === "supabase" && !supabaseAvailable
-          ? "local"
-          : config.storageMode;
       if (mode !== config.storageMode) setConfig({ storageMode: mode });
 
       setStorageMode(mode);
@@ -701,9 +705,9 @@ function App() {
     });
   }, [initNoteStore, initTaskStore]);
 
-  // schema check after login (cloud mode only)
+  // schema check after login (selfhost only — developer's cloud is already set up)
   useEffect(() => {
-    if (!session || storageMode !== "supabase") return;
+    if (!session || storageMode !== "selfhost") return;
     if (schemaStatus !== "unchecked") return;
     checkSchema(getSupabase()).then(setSchemaStatus);
   }, [session, storageMode, schemaStatus]);
@@ -728,14 +732,14 @@ function App() {
       await handleUseLocal();
       return;
     }
-    // supabase への切り替え（StorageTab経由 — ログイン済みの場合のみ呼ばれる）
     if (!supabaseReady) return;
-    await setConfig({ storageMode: "supabase" });
-    const noteRepo = createNoteRepository("supabase");
-    const taskRepo = createTaskRepository("supabase");
+    await setConfig({ storageMode: mode });
+    const noteRepo = createNoteRepository(mode);
+    const taskRepo = createTaskRepository(mode);
     initNoteStore(noteRepo);
     initTaskStore(taskRepo);
-    setStorageMode("supabase");
+    setStorageMode(mode);
+    if (mode === "selfhost") setSchemaStatus("unchecked");
   }, [initNoteStore, initTaskStore]);
 
   if (loading || storageMode === null) {

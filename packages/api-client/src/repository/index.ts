@@ -12,6 +12,7 @@ export function createNoteRepository(mode: StorageMode): NoteRepository {
     case "local":
       return new LocalNoteRepository();
     case "supabase":
+    case "selfhost":
       return new SupabaseNoteRepository();
   }
 }
@@ -21,6 +22,7 @@ export function createTaskRepository(mode: StorageMode): TaskRepository {
     case "local":
       return new LocalTaskRepository();
     case "supabase":
+    case "selfhost":
       return new SupabaseTaskRepository();
   }
 }
