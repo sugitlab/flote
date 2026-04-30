@@ -67,13 +67,11 @@ function MainApp({
   userId,
   storageMode,
   onSignOut,
-  onRequestLogin,
   onStorageModeChange,
 }: {
   userId?: string;
   storageMode: StorageMode;
   onSignOut?: () => void;
-  onRequestLogin?: () => void;
   onStorageModeChange?: (mode: StorageMode) => void;
 }) {
   const {
@@ -626,7 +624,6 @@ function MainApp({
           currentMode={storageMode}
           onClose={() => setSettingsOpen(false)}
           onStorageModeChange={handleStorageModeChange}
-          onRequestLogin={onRequestLogin ? () => { setSettingsOpen(false); onRequestLogin(); } : undefined}
         />
       )}
 
@@ -658,7 +655,6 @@ function MainApp({
 function App() {
   const [storageMode, setStorageMode] = useState<StorageMode | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showLoginForCloud, setShowLoginForCloud] = useState(false);
   const [schemaStatus, setSchemaStatus] = useState<"unchecked" | "ok" | "not_initialized">("unchecked");
   const { session, loading: authLoading, signIn, signUp, signOut } = useAuth();
   const supabaseReady = useUIStore((s) => s.supabaseReady);
@@ -717,30 +713,15 @@ function App() {
     setSchemaStatus(status);
   };
 
-  const handleUseLocal = async () => {
-    await setConfig({ storageMode: "local" });
-    const noteRepo = createNoteRepository("local");
-    const taskRepo = createTaskRepository("local");
-    initNoteStore(noteRepo);
-    initTaskStore(taskRepo);
-    setStorageMode("local");
-    setShowLoginForCloud(false);
-  };
-
   const handleStorageModeChange = useCallback(async (mode: StorageMode) => {
-    if (mode === "local") {
-      await handleUseLocal();
-      return;
-    }
-    if (!supabaseReady) return;
     await setConfig({ storageMode: mode });
-    const noteRepo = createNoteRepository(mode);
-    const taskRepo = createTaskRepository(mode);
-    initNoteStore(noteRepo);
-    initTaskStore(taskRepo);
+    initNoteStore(createNoteRepository(mode));
+    initTaskStore(createTaskRepository(mode));
     setStorageMode(mode);
     if (mode === "selfhost") setSchemaStatus("unchecked");
   }, [initNoteStore, initTaskStore]);
+
+  const handleUseLocal = useCallback(() => handleStorageModeChange("local"), [handleStorageModeChange]);
 
   if (loading || storageMode === null) {
     return (
@@ -751,46 +732,11 @@ function App() {
     );
   }
 
-  // Local mode: no auth needed (but user may want to log in for cloud)
+  // Local mode: no auth needed — cloud/selfhost login is done inline via Settings
   if (storageMode === "local") {
-    if (showLoginForCloud && supabaseReady) {
-      return (
-        <Auth
-          onSignIn={async (email, password) => {
-            await signIn(email, password);
-            setShowLoginForCloud(false);
-            await setConfig({ storageMode: "supabase" });
-            setStorageMode("supabase");
-            const noteRepo = createNoteRepository("supabase");
-            const taskRepo = createTaskRepository("supabase");
-            initNoteStore(noteRepo);
-            initTaskStore(taskRepo);
-          }}
-          onSignUp={async (email, password) => {
-            await signUp(email, password);
-            setShowLoginForCloud(false);
-            await setConfig({ storageMode: "supabase" });
-            setStorageMode("supabase");
-            const noteRepo = createNoteRepository("supabase");
-            const taskRepo = createTaskRepository("supabase");
-            initNoteStore(noteRepo);
-            initTaskStore(taskRepo);
-          }}
-          onUseLocal={() => setShowLoginForCloud(false)}
-        />
-      );
-    }
     return (
       <MainApp
         storageMode={storageMode}
-        onRequestLogin={() => {
-          // Ensure Supabase client is ready the moment the user asks to log in
-          if (envSupabaseUrl && envSupabaseKey) {
-            reinitSupabase(envSupabaseUrl, envSupabaseKey);
-            setSupabaseReady(true);
-          }
-          setShowLoginForCloud(true);
-        }}
         onStorageModeChange={handleStorageModeChange}
       />
     );

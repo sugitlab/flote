@@ -579,3 +579,133 @@
   margin-top: 10px;
   align-items: center;
 }
+
+/* Storage mode tabs */
+.storageModeTabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+  gap: 0;
+}
+
+.storageModeTab {
+  flex: 1;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.storageModeTab:hover {
+  color: var(--text-primary);
+}
+
+.storageModeTabSelected {
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+
+.storageModeTabDisabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.activeModeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.storagePane {
+  min-height: 160px;
+}
+
+.storageDesc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+.storageFootnote {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 12px;
+}
+
+.useModeBtn {
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  margin-bottom: 14px;
+}
+
+.useModeBtn:hover {
+  background: var(--accent-hover);
+}
+
+.subSectionTitle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 14px 0 8px;
+}
+
+.schemaToggleBtn {
+  font-size: 10px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background 0.15s ease;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.schemaToggleBtn:hover {
+  background: var(--info-bg);
+}
+
+.sqlBox {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 10px 12px;
+  max-height: 150px;
+  overflow-y: auto;
+  margin-bottom: 8px;
+}
+
+.sqlPre {
+  font-size: 10px;
+  font-family: "SF Mono", "Fira Code", monospace;
+  color: var(--text-secondary);
+  white-space: pre;
+  margin: 0;
+}

@@ -1,33 +1,32 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { appDataDir } from "@tauri-apps/api/path";
 import {
   enable as enableAutostart,
   disable as disableAutostart,
-  isEnabled as isAutostartEnabled,
 } from "@tauri-apps/plugin-autostart";
 import type { StorageMode } from "@flote/types";
 import { useUIStore, type ThemeMode } from "../store/uiStore";
 import { DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS } from "@flote/types";
 import type { DarkEditorTheme, LightEditorTheme } from "../store/uiStore";
-import { getConfig, setConfig, type AppSettings } from "../config";
+import { getConfig, setConfig } from "../config";
+import { reinitSupabase, getSupabase } from "@flote/api-client";
+import { SCHEMA_SQL } from "../migrations";
 import { useAuth } from "../hooks/useAuth";
 import styles from "./Settings.module.css";
 
-type SettingsTab = "general" | "shortcuts" | "howto" | "account" | "storage" | "legal";
+type SettingsTab = "general" | "shortcuts" | "howto" | "storage" | "legal";
 
 type Props = {
   currentMode: StorageMode;
   onClose: () => void;
   onStorageModeChange: (mode: StorageMode) => void;
-  onRequestLogin?: () => void;
 };
 
 export default function Settings({
   currentMode,
   onClose,
   onStorageModeChange,
-  onRequestLogin,
 }: Props) {
   const [tab, setTab] = useState<SettingsTab>("general");
 
@@ -41,7 +40,6 @@ export default function Settings({
               ["general", "一般"],
               ["shortcuts", "ショートカット"],
               ["howto", "使い方"],
-              ["account", "アカウント"],
               ["storage", "保存先"],
               ["legal", "法的情報"],
             ] as const
@@ -63,17 +61,10 @@ export default function Settings({
           {tab === "general" && <GeneralTab />}
           {tab === "shortcuts" && <ShortcutsTab />}
           {tab === "howto" && <HowToTab />}
-          {tab === "account" && (
-            <AccountTab
-              currentMode={currentMode}
-              onStorageModeChange={onStorageModeChange}
-            />
-          )}
           {tab === "storage" && (
             <StorageTab
               currentMode={currentMode}
               onStorageModeChange={onStorageModeChange}
-              onRequestLogin={onRequestLogin}
             />
           )}
           {tab === "legal" && <LegalTab />}
@@ -84,7 +75,6 @@ export default function Settings({
 }
 
 /* ─── General ─── */
-
 
 function GeneralTab() {
   const theme = useUIStore((s) => s.theme);
@@ -288,7 +278,6 @@ function ShortcutsTab() {
       e.preventDefault();
       e.stopPropagation();
 
-      // Ignore modifier-only presses
       if (["Meta", "Control", "Alt", "Shift"].includes(e.key)) return;
 
       const parts: string[] = [];
@@ -367,16 +356,121 @@ function ShortcutsTab() {
   );
 }
 
-/* ─── Account ─── */
+/* ─── Storage ─── */
 
-function AccountTab({
+function StorageTab({
   currentMode,
   onStorageModeChange,
 }: {
   currentMode: StorageMode;
   onStorageModeChange: (mode: StorageMode) => void;
 }) {
-  const { session, supabaseConfigured, signIn, signUp, signOut } = useAuth();
+  const [pane, setPane] = useState<StorageMode>(currentMode);
+  const cloudAvailable = !!(
+    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
+  );
+
+  return (
+    <>
+      <h3 className={styles.sectionTitle}>保存先</h3>
+
+      <div className={styles.storageModeTabs}>
+        {([
+          ["local", "ローカル"],
+          ["supabase", "クラウド"],
+          ["selfhost", "セルフホスト"],
+        ] as const).map(([mode, label]) => (
+          <button
+            key={mode}
+            className={[
+              styles.storageModeTab,
+              pane === mode ? styles.storageModeTabSelected : "",
+              mode === "supabase" && !cloudAvailable ? styles.storageModeTabDisabled : "",
+            ].join(" ")}
+            onClick={() => !(mode === "supabase" && !cloudAvailable) && setPane(mode)}
+            disabled={mode === "supabase" && !cloudAvailable}
+          >
+            {label}
+            {currentMode === mode && <span className={styles.activeModeDot} />}
+          </button>
+        ))}
+      </div>
+
+      <div className={styles.storagePane}>
+        {pane === "local" && (
+          <LocalPane currentMode={currentMode} onStorageModeChange={onStorageModeChange} />
+        )}
+        {pane === "supabase" && (
+          <CloudPane currentMode={currentMode} onStorageModeChange={onStorageModeChange} />
+        )}
+        {pane === "selfhost" && (
+          <SelfhostPane currentMode={currentMode} onStorageModeChange={onStorageModeChange} />
+        )}
+      </div>
+
+      <div className={styles.storageFootnote}>
+        ローカルデータは保持されます。保存先を切り替えてもデータは削除されません。
+      </div>
+    </>
+  );
+}
+
+/* ─── Local pane ─── */
+
+function LocalPane({
+  currentMode,
+  onStorageModeChange,
+}: {
+  currentMode: StorageMode;
+  onStorageModeChange: (mode: StorageMode) => void;
+}) {
+  const [dataDir, setDataDir] = useState("");
+
+  useEffect(() => {
+    appDataDir().then(setDataDir).catch(() => {});
+  }, []);
+
+  return (
+    <>
+      <p className={styles.storageDesc}>
+        ノートとタスクはこのデバイスにのみ保存されます。インターネット接続は不要です。
+      </p>
+
+      {currentMode !== "local" && (
+        <button className={styles.useModeBtn} onClick={() => onStorageModeChange("local")}>
+          ローカルを使う
+        </button>
+      )}
+
+      {dataDir && (
+        <div className={styles.field}>
+          <div className={styles.fieldLabel}>データ保存場所</div>
+          <button
+            className={styles.dataDirBtn}
+            onClick={() => invoke("open_path", { path: dataDir })}
+            title="Finderで開く"
+          >
+            <span className={styles.dataDirPath}>{dataDir}</span>
+            <span className={styles.dataDirIcon}>↗</span>
+          </button>
+          <div className={styles.fieldHint}>クリックするとFinderで開きます</div>
+        </div>
+      )}
+    </>
+  );
+}
+
+/* ─── Cloud pane ─── */
+
+function CloudPane({
+  currentMode,
+  onStorageModeChange,
+}: {
+  currentMode: StorageMode;
+  onStorageModeChange: (mode: StorageMode) => void;
+}) {
+  const { session, signOut } = useAuth();
+  const setSupabaseReady = useUIStore((s) => s.setSupabaseReady);
   const addToast = useUIStore((s) => s.addToast);
   const [authTab, setAuthTab] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
@@ -384,24 +478,33 @@ function AccountTab({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const envUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+  // Ensure Supabase client is active when this pane is shown
+  useEffect(() => {
+    if (envUrl && envKey) {
+      reinitSupabase(envUrl, envKey);
+      setSupabaseReady(true);
+    }
+  }, [setSupabaseReady, envUrl, envKey]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
     try {
+      const supabase = getSupabase();
       if (authTab === "signup") {
-        await signUp(email, password);
+        const { error: err } = await supabase.auth.signUp({ email, password });
+        if (err) throw err;
         addToast("success", "アカウントを作成しました");
       } else {
-        await signIn(email, password);
-        addToast("success", "ログインしました");
+        const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+        if (err) throw err;
       }
-      // ローカルモードの場合はクラウドに切り替えてリロード（session伝播の問題を回避）
-      if (currentMode === "local") {
-        await setConfig({ storageMode: "supabase" });
-        window.location.reload();
-      }
-    } catch (err: unknown) {
+      await onStorageModeChange("supabase");
+    } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
     } finally {
       setLoading(false);
@@ -411,23 +514,24 @@ function AccountTab({
   const handleSignOut = async () => {
     await signOut();
     addToast("info", "ログアウトしました");
-    if (currentMode === "supabase") {
-      onStorageModeChange("local");
-    }
+    if (currentMode === "supabase") onStorageModeChange("local");
   };
 
   if (session) {
     const userEmail = session.user.email ?? "";
-    const initial = userEmail.charAt(0).toUpperCase();
     return (
       <>
-        <h3 className={styles.sectionTitle}>アカウント</h3>
         <div className={styles.userProfile}>
-          <div className={styles.avatar}>{initial}</div>
+          <div className={styles.avatar}>{userEmail.charAt(0).toUpperCase()}</div>
           <div className={styles.userInfo}>
             <div className={styles.userEmail}>{userEmail}</div>
           </div>
         </div>
+        {currentMode !== "supabase" && (
+          <button className={styles.useModeBtn} onClick={() => onStorageModeChange("supabase")}>
+            クラウドを使う
+          </button>
+        )}
         <button className={styles.logoutBtn} onClick={handleSignOut}>
           ログアウト
         </button>
@@ -435,46 +539,29 @@ function AccountTab({
     );
   }
 
-  if (!supabaseConfigured) {
-    return (
-      <>
-        <h3 className={styles.sectionTitle}>アカウント</h3>
-        <div className={styles.storageInfo}>
-          クラウド同期が設定されていません。
-        </div>
-      </>
-    );
-  }
-
   return (
     <>
-      <h3 className={styles.sectionTitle}>アカウント</h3>
+      <p className={styles.storageDesc}>
+        Floteのクラウドに保存します。複数デバイスで同期できます。
+      </p>
       <form className={styles.authForm} onSubmit={handleSubmit}>
         <div className={styles.authTabs}>
           <button
             type="button"
             className={`${styles.authTab} ${authTab === "login" ? styles.authTabActive : ""}`}
-            onClick={() => {
-              setAuthTab("login");
-              setError(null);
-            }}
+            onClick={() => { setAuthTab("login"); setError(null); }}
           >
             ログイン
           </button>
           <button
             type="button"
             className={`${styles.authTab} ${authTab === "signup" ? styles.authTabActive : ""}`}
-            onClick={() => {
-              setAuthTab("signup");
-              setError(null);
-            }}
+            onClick={() => { setAuthTab("signup"); setError(null); }}
           >
             サインアップ
           </button>
         </div>
-
         {error && <div className={styles.authError}>{error}</div>}
-
         <input
           type="email"
           value={email}
@@ -492,200 +579,171 @@ function AccountTab({
           minLength={6}
           className={styles.authInput}
         />
-        <button
-          type="submit"
-          disabled={loading}
-          className={styles.authSubmit}
-        >
-          {loading
-            ? "処理中..."
-            : authTab === "signup"
-              ? "サインアップ"
-              : "ログイン"}
+        <button type="submit" disabled={loading} className={styles.authSubmit}>
+          {loading ? "処理中..." : authTab === "signup" ? "サインアップ" : "ログイン"}
         </button>
       </form>
     </>
   );
 }
 
-/* ─── Storage ─── */
+/* ─── Selfhost pane ─── */
 
-function StorageTab({
+function SelfhostPane({
   currentMode,
   onStorageModeChange,
-  onRequestLogin,
 }: {
   currentMode: StorageMode;
   onStorageModeChange: (mode: StorageMode) => void;
-  onRequestLogin?: () => void;
 }) {
-  const { session, supabaseConfigured } = useAuth();
+  const { session, signOut } = useAuth();
+  const setSupabaseReady = useUIStore((s) => s.setSupabaseReady);
   const addToast = useUIStore((s) => s.addToast);
-  const isLoggedIn = !!session;
-  const [dataDir, setDataDir] = useState<string>("");
   const [customUrl, setCustomUrl] = useState("");
   const [customKey, setCustomKey] = useState("");
-  const [savingSupabase, setSavingSupabase] = useState(false);
-  const [showSelfhostForm, setShowSelfhostForm] = useState(false);
-
-  // Developer's cloud is available when env vars are compiled in
-  const cloudAvailable = !!(
-    import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
-  );
+  const [saving, setSaving] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [showSchema, setShowSchema] = useState(false);
 
   useEffect(() => {
-    appDataDir().then(setDataDir).catch(() => {});
     getConfig().then((c) => {
       setCustomUrl(c.customSupabaseUrl);
       setCustomKey(c.customSupabaseAnonKey);
-    });
-  }, []);
-
-  const handleModeClick = (mode: StorageMode) => {
-    if (mode === "local") {
-      onStorageModeChange("local");
-      setShowSelfhostForm(false);
-    } else if (mode === "supabase") {
-      // クラウド: env vars 前提なので未ログインなら login フローへ
-      if (!isLoggedIn) onRequestLogin?.();
-      else onStorageModeChange("supabase");
-    } else if (mode === "selfhost") {
-      // セルフホスト: まずフォームを開いて URL/key を設定してもらう
-      // ログイン済み+設定済みなら即切り替え、それ以外はフォームを開くだけ
-      if (isLoggedIn && supabaseConfigured && currentMode !== "selfhost") {
-        onStorageModeChange("selfhost");
-      } else {
-        setShowSelfhostForm(true);
+      if (c.customSupabaseUrl && c.customSupabaseAnonKey) {
+        reinitSupabase(c.customSupabaseUrl, c.customSupabaseAnonKey);
+        setSupabaseReady(true);
       }
-    }
-  };
+    });
+  }, [setSupabaseReady]);
 
-  const handleOpenDataDir = () => {
-    if (dataDir) invoke("open_path", { path: dataDir });
-  };
-
-  const handleSaveSelfhost = async () => {
+  const handleSave = async () => {
     const url = customUrl.trim();
     const key = customKey.trim();
     if (!url || !key) {
       addToast("error", "URLとAnon Keyを両方入力してください");
       return;
     }
-    setSavingSupabase(true);
+    setSaving(true);
     await setConfig({ customSupabaseUrl: url, customSupabaseAnonKey: key, storageMode: "selfhost" });
     window.location.reload();
   };
 
-  const handleClearSelfhost = async () => {
+  const handleClear = async () => {
     await setConfig({ customSupabaseUrl: "", customSupabaseAnonKey: "", storageMode: "local" });
     window.location.reload();
   };
 
-  const storageDesc: Record<StorageMode, string> = {
-    local: "ノートとタスクはこのデバイスにのみ保存されます。",
-    supabase: "ノートとタスクはFloteのクラウドに保存されます。複数デバイスで同期できます。",
-    selfhost: "ノートとタスクはあなたが管理するSupabaseに保存されます。",
+  const handleSignOut = async () => {
+    await signOut();
+    addToast("info", "ログアウトしました");
+    if (currentMode === "selfhost") onStorageModeChange("local");
+  };
+
+  const handleCopySQL = async () => {
+    await navigator.clipboard.writeText(SCHEMA_SQL);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   };
 
   return (
     <>
-      <h3 className={styles.sectionTitle}>保存先</h3>
+      <p className={styles.storageDesc}>
+        あなたが管理するSupabaseに保存します。デスクトップ版とモバイル版で同期できます。
+      </p>
 
+      {/* Connection config */}
+      <div className={styles.subSectionTitle}>接続設定</div>
       <div className={styles.field}>
-        <div className={styles.toggleGroup}>
-          <button
-            className={`${styles.toggleBtn} ${currentMode === "local" ? styles.toggleBtnActive : ""}`}
-            onClick={() => handleModeClick("local")}
-          >
-            ローカル
+        <div className={styles.fieldLabel}>Supabase URL</div>
+        <input
+          className={styles.authInput}
+          type="url"
+          placeholder="https://xxxx.supabase.co"
+          value={customUrl}
+          onChange={(e) => setCustomUrl(e.target.value)}
+        />
+        <div className={styles.fieldLabel} style={{ marginTop: 8 }}>Publishable (Anon) Key</div>
+        <input
+          className={styles.authInput}
+          type="password"
+          placeholder="eyJ..."
+          value={customKey}
+          onChange={(e) => setCustomKey(e.target.value)}
+        />
+        <div className={styles.fieldHint}>
+          Supabase ダッシュボードの「プロジェクト設定 → API」から取得できます。
+        </div>
+        <div className={styles.supabaseActions}>
+          <button className={styles.authSubmit} onClick={handleSave} disabled={saving}>
+            {saving ? "保存中..." : "保存して接続"}
           </button>
-          <button
-            className={`${styles.toggleBtn} ${currentMode === "supabase" ? styles.toggleBtnActive : ""} ${!cloudAvailable ? styles.toggleBtnDisabled : ""}`}
-            onClick={cloudAvailable ? () => handleModeClick("supabase") : undefined}
-            disabled={!cloudAvailable}
-            title={!cloudAvailable ? "このビルドはクラウド未対応です" : undefined}
-          >
-            クラウド
-            {cloudAvailable && !isLoggedIn && currentMode !== "supabase" && (
-              <span className={styles.badge}>要ログイン</span>
-            )}
-            {!cloudAvailable && <span className={styles.badge}>未対応</span>}
-          </button>
-          <button
-            className={`${styles.toggleBtn} ${currentMode === "selfhost" ? styles.toggleBtnActive : ""}`}
-            onClick={() => handleModeClick("selfhost")}
-          >
-            セルフホスト
-            {currentMode !== "selfhost" && !customUrl && (
-              <span className={styles.badge}>未設定</span>
-            )}
-            {currentMode !== "selfhost" && !!customUrl && !isLoggedIn && (
-              <span className={styles.badge}>要ログイン</span>
-            )}
-          </button>
+          {customUrl && (
+            <button
+              className={styles.shortcutChangeBtn}
+              style={{ color: "var(--danger, #e53e3e)" }}
+              onClick={handleClear}
+            >
+              削除
+            </button>
+          )}
         </div>
       </div>
 
-      <div className={styles.storageInfo}>{storageDesc[currentMode]}</div>
-
-      {currentMode === "local" && dataDir && (
-        <div className={styles.field}>
-          <div className={styles.fieldLabel}>データ保存場所</div>
-          <button className={styles.dataDirBtn} onClick={handleOpenDataDir} title="Finderで開く">
-            <span className={styles.dataDirPath}>{dataDir}</span>
-            <span className={styles.dataDirIcon}>↗</span>
-          </button>
-          <div className={styles.fieldHint}>クリックするとFinderで開きます</div>
-        </div>
-      )}
-
-      <div className={styles.storageInfo}>
-        ローカルデータは保持されます。保存先を切り替えてもデータは削除されません。
-      </div>
-
-      {/* セルフホスト接続設定 */}
-      {(currentMode === "selfhost" || showSelfhostForm || !!(customUrl)) && (
+      {/* Auth state */}
+      {customUrl && (
         <>
-          <h3 className={styles.sectionTitle}>セルフホスト接続設定</h3>
-          <div className={styles.field}>
-            <div className={styles.fieldLabel}>Supabase URL</div>
-            <input
-              className={styles.authInput}
-              type="url"
-              placeholder="https://xxxx.supabase.co"
-              value={customUrl}
-              onChange={(e) => setCustomUrl(e.target.value)}
-            />
-            <div className={styles.fieldLabel} style={{ marginTop: 8 }}>Anon Key</div>
-            <input
-              className={styles.authInput}
-              type="password"
-              placeholder="eyJ..."
-              value={customKey}
-              onChange={(e) => setCustomKey(e.target.value)}
-            />
-            <div className={styles.fieldHint}>
-              Supabase Cloud またはセルフホスト版の「プロジェクト設定 → API」から取得できます。
-            </div>
-            <div className={styles.supabaseActions}>
-              <button
-                className={styles.authSubmit}
-                onClick={handleSaveSelfhost}
-                disabled={savingSupabase}
-              >
-                {savingSupabase ? "保存中..." : "保存して接続"}
-              </button>
-              {customUrl && (
+          <div className={styles.subSectionTitle}>アカウント</div>
+          {session ? (
+            <>
+              <div className={styles.userProfile}>
+                <div className={styles.avatar}>
+                  {(session.user.email ?? "?").charAt(0).toUpperCase()}
+                </div>
+                <div className={styles.userInfo}>
+                  <div className={styles.userEmail}>{session.user.email}</div>
+                </div>
+              </div>
+              {currentMode !== "selfhost" && (
                 <button
-                  className={styles.shortcutChangeBtn}
-                  style={{ color: "var(--danger, #e53e3e)" }}
-                  onClick={handleClearSelfhost}
+                  className={styles.useModeBtn}
+                  onClick={() => onStorageModeChange("selfhost")}
                 >
-                  削除
+                  セルフホストを使う
                 </button>
               )}
-            </div>
+              <button className={styles.logoutBtn} onClick={handleSignOut}>
+                ログアウト
+              </button>
+            </>
+          ) : (
+            <p className={styles.storageDesc}>
+              接続設定を保存するとログイン画面が表示されます。
+            </p>
+          )}
+        </>
+      )}
+
+      {/* Schema setup */}
+      <div className={styles.subSectionTitle}>
+        スキーマセットアップ
+        <button
+          className={styles.schemaToggleBtn}
+          onClick={() => setShowSchema((v) => !v)}
+        >
+          {showSchema ? "閉じる" : "SQLを表示"}
+        </button>
+      </div>
+      {showSchema && (
+        <>
+          <p className={styles.storageDesc}>
+            初回接続時はSupabaseの「SQL エディタ」で以下を実行してください。
+          </p>
+          <div className={styles.sqlBox}>
+            <pre className={styles.sqlPre}>{SCHEMA_SQL}</pre>
           </div>
+          <button className={styles.shortcutChangeBtn} onClick={handleCopySQL}>
+            {copied ? "✓ コピーしました" : "SQLをコピー"}
+          </button>
         </>
       )}
     </>
@@ -766,7 +824,6 @@ function HowToTab() {
           <span className={styles.helpDesc}>add note / add task / show notes / settings など</span>
         </div>
       </div>
-
     </>
   );
 }
