@@ -4,6 +4,7 @@ import { EditorView, keymap, placeholder } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
+import { vim, Vim } from "@replit/codemirror-vim";
 import type { EditorTheme } from "../editorThemes";
 import { resolveEditorTheme } from "../editorThemes";
 import { HLJS_THEME_CSS, renderPreview } from "../previewRenderer";
@@ -16,6 +17,7 @@ type EditorProps = {
   onRequestEdit?: () => void;
   onExitEdit?: () => void;
   editorTheme?: EditorTheme;
+  vimMode?: boolean;
 };
 
 const baseTheme = EditorView.theme({
@@ -30,29 +32,47 @@ const baseTheme = EditorView.theme({
 });
 
 const themeCompartment = new Compartment();
+const vimCompartment = new Compartment();
+const escCompartment = new Compartment();
 
-export default function Editor({ docId, value, onChange, editing, onExitEdit, editorTheme }: EditorProps) {
+// Register vim ex commands globally once
+let vimExCommandsRegistered = false;
+function ensureVimExCommands(onExit: () => void) {
+  if (vimExCommandsRegistered) return;
+  vimExCommandsRegistered = true;
+  Vim.defineEx("quit", "q", () => onExit());
+  Vim.defineEx("wq", "", () => onExit());
+  Vim.defineEx("x", "", () => onExit());
+  Vim.defineEx("write", "w", () => { /* auto-saved */ });
+}
+
+export default function Editor({ docId, value, onChange, editing, onExitEdit, editorTheme, vimMode = false }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const onExitEditRef = useRef(onExitEdit);
   onExitEditRef.current = onExitEdit;
+  const vimModeRef = useRef(vimMode);
+  vimModeRef.current = vimMode;
+
+  const escExt = useRef(
+    keymap.of([{
+      key: "Escape",
+      run: () => { onExitEditRef.current?.(); return true; },
+    }])
+  );
 
   useEffect(() => {
     if (!containerRef.current) return;
 
-    const escKeymap = keymap.of([
-      {
-        key: "Escape",
-        run: () => { onExitEditRef.current?.(); return true; },
-      },
-    ]);
+    ensureVimExCommands(() => onExitEditRef.current?.());
 
     const state = EditorState.create({
       doc: value,
       extensions: [
-        escKeymap,
+        vimCompartment.of(vimMode ? vim() : []),
+        escCompartment.of(vimMode ? [] : escExt.current),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         history(),
         markdown({ codeLanguages: languages }),
@@ -74,6 +94,18 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     return () => { view.destroy(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Toggle vim mode without recreating the editor
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: [
+        vimCompartment.reconfigure(vimMode ? vim() : []),
+        escCompartment.reconfigure(vimMode ? [] : escExt.current),
+      ],
+    });
+  }, [vimMode]);
 
   // Swap editor theme without recreating the editor
   useEffect(() => {

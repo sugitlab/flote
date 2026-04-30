@@ -17,6 +17,7 @@ export type AppSettings = {
   hideDockIcon: boolean;
   customSupabaseUrl: string;
   customSupabaseAnonKey: string;
+  vimMode: boolean;
 };
 
 const STORE_PATH = "settings.json";
@@ -36,6 +37,7 @@ const DEFAULTS: AppSettings = {
   hideDockIcon: false,
   customSupabaseUrl: "",
   customSupabaseAnonKey: "",
+  vimMode: false,
 };
 
 async function getStore() {

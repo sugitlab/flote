@@ -88,6 +88,8 @@ function GeneralTab() {
   const setSearchFullText = useUIStore((s) => s.setSearchFullText);
   const hideCompletedInSearch = useUIStore((s) => s.hideCompletedInSearch);
   const setHideCompletedInSearch = useUIStore((s) => s.setHideCompletedInSearch);
+  const vimMode = useUIStore((s) => s.vimMode);
+  const setVimMode = useUIStore((s) => s.setVimMode);
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [hideOnBlur, setHideOnBlur] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
@@ -110,6 +112,11 @@ function GeneralTab() {
   const handleHideCompletedInSearch = (v: boolean) => {
     setHideCompletedInSearch(v);
     setConfig({ hideCompletedInSearch: v });
+  };
+
+  const handleVimMode = (v: boolean) => {
+    setVimMode(v);
+    setConfig({ vimMode: v });
   };
 
   const handleTheme = (t: ThemeMode) => {
@@ -236,6 +243,13 @@ function GeneralTab() {
               {t.label}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className={styles.field}>
+        <div className={styles.switchRow}>
+          <span className={styles.switchLabel}>Vim キーバインド</span>
+          <Toggle checked={vimMode} onChange={handleVimMode} />
         </div>
       </div>
 

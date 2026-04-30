@@ -19,6 +19,7 @@
     "@codemirror/view": "^6.36.5",
     "@flote/api-client": "workspace:*",
     "@flote/types": "workspace:*",
+    "@replit/codemirror-vim": "^6.3.0",
     "@supabase/supabase-js": "^2.44.2",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-autostart": "^2.0.0",

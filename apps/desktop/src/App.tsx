@@ -106,6 +106,8 @@ function MainApp({
   const editorThemeLight = useUIStore((s) => s.editorThemeLight);
   const setEditorThemeDark = useUIStore((s) => s.setEditorThemeDark);
   const setEditorThemeLight = useUIStore((s) => s.setEditorThemeLight);
+  const vimMode = useUIStore((s) => s.vimMode);
+  const setVimMode = useUIStore((s) => s.setVimMode);
   const uiTheme = useUIStore((s) => s.theme);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -139,6 +141,7 @@ function MainApp({
       setHideCompletedInSearch(c.hideCompletedInSearch);
       setEditorThemeDark(c.editorThemeDark);
       setEditorThemeLight(c.editorThemeLight);
+      setVimMode(c.vimMode);
     });
   }, []);
 
@@ -503,6 +506,7 @@ function MainApp({
                   editing={isEditing}
                   onExitEdit={handleExitEditor}
                   editorTheme={activeEditorTheme}
+                  vimMode={vimMode}
                 />
               </div>
             </div>
@@ -555,6 +559,7 @@ function MainApp({
                   editing={isEditing}
                   onExitEdit={handleExitEditor}
                   editorTheme={activeEditorTheme}
+                  vimMode={vimMode}
                 />
               </div>
             </div>
