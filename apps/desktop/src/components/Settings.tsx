@@ -437,7 +437,13 @@ function LocalPane({
       </p>
 
       {currentMode !== "local" && (
-        <button className={styles.useModeBtn} onClick={() => onStorageModeChange("local")}>
+        <button
+          className={styles.useModeBtn}
+          onClick={async () => {
+            await setConfig({ storageMode: "local" });
+            window.location.reload();
+          }}
+        >
           ローカルを使う
         </button>
       )}
@@ -498,23 +504,22 @@ function CloudPane({
       if (authTab === "signup") {
         const { error: err } = await supabase.auth.signUp({ email, password });
         if (err) throw err;
-        addToast("success", "アカウントを作成しました");
       } else {
         const { error: err } = await supabase.auth.signInWithPassword({ email, password });
         if (err) throw err;
       }
-      await onStorageModeChange("supabase");
+      await setConfig({ storageMode: "supabase" });
+      window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : "エラーが発生しました");
-    } finally {
       setLoading(false);
     }
   };
 
   const handleSignOut = async () => {
     await signOut();
-    addToast("info", "ログアウトしました");
-    if (currentMode === "supabase") onStorageModeChange("local");
+    await setConfig({ storageMode: "local" });
+    window.location.reload();
   };
 
   if (session) {
@@ -528,7 +533,13 @@ function CloudPane({
           </div>
         </div>
         {currentMode !== "supabase" && (
-          <button className={styles.useModeBtn} onClick={() => onStorageModeChange("supabase")}>
+          <button
+            className={styles.useModeBtn}
+            onClick={async () => {
+              await setConfig({ storageMode: "supabase" });
+              window.location.reload();
+            }}
+          >
             クラウドを使う
           </button>
         )}
@@ -635,8 +646,8 @@ function SelfhostPane({
 
   const handleSignOut = async () => {
     await signOut();
-    addToast("info", "ログアウトしました");
-    if (currentMode === "selfhost") onStorageModeChange("local");
+    await setConfig({ storageMode: "local" });
+    window.location.reload();
   };
 
   const handleCopySQL = async () => {
