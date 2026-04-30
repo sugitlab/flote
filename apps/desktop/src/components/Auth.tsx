@@ -45,29 +45,37 @@ export default function Auth({ onSignIn, onSignUp, onUseLocal }: AuthProps) {
             {isSignUp ? "アカウント作成" : "ログイン"}
           </p>
 
-          {error && <div className={styles.error}>{error}</div>}
+          {isSignUp ? (
+            <div className={styles.signupClosed}>
+              現在、新規アカウントの受付を停止しています。
+            </div>
+          ) : (
+            <>
+              {error && <div className={styles.error}>{error}</div>}
 
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="メールアドレス"
-            required
-            className={styles.input}
-          />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="パスワード"
-            required
-            minLength={6}
-            className={styles.input}
-          />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="メールアドレス"
+                required
+                className={styles.input}
+              />
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="パスワード"
+                required
+                minLength={6}
+                className={styles.input}
+              />
 
-          <button type="submit" disabled={loading} className={styles.submitBtn}>
-            {loading ? "処理中..." : isSignUp ? "サインアップ" : "ログイン"}
-          </button>
+              <button type="submit" disabled={loading} className={styles.submitBtn}>
+                {loading ? "処理中..." : "ログイン"}
+              </button>
+            </>
+          )}
 
           <button
             type="button"

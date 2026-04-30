@@ -572,27 +572,35 @@ function CloudPane({
             サインアップ
           </button>
         </div>
-        {error && <div className={styles.authError}>{error}</div>}
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="メールアドレス"
-          required
-          className={styles.authInput}
-        />
-        <input
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="パスワード"
-          required
-          minLength={6}
-          className={styles.authInput}
-        />
-        <button type="submit" disabled={loading} className={styles.authSubmit}>
-          {loading ? "処理中..." : authTab === "signup" ? "サインアップ" : "ログイン"}
-        </button>
+        {authTab === "signup" ? (
+          <div className={styles.signupClosed}>
+            現在、新規アカウントの受付を停止しています。
+          </div>
+        ) : (
+          <>
+            {error && <div className={styles.authError}>{error}</div>}
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="メールアドレス"
+              required
+              className={styles.authInput}
+            />
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="パスワード"
+              required
+              minLength={6}
+              className={styles.authInput}
+            />
+            <button type="submit" disabled={loading} className={styles.authSubmit}>
+              {loading ? "処理中..." : "ログイン"}
+            </button>
+          </>
+        )}
       </form>
     </>
   );

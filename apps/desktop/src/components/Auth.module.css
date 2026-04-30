@@ -131,3 +131,15 @@
 .localBtn:hover {
   color: var(--text-secondary);
 }
+
+
+.signupClosed {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 10px 14px;
+  line-height: 1.5;
+  text-align: center;
+}
