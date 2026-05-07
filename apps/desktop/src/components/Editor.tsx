@@ -1,4 +1,5 @@
-import { useRef, useEffect, useMemo, useState } from "react";
+import { useRef, useEffect, useMemo, useState, useCallback } from "react";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, keymap, placeholder } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -58,6 +59,14 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
   const vimModeRef = useRef(vimMode);
   vimModeRef.current = vimMode;
   const [vimModeLabel, setVimModeLabel] = useState<string>("NORMAL");
+
+  const handlePreviewClick = useCallback((e: React.MouseEvent) => {
+    const a = (e.target as HTMLElement).closest("a");
+    if (!a) return;
+    e.preventDefault();
+    const url = a.getAttribute("href") ?? a.href;
+    if (url) openUrl(url).catch(console.error);
+  }, []);
 
   const escExt = useRef(
     keymap.of([{
@@ -206,6 +215,7 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
           <div
             className="preview-content"
             dangerouslySetInnerHTML={{ __html: previewHtml }}
+            onClick={handlePreviewClick}
           />
         </div>
       )}
