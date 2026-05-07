@@ -49,6 +49,8 @@ node -e "console.log('  tauri.conf   :', JSON.parse(require('fs').readFileSync('
 grep '^version' apps/desktop/src-tauri/Cargo.toml | awk '{print "  Cargo.toml   :", $3}'
 
 echo "→ Committing..."
+# Stage all tracked changes first, then add version files
+git add -u
 git add \
   apps/desktop/package.json \
   apps/desktop/src-tauri/tauri.conf.json \
