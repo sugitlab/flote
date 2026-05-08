@@ -5,18 +5,46 @@ use tauri::{
 };
 
 #[cfg(target_os = "macos")]
+fn hide_app(window: &tauri::WebviewWindow) {
+    use objc2::msg_send;
+    use objc2::runtime::AnyObject;
+    // [NSApp hide:] hides the app at the OS level, preserving its Space association.
+    // Unlike [NSWindow orderOut:], this allows [NSApp unhide:] to trigger a proper
+    // Space switch back to Flote's desktop Space.
+    let _ = window.with_webview(|_wv| unsafe {
+        let nil: *mut AnyObject = std::ptr::null_mut();
+        let cls = objc2::class!(NSApplication);
+        let ns_app: *mut AnyObject = msg_send![cls, sharedApplication];
+        let _: () = msg_send![ns_app, hide: nil];
+    });
+}
+
+#[cfg(target_os = "macos")]
 fn activate_app(window: &tauri::WebviewWindow) {
     use objc2::msg_send;
     use objc2::runtime::AnyObject;
 
-    unsafe {
-        let cls = objc2::class!(NSApplication);
-        let app: *mut AnyObject = msg_send![cls, sharedApplication];
-        let _: () = msg_send![app, activateIgnoringOtherApps: true];
-    }
+    let _ = window.with_webview(|wv| {
+        unsafe {
+            let view = wv.inner() as *mut AnyObject;
+            let ns_window: *mut AnyObject = msg_send![view, window];
+            if ns_window.is_null() {
+                return;
+            }
 
-    let _ = window.show();
-    let _ = window.set_focus();
+            let nil: *mut AnyObject = std::ptr::null_mut();
+
+            // [NSApp unhide:] restores hidden windows to their Spaces and activates
+            // the app, triggering the OS-level Space switch animation — the same
+            // mechanism as clicking the Dock icon of a hidden app.
+            let ns_app_cls = objc2::class!(NSApplication);
+            let ns_app: *mut AnyObject = msg_send![ns_app_cls, sharedApplication];
+            let _: () = msg_send![ns_app, unhide: nil];
+
+            // Ensure this specific window is key and front.
+            let _: () = msg_send![ns_window, makeKeyAndOrderFront: nil];
+        }
+    });
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -28,6 +56,9 @@ fn activate_app(window: &tauri::WebviewWindow) {
 fn toggle_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if window.is_visible().unwrap_or(false) {
+            #[cfg(target_os = "macos")]
+            hide_app(&window);
+            #[cfg(not(target_os = "macos"))]
             let _ = window.hide();
         } else {
             // Center window on the monitor where the cursor is
@@ -46,16 +77,13 @@ fn toggle_window(app: &tauri::AppHandle) {
                 if let Some(monitor) = target_monitor.or(monitors.first()) {
                     let mon_pos = monitor.position();
                     let mon_size = monitor.size();
-                    let scale = monitor.scale_factor();
                     let win_size = window.outer_size().unwrap_or(tauri::PhysicalSize {
                         width: 640,
                         height: 480,
                     });
-                    let cx =
-                        mon_pos.x as f64 + (mon_size.width as f64 - win_size.width as f64) / 2.0;
-                    let cy = mon_pos.y as f64
-                        + (mon_size.height as f64 - win_size.height as f64) / (2.0 * scale);
-                    let _ = window.set_position(tauri::PhysicalPosition::new(cx as i32, cy as i32));
+                    let cx = mon_pos.x + (mon_size.width as i32 - win_size.width as i32) / 2;
+                    let cy = mon_pos.y + (mon_size.height as i32 - win_size.height as i32) / 2;
+                    let _ = window.set_position(tauri::PhysicalPosition::new(cx, cy));
                 }
             }
             activate_app(&window);
