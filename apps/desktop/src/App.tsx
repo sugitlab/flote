@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Note, Task, StorageMode } from "@flote/types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
@@ -108,7 +108,48 @@ function MainApp({
   const setEditorThemeLight = useUIStore((s) => s.setEditorThemeLight);
   const vimMode = useUIStore((s) => s.vimMode);
   const setVimMode = useUIStore((s) => s.setVimMode);
+  const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
   const uiTheme = useUIStore((s) => s.theme);
+
+  const SIDEBAR_MIN = 150;
+  const SIDEBAR_MAX = 500;
+  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
+    const saved = localStorage.getItem("sidebarWidth");
+    return saved ? Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Number(saved))) : 200;
+  });
+  const isDragging = useRef(false);
+  const dragStartX = useRef(0);
+  const dragStartWidth = useRef(0);
+
+  const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    isDragging.current = true;
+    dragStartX.current = e.clientX;
+    dragStartWidth.current = sidebarWidth;
+
+    const onMove = (ev: MouseEvent) => {
+      if (!isDragging.current) return;
+      const delta = ev.clientX - dragStartX.current;
+      const next = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, dragStartWidth.current + delta));
+      setSidebarWidth(next);
+    };
+    const onUp = (ev: MouseEvent) => {
+      isDragging.current = false;
+      const delta = ev.clientX - dragStartX.current;
+      const next = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, dragStartWidth.current + delta));
+      localStorage.setItem("sidebarWidth", String(next));
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+  }, [sidebarWidth]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ type: "note" | "task"; id: string } | null>(null);
@@ -135,6 +176,8 @@ function MainApp({
     fetchTasks(userId);
   }, [userId, storageMode, fetchNotes, fetchTasks]);
 
+  const [sidebarToggleShortcut, setSidebarToggleShortcut] = useState("CmdOrCtrl+B");
+
   useEffect(() => {
     getConfig().then((c) => {
       setSearchFullText(c.searchFullText);
@@ -142,6 +185,10 @@ function MainApp({
       setEditorThemeDark(c.editorThemeDark);
       setEditorThemeLight(c.editorThemeLight);
       setVimMode(c.vimMode);
+      if (c.sidebarToggleShortcut) setSidebarToggleShortcut(c.sidebarToggleShortcut);
+      if (c.sidebarWidth) {
+        setSidebarWidth(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, c.sidebarWidth)));
+      }
     });
   }, []);
 
@@ -418,8 +465,10 @@ function MainApp({
       onSelectByIndex: handleSelectByIndex,
       onEnterEditor: handleEnterEditor,
       onDeleteSelected: handleDeleteSelected,
+      onToggleSidebar: toggleSidebar,
+      sidebarToggleShortcut,
     }),
-    [handleCreateNote, handleCreateTask, handlePrevItem, handleNextItem, cycleTheme, handleSelectByIndex, handleEnterEditor, handleDeleteSelected]
+    [handleCreateNote, handleCreateTask, handlePrevItem, handleNextItem, cycleTheme, handleSelectByIndex, handleEnterEditor, handleDeleteSelected, toggleSidebar, sidebarToggleShortcut]
   );
 
   useKeyboard(keyboardActions);
@@ -441,50 +490,77 @@ function MainApp({
       {/* Main area */}
       <div className={styles.main}>
         {/* Sidebar */}
-        <div className={styles.sidebar}>
-          <div className={styles.tabs}>
-            <button
-              className={`${styles.tab} ${activeTab === "notes" ? styles.tabActive : ""}`}
-              onClick={() => setActiveTab("notes")}
-            >
-              ノート <span className={styles.tabKbd}>⌘1</span>
-            </button>
-            <button
-              className={`${styles.tab} ${activeTab === "tasks" ? styles.tabActive : ""}`}
-              onClick={() => setActiveTab("tasks")}
-            >
-              タスク <span className={styles.tabKbd}>⌘2</span>
-            </button>
-          </div>
+        {!sidebarCollapsed && (
+          <div className={styles.sidebar} style={{ width: sidebarWidth, borderRight: "1px solid var(--border)" }}>
+            <div className={styles.tabs}>
+              <button
+                className={`${styles.tab} ${activeTab === "notes" ? styles.tabActive : ""}`}
+                onClick={() => setActiveTab("notes")}
+              >
+                ノート <span className={styles.tabKbd}>⌘1</span>
+              </button>
+              <button
+                className={`${styles.tab} ${activeTab === "tasks" ? styles.tabActive : ""}`}
+                onClick={() => setActiveTab("tasks")}
+              >
+                タスク <span className={styles.tabKbd}>⌘2</span>
+              </button>
+              <button
+                className={styles.sidebarCollapseBtn}
+                onClick={toggleSidebar}
+                title="リストを閉じる"
+              >
+                ‹
+              </button>
+            </div>
 
-          <div className={styles.sidebarList}>
-            {activeTab === "notes" && (
-              <NoteList
-                notes={notes}
-                activeNoteId={activeNoteId}
-                onSelect={(id) => { setIsEditing(false); setActiveNote(id); }}
-                onDelete={handleDeleteNote}
-                onDeleteMultiple={handleDeleteNotes}
-                onNew={handleCreateNote}
-              />
-            )}
+            <div className={styles.sidebarList}>
+              {activeTab === "notes" && (
+                <NoteList
+                  notes={notes}
+                  activeNoteId={activeNoteId}
+                  onSelect={(id) => { setIsEditing(false); setActiveNote(id); }}
+                  onDelete={handleDeleteNote}
+                  onDeleteMultiple={handleDeleteNotes}
+                  onNew={handleCreateNote}
+                />
+              )}
 
-            {activeTab === "tasks" && (
-              <TaskList
-                tasks={tasks}
-                activeTaskId={activeTaskId}
-                onToggleDone={(id) => toggleDone(id, userId)}
-                onDelete={handleDeleteTask}
-                onDeleteMultiple={handleDeleteTasks}
-                onAddTask={handleCreateTask}
-                onSelectTask={handleSelectTask}
-              />
-            )}
+              {activeTab === "tasks" && (
+                <TaskList
+                  tasks={tasks}
+                  activeTaskId={activeTaskId}
+                  onToggleDone={(id) => toggleDone(id, userId)}
+                  onDelete={handleDeleteTask}
+                  onDeleteMultiple={handleDeleteTasks}
+                  onAddTask={handleCreateTask}
+                  onSelectTask={handleSelectTask}
+                />
+              )}
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Drag-to-resize divider */}
+        {!sidebarCollapsed && (
+          <div
+            className={styles.resizeDivider}
+            onMouseDown={handleDividerMouseDown}
+          />
+        )}
 
         {/* Editor area */}
         <div className={styles.editorArea}>
+          {/* Reopen button shown when sidebar is collapsed */}
+          {sidebarCollapsed && (
+            <button
+              className={styles.sidebarReopenBtn}
+              onClick={toggleSidebar}
+              title="リストを表示"
+            >
+              ›
+            </button>
+          )}
           {activeTab === "notes" && selectedNote ? (
             <div className={styles.noteDetail}>
               <div className={styles.noteDetailHeader}>

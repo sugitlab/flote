@@ -10,6 +10,8 @@ type KeyboardActions = {
   onSelectByIndex: (index: number) => void;
   onEnterEditor: () => void;
   onDeleteSelected: () => void;
+  onToggleSidebar: () => void;
+  sidebarToggleShortcut?: string;
 };
 
 export function useKeyboard(actions: KeyboardActions) {
@@ -47,6 +49,15 @@ export function useKeyboard(actions: KeyboardActions) {
       if (meta && e.key === "k") {
         e.preventDefault();
         setCommandPaletteOpen(!isCommandPaletteOpen);
+        return;
+      }
+
+      // Sidebar toggle shortcut (default ⌘B, configurable)
+      const shortcut = actions.sidebarToggleShortcut ?? "CmdOrCtrl+B";
+      const sKey = shortcut.toLowerCase().replace("cmdorctrl+", "").replace("meta+", "").replace("ctrl+", "");
+      if (meta && e.key.toLowerCase() === sKey) {
+        e.preventDefault();
+        actions.onToggleSidebar();
         return;
       }
 

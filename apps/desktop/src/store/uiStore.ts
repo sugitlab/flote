@@ -23,9 +23,12 @@ type UIStore = {
   searchFullText: boolean;
   hideCompletedInSearch: boolean;
   vimMode: boolean;
+  sidebarCollapsed: boolean;
   supabaseReady: boolean;
   setSupabaseReady: (v: boolean) => void;
   setVimMode: (v: boolean) => void;
+  setSidebarCollapsed: (v: boolean) => void;
+  toggleSidebar: () => void;
   setTheme: (theme: ThemeMode) => void;
   setEditorThemeDark: (theme: DarkEditorTheme) => void;
   setEditorThemeLight: (theme: LightEditorTheme) => void;
@@ -50,10 +53,13 @@ export const useUIStore = create<UIStore>((set, get) => ({
   searchFullText: false,
   hideCompletedInSearch: true,
   vimMode: false,
+  sidebarCollapsed: false,
   supabaseReady: false,
 
   setSupabaseReady: (v) => set({ supabaseReady: v }),
   setVimMode: (v) => set({ vimMode: v }),
+  setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
+  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   setTheme: (theme) => set({ theme }),
   setEditorThemeDark: (editorThemeDark) => set({ editorThemeDark }),
   setEditorThemeLight: (editorThemeLight) => set({ editorThemeLight }),

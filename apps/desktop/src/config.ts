@@ -18,6 +18,8 @@ export type AppSettings = {
   customSupabaseUrl: string;
   customSupabaseAnonKey: string;
   vimMode: boolean;
+  sidebarToggleShortcut: string;
+  sidebarWidth: number;
 };
 
 const STORE_PATH = "settings.json";
@@ -38,6 +40,8 @@ const DEFAULTS: AppSettings = {
   customSupabaseUrl: "",
   customSupabaseAnonKey: "",
   vimMode: false,
+  sidebarToggleShortcut: "CmdOrCtrl+B",
+  sidebarWidth: 200,
 };
 
 async function getStore() {
