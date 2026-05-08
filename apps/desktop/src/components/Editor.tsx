@@ -1,7 +1,7 @@
 import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { EditorState, Compartment } from "@codemirror/state";
-import { EditorView, keymap, placeholder } from "@codemirror/view";
+import { EditorState, Compartment, EditorSelection } from "@codemirror/state";
+import { EditorView, keymap, placeholder, drawSelection } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { markdown } from "@codemirror/lang-markdown";
 import { languages } from "@codemirror/language-data";
@@ -35,6 +35,44 @@ const baseTheme = EditorView.theme({
 const themeCompartment = new Compartment();
 const vimCompartment = new Compartment();
 const escCompartment = new Compartment();
+
+// Register visual-block insert (I in Ctrl+V mode) globally once.
+// Creates one cursor per selected line at the block's start column so
+// CodeMirror's native multiple-selection support handles simultaneous typing.
+let vimBlockInsertRegistered = false;
+function ensureVimBlockInsert() {
+  if (vimBlockInsertRegistered) return;
+  vimBlockInsertRegistered = true;
+
+  Vim.defineAction("blockInsert", (cm: any) => {
+    const vim = cm.state.vim;
+    if (!vim?.visualBlock) return;
+
+    const sel = vim.sel;
+    const startLine = Math.min(sel.anchor.line, sel.head.line);
+    const endLine   = Math.max(sel.anchor.line, sel.head.line);
+    const startCh   = Math.min(sel.anchor.ch,   sel.head.ch);
+
+    const view: EditorView = (cm as any).cm6;
+    const doc = view.state.doc;
+    const ranges = [];
+    for (let line = startLine; line <= endLine; line++) {
+      const lineInfo = doc.line(line + 1); // CM6 is 1-indexed
+      const pos = lineInfo.from + Math.min(startCh, lineInfo.length);
+      ranges.push(EditorSelection.cursor(pos));
+    }
+
+    view.dispatch({ selection: EditorSelection.create(ranges) });
+
+    vim.visualMode  = false;
+    vim.visualLine  = false;
+    vim.visualBlock = false;
+    vim.insertMode  = true;
+    try { (cm as any).signal(cm, "vim-mode-change", { mode: "insert" }); } catch (_) {}
+  });
+
+  Vim.mapCommand("I", "action", "blockInsert", {}, { context: "visual" });
+}
 
 // Register vim ex commands globally once
 let vimExCommandsRegistered = false;
@@ -79,14 +117,17 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     if (!containerRef.current) return;
 
     ensureVimExCommands(() => onExitEditRef.current?.());
+    ensureVimBlockInsert();
 
     const state = EditorState.create({
       doc: value,
       extensions: [
         vimCompartment.of(vimMode ? vim() : []),
         escCompartment.of(vimMode ? [] : escExt.current),
+        EditorState.allowMultipleSelections.of(true),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         history(),
+        drawSelection(),
         markdown({ codeLanguages: languages }),
         themeCompartment.of(resolveEditorTheme(editorTheme)),
         baseTheme,
