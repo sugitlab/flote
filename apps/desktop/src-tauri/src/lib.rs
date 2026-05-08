@@ -4,6 +4,27 @@ use tauri::{
     Manager,
 };
 
+#[cfg(target_os = "macos")]
+fn activate_app(window: &tauri::WebviewWindow) {
+    use objc2::msg_send;
+    use objc2::runtime::AnyObject;
+
+    unsafe {
+        let cls = objc2::class!(NSApplication);
+        let app: *mut AnyObject = msg_send![cls, sharedApplication];
+        let _: () = msg_send![app, activateIgnoringOtherApps: true];
+    }
+
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
+#[cfg(not(target_os = "macos"))]
+fn activate_app(window: &tauri::WebviewWindow) {
+    let _ = window.show();
+    let _ = window.set_focus();
+}
+
 fn toggle_window(app: &tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if window.is_visible().unwrap_or(false) {
@@ -30,16 +51,14 @@ fn toggle_window(app: &tauri::AppHandle) {
                         width: 640,
                         height: 480,
                     });
-                    let cx = mon_pos.x as f64
-                        + (mon_size.width as f64 - win_size.width as f64) / 2.0;
+                    let cx =
+                        mon_pos.x as f64 + (mon_size.width as f64 - win_size.width as f64) / 2.0;
                     let cy = mon_pos.y as f64
                         + (mon_size.height as f64 - win_size.height as f64) / (2.0 * scale);
-                    let _ = window
-                        .set_position(tauri::PhysicalPosition::new(cx as i32, cy as i32));
+                    let _ = window.set_position(tauri::PhysicalPosition::new(cx as i32, cy as i32));
                 }
             }
-            let _ = window.show();
-            let _ = window.set_focus();
+            activate_app(&window);
         }
     }
 }
@@ -66,9 +85,7 @@ fn update_tray_badge(app: tauri::AppHandle, count: u32) {
 #[tauri::command]
 fn set_always_on_top(app: tauri::AppHandle, value: bool) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("main") {
-        window
-            .set_always_on_top(value)
-            .map_err(|e| e.to_string())?;
+        window.set_always_on_top(value).map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -180,7 +197,8 @@ pub fn run() {
                         button: tauri::tray::MouseButton::Left,
                         button_state: tauri::tray::MouseButtonState::Up,
                         ..
-                    } = event {
+                    } = event
+                    {
                         toggle_window(tray.app_handle());
                     }
                 })
