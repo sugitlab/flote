@@ -1,0 +1,10 @@
+{
+  "identifier": "capture",
+  "description": "Capabilities for the Quick Capture window",
+  "windows": ["capture"],
+  "permissions": [
+    "core:default",
+    "store:allow-get",
+    "store:allow-load"
+  ]
+}

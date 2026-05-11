@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Note, Task, StorageMode } from "@flote/types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   initSupabase,
   reinitSupabase,
@@ -178,6 +179,22 @@ function MainApp({
     fetchTasks(userId);
   }, [userId, storageMode, fetchNotes, fetchTasks]);
 
+  // Receive notes saved from the Quick Capture window
+  useEffect(() => {
+    const unlisten = listen<{ text: string }>("quick-note", (event) => {
+      const { text } = event.payload;
+      const note: Note = {
+        id: crypto.randomUUID(),
+        title: extractTitle(text) || text.slice(0, 60),
+        body_md: text,
+        updated_at: new Date().toISOString(),
+      };
+      saveNote(note, userId);
+      addToast("success", "クイックメモを保存しました");
+    });
+    return () => { unlisten.then((fn) => fn()); };
+  }, [userId, saveNote, addToast]);
+
   const [sidebarToggleShortcut, setSidebarToggleShortcut] = useState("CmdOrCtrl+B");
 
   useEffect(() => {
@@ -209,6 +226,61 @@ function MainApp({
       unlisten.then((fn) => fn());
     };
   }, []);
+
+  // Refs always reflect the latest values without being effect dependencies.
+  // This lets the cleanup effects fire only on ID changes, not on every render.
+  const notesRef = useRef(notes);
+  notesRef.current = notes;
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+  const deleteNoteRef = useRef(deleteNote);
+  deleteNoteRef.current = deleteNote;
+  const deleteTaskRef = useRef(deleteTask);
+  deleteTaskRef.current = deleteTask;
+  const activeNoteIdRef = useRef(activeNoteId);
+  activeNoteIdRef.current = activeNoteId;
+  const activeTaskIdRef = useRef(activeTaskId);
+  activeTaskIdRef.current = activeTaskId;
+
+  // Auto-cleanup: when activeNoteId changes away from a note, delete it if body is empty.
+  const prevNoteIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prevId = prevNoteIdRef.current;
+    prevNoteIdRef.current = activeNoteId;
+    if (!prevId || prevId === activeNoteId) return;
+    const prev = notesRef.current.find((n) => n.id === prevId);
+    if (prev && prev.body_md.trim() === "") deleteNoteRef.current(prevId);
+  }, [activeNoteId]);
+
+  // Auto-cleanup: when activeTaskId changes away from a task, delete it if untouched.
+  const prevTaskIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const prevId = prevTaskIdRef.current;
+    prevTaskIdRef.current = activeTaskId;
+    if (!prevId || prevId === activeTaskId) return;
+    const prev = tasksRef.current.find((t) => t.id === prevId);
+    if (prev && prev.body_md.trim() === "" && prev.title === "新しいタスク") deleteTaskRef.current(prevId);
+  }, [activeTaskId]);
+
+  // Auto-cleanup on tab switch: covers the case where the active ID itself doesn't change
+  // (e.g. clicking the "タスク" tab while a note is selected, without selecting any task).
+  const prevTabRef = useRef(activeTab);
+  useEffect(() => {
+    const prevTab = prevTabRef.current;
+    prevTabRef.current = activeTab;
+    if (prevTab === activeTab) return;
+    if (prevTab === "notes") {
+      const id = activeNoteIdRef.current;
+      if (!id) return;
+      const note = notesRef.current.find((n) => n.id === id);
+      if (note && note.body_md.trim() === "") deleteNoteRef.current(id);
+    } else if (prevTab === "tasks") {
+      const id = activeTaskIdRef.current;
+      if (!id) return;
+      const task = tasksRef.current.find((t) => t.id === id);
+      if (task && task.body_md.trim() === "" && task.title === "新しいタスク") deleteTaskRef.current(id);
+    }
+  }, [activeTab]);
 
   const handleCreateNote = useCallback(() => {
     const note: Note = {
@@ -497,13 +569,13 @@ function MainApp({
             <div className={styles.tabs}>
               <button
                 className={`${styles.tab} ${activeTab === "notes" ? styles.tabActive : ""}`}
-                onClick={() => setActiveTab("notes")}
+                onClick={handleShowNotes}
               >
                 ノート <span className={styles.tabKbd}>⌘1</span>
               </button>
               <button
                 className={`${styles.tab} ${activeTab === "tasks" ? styles.tabActive : ""}`}
-                onClick={() => setActiveTab("tasks")}
+                onClick={handleShowTasks}
               >
                 タスク <span className={styles.tabKbd}>⌘2</span>
               </button>
@@ -797,6 +869,13 @@ function App() {
       setStorageMode(mode);
 
       invoke("set_dock_visible", { visible: !config.hideDockIcon });
+
+      if (config.globalShortcut) {
+        invoke("update_global_shortcut", { shortcut: config.globalShortcut }).catch(() => {});
+      }
+      if (config.captureShortcut) {
+        invoke("update_capture_shortcut", { shortcut: config.captureShortcut }).catch(() => {});
+      }
 
       const noteRepo = createNoteRepository(mode);
       const taskRepo = createTaskRepository(mode);

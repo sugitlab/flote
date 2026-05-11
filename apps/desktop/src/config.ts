@@ -12,6 +12,7 @@ export type AppSettings = {
   launchAtLogin: boolean;
   startInTray: boolean;
   globalShortcut: string;
+  captureShortcut: string;
   searchFullText: boolean;
   hideCompletedInSearch: boolean;
   hideDockIcon: boolean;
@@ -34,6 +35,7 @@ const DEFAULTS: AppSettings = {
   launchAtLogin: false,
   startInTray: true,
   globalShortcut: "CmdOrCtrl+Shift+N",
+  captureShortcut: "CmdOrCtrl+Shift+Space",
   searchFullText: false,
   hideCompletedInSearch: true,
   hideDockIcon: false,

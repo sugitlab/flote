@@ -93,6 +93,8 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  // Set true before programmatic dispatch to suppress spurious onChange calls.
+  const suppressChangeRef = useRef(false);
   const onExitEditRef = useRef(onExitEdit);
   onExitEditRef.current = onExitEdit;
   const vimModeRef = useRef(vimMode);
@@ -134,7 +136,7 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
         themeCompartment.of(resolveEditorTheme(editorTheme)),
         baseTheme,
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
+          if (update.docChanged && !suppressChangeRef.current) {
             onChangeRef.current(update.state.doc.toString());
           }
         }),
@@ -226,7 +228,9 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     if (!view) return;
     const current = view.state.doc.toString();
     if (current !== value) {
+      suppressChangeRef.current = true;
       view.dispatch({ changes: { from: 0, to: current.length, insert: value } });
+      suppressChangeRef.current = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [docId]);
@@ -237,7 +241,9 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     if (!view) return;
     const current = view.state.doc.toString();
     if (current !== value) {
+      suppressChangeRef.current = true;
       view.dispatch({ changes: { from: 0, to: current.length, insert: value } });
+      suppressChangeRef.current = false;
     }
   }, [value, editing]);
 

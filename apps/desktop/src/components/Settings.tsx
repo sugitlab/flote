@@ -276,14 +276,16 @@ function GeneralTab() {
 
 function ShortcutsTab() {
   const [globalShortcut, setGlobalShortcut] = useState("CmdOrCtrl+Shift+N");
-  const [recording, setRecording] = useState(false);
+  const [captureShortcut, setCaptureShortcut] = useState("CmdOrCtrl+Shift+Space");
+  const [recording, setRecording] = useState<"main" | "capture" | null>(null);
   const addToast = useUIStore((s) => s.addToast);
 
   useEffect(() => {
-    getConfig().then((c) => setGlobalShortcut(c.globalShortcut));
+    getConfig().then((c) => {
+      setGlobalShortcut(c.globalShortcut);
+      setCaptureShortcut(c.captureShortcut);
+    });
   }, []);
-
-  const startRecording = () => setRecording(true);
 
   useEffect(() => {
     if (!recording) return;
@@ -301,17 +303,25 @@ function ShortcutsTab() {
       parts.push(e.key.length === 1 ? e.key.toUpperCase() : e.key);
 
       const shortcut = parts.join("+");
-      setGlobalShortcut(shortcut);
-      setRecording(false);
+      setRecording(null);
 
-      invoke("update_global_shortcut", { shortcut })
-        .then(() => {
-          setConfig({ globalShortcut: shortcut });
-          addToast("success", `ショートカットを ${shortcut} に変更しました`);
-        })
-        .catch(() => {
-          addToast("error", "ショートカットの変更に失敗しました");
-        });
+      if (recording === "main") {
+        setGlobalShortcut(shortcut);
+        invoke("update_global_shortcut", { shortcut })
+          .then(() => {
+            setConfig({ globalShortcut: shortcut });
+            addToast("success", `ショートカットを ${shortcut} に変更しました`);
+          })
+          .catch(() => addToast("error", "ショートカットの変更に失敗しました"));
+      } else {
+        setCaptureShortcut(shortcut);
+        invoke("update_capture_shortcut", { shortcut })
+          .then(() => {
+            setConfig({ captureShortcut: shortcut });
+            addToast("success", `クイックキャプチャのショートカットを ${shortcut} に変更しました`);
+          })
+          .catch(() => addToast("error", "ショートカットの変更に失敗しました"));
+      }
     };
 
     window.addEventListener("keydown", handler, true);
@@ -337,7 +347,7 @@ function ShortcutsTab() {
 
       <div className={styles.field}>
         <div className={styles.fieldLabel}>グローバルショートカット</div>
-        {recording ? (
+        {recording === "main" ? (
           <div className={styles.recording}>
             キーの組み合わせを押してください...
           </div>
@@ -348,7 +358,25 @@ function ShortcutsTab() {
               <span className={styles.shortcutKeys}>{globalShortcut}</span>
               <button
                 className={styles.shortcutChangeBtn}
-                onClick={startRecording}
+                onClick={() => setRecording("main")}
+              >
+                変更
+              </button>
+            </div>
+          </div>
+        )}
+        {recording === "capture" ? (
+          <div className={styles.recording}>
+            キーの組み合わせを押してください...
+          </div>
+        ) : (
+          <div className={styles.shortcutRow}>
+            <span className={styles.shortcutLabel}>クイックキャプチャ</span>
+            <div className={styles.shortcutRight}>
+              <span className={styles.shortcutKeys}>{captureShortcut}</span>
+              <button
+                className={styles.shortcutChangeBtn}
+                onClick={() => setRecording("capture")}
               >
                 変更
               </button>

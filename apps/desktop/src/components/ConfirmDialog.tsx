@@ -8,48 +8,44 @@ type Props = {
 };
 
 export default function ConfirmDialog({ message, onConfirm, onCancel }: Props) {
-  const confirmRef = useRef<HTMLButtonElement>(null);
-  const cancelRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    confirmRef.current?.focus();
+    // Focus the dialog itself so keyboard events land here, not the main app.
+    dialogRef.current?.focus();
 
+    // Capture phase: block ALL keys from reaching the main app while dialog is open.
     const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      e.stopPropagation();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        onConfirm();
+      } else if (e.key === "Escape") {
         e.preventDefault();
         onCancel();
-        return;
-      }
-      // Arrow keys toggle focus between cancel and confirm
-      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
-        e.preventDefault();
-        const focused = document.activeElement;
-        if (focused === confirmRef.current) {
-          cancelRef.current?.focus();
-        } else {
-          confirmRef.current?.focus();
-        }
       }
     };
 
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [onCancel]);
+    window.addEventListener("keydown", handler, { capture: true });
+    return () => window.removeEventListener("keydown", handler, { capture: true });
+  }, [onConfirm, onCancel]);
 
   return (
     <div className={styles.overlay} onClick={onCancel}>
-      <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+      {/* tabIndex / outline:none so the div is focusable but invisible */}
+      <div
+        ref={dialogRef}
+        className={styles.dialog}
+        tabIndex={-1}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className={styles.message}>{message}</div>
         <div className={styles.actions}>
-          <button ref={cancelRef} className={`${styles.btn} ${styles.btnCancel}`} onClick={onCancel}>
-            キャンセル
+          <button className={`${styles.btn} ${styles.btnCancel}`} onClick={onCancel}>
+            キャンセル<span className={styles.kbd}>Esc</span>
           </button>
-          <button
-            ref={confirmRef}
-            className={`${styles.btn} ${styles.btnConfirm}`}
-            onClick={onConfirm}
-          >
-            削除
+          <button className={`${styles.btn} ${styles.btnConfirm}`} onClick={onConfirm}>
+            削除<span className={styles.kbd}>↵</span>
           </button>
         </div>
       </div>

@@ -16,6 +16,7 @@
   min-width: 280px;
   max-width: 360px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  outline: none;
 }
 
 .message {
@@ -57,4 +58,16 @@
 
 .btnConfirm:hover {
   opacity: 0.9;
+}
+
+.kbd {
+  display: inline-block;
+  margin-left: 6px;
+  font-size: 10px;
+  opacity: 0.65;
+  background: rgba(128, 128, 128, 0.15);
+  border-radius: 3px;
+  padding: 0 4px;
+  vertical-align: middle;
+  line-height: 1.6;
 }
