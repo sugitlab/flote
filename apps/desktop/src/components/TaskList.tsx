@@ -1,5 +1,7 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import type { Task } from "@flote/types";
+
+type SortOrder = "updated" | "due";
 
 type TaskListProps = {
   tasks: Task[];
@@ -68,6 +70,37 @@ export default function TaskList({
 }: TaskListProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectMode = selectedIds.size > 0;
+  const [sortOrder, setSortOrder] = useState<SortOrder>("updated");
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const sortBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!sortMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (sortBtnRef.current && !sortBtnRef.current.closest("[data-sort-menu]")?.contains(e.target as Node)) {
+        setSortMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [sortMenuOpen]);
+
+  const sortedTasks = useMemo(() => {
+    const arr = [...tasks];
+    if (sortOrder === "updated") {
+      arr.sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
+    } else {
+      // 期日が近い順: due_date asc、期日なしは末尾
+      arr.sort((a, b) => {
+        if (a.done !== b.done) return a.done ? 1 : -1;
+        if (!a.due_date && !b.due_date) return 0;
+        if (!a.due_date) return 1;
+        if (!b.due_date) return -1;
+        return a.due_date.localeCompare(b.due_date);
+      });
+    }
+    return arr;
+  }, [tasks, sortOrder]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -105,7 +138,7 @@ export default function TaskList({
     clearSelect();
   }, [selectedIds, onDeleteMultiple, clearSelect]);
 
-  const groups = groupTasks(tasks);
+  const groups = groupTasks(sortedTasks);
   const orderedIds = groups.flatMap((g) => g.tasks.map((t) => t.id));
 
   function renderTask(task: Task) {
@@ -213,12 +246,53 @@ export default function TaskList({
           </div>
         </div>
       ) : (
-        <button
-          onClick={onAddTask}
-          className="w-full text-left text-[11px] text-[var(--accent)] bg-transparent border-none cursor-pointer py-[8px] px-[10px] hover:bg-[var(--bg-hover)] transition-colors"
-        >
-          + 新しいタスク
-        </button>
+        <div className="flex items-center border-b border-[var(--border)]">
+          <button
+            onClick={onAddTask}
+            className="flex-1 text-left text-[11px] text-[var(--accent)] bg-transparent border-none cursor-pointer py-[8px] px-[10px] hover:bg-[var(--bg-hover)] transition-colors"
+          >
+            + 新しいタスク
+          </button>
+          {/* Sort menu */}
+          <div className="relative" data-sort-menu="">
+            <button
+              ref={sortBtnRef}
+              onClick={() => setSortMenuOpen((v) => !v)}
+              title="並び替え"
+              className={[
+                "flex items-center gap-0.5 text-[10px] px-2 py-1 mr-1 rounded border-none cursor-pointer transition-colors",
+                sortMenuOpen
+                  ? "bg-[var(--bg-active)] text-[var(--text-primary)]"
+                  : "bg-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]",
+              ].join(" ")}
+            >
+              ⇅
+            </button>
+            {sortMenuOpen && (
+              <div className="absolute right-0 top-full mt-1 z-50 min-w-[130px] rounded-md border border-[var(--border)] bg-[var(--bg-panel)] shadow-lg overflow-hidden">
+                {(
+                  [
+                    { key: "updated", label: "更新日時順" },
+                    { key: "due",     label: "期日が近い順" },
+                  ] as { key: SortOrder; label: string }[]
+                ).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => { setSortOrder(key); setSortMenuOpen(false); }}
+                    className={[
+                      "w-full text-left text-[11px] px-3 py-2 border-none cursor-pointer transition-colors",
+                      sortOrder === key
+                        ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)] font-semibold"
+                        : "bg-transparent text-[var(--text-primary)] hover:bg-[var(--bg-hover)]",
+                    ].join(" ")}
+                  >
+                    {sortOrder === key && "✓ "}{label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       <div className="flex-1 overflow-y-auto">
