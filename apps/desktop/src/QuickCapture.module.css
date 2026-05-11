@@ -35,6 +35,24 @@
   color: var(--text-muted);
 }
 
+.input::-webkit-scrollbar {
+  width: 4px;
+}
+
+.input::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.input::-webkit-scrollbar-thumb {
+  background: var(--text-muted);
+  border-radius: 2px;
+  opacity: 0.5;
+}
+
+.input::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
 .hint {
   font-size: 10px;
   color: var(--text-muted);
