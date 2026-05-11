@@ -269,7 +269,7 @@ export default function TaskList({
               ⇅
             </button>
             {sortMenuOpen && (
-              <div className="absolute right-0 top-full mt-1 z-50 min-w-[130px] rounded-md border border-[var(--border)] bg-[var(--bg-panel)] shadow-lg overflow-hidden">
+              <div className="absolute right-0 top-full mt-1 z-50 min-w-[130px] rounded-md border border-[var(--border)] bg-[var(--bg-sidebar)] shadow-lg overflow-hidden">
                 {(
                   [
                     { key: "updated", label: "更新日時順" },
