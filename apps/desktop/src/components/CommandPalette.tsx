@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import type { Note, Task } from "@flote/types";
 import { useUIStore } from "../store/uiStore";
 import { relativeDate } from "../utils/date";
+import { extractTags, allTagsFromNotes } from "../utils/tags";
 import styles from "./CommandPalette.module.css";
 
 function bodySnippet(body: string, query: string, radius = 40): string {
@@ -40,6 +41,7 @@ type Props = {
   onCycleTheme: () => void;
   onShowNotes: () => void;
   onShowTasks: () => void;
+  onFilterByTag?: (tag: string) => void;
 };
 
 export default function CommandPalette({
@@ -52,6 +54,7 @@ export default function CommandPalette({
   onCycleTheme,
   onShowNotes,
   onShowTasks,
+  onFilterByTag,
 }: Props) {
   const setOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
@@ -121,9 +124,45 @@ export default function CommandPalette({
     [onShowNotes, onShowTasks, onNewNote, onNewTask, setSettingsOpen, onCycleTheme]
   );
 
+  const isTagSearch = query.startsWith("#");
+
+  const allTags = useMemo(() => allTagsFromNotes(notes), [notes]);
+
   const items: PaletteItem[] = useMemo(() => {
-    const q = query.toLowerCase();
     const result: PaletteItem[] = [];
+
+    if (isTagSearch) {
+      const tagQ = query.slice(1).toLowerCase();
+      const matchedTags = allTags.filter((t) => !tagQ || t.toLowerCase().includes(tagQ));
+      for (const tag of matchedTags) {
+        const count = notes.filter((n) => extractTags(n.body_md).includes(tag)).length;
+        result.push({
+          type: "command",
+          id: `tag:${tag}`,
+          label: `#${tag}`,
+          meta: `${count}件のノート`,
+          action: () => {
+            onFilterByTag?.(tag);
+            onShowNotes();
+          },
+        });
+      }
+      const taggedNotes = tagQ
+        ? notes.filter((n) => extractTags(n.body_md).some((t) => t.toLowerCase().includes(tagQ)))
+        : [];
+      for (const n of taggedNotes.slice(0, 6)) {
+        result.push({
+          type: "note",
+          id: n.id,
+          label: n.title || "無題のノート",
+          meta: relativeDate(n.updated_at),
+          action: () => onSelectNote(n.id),
+        });
+      }
+      return result;
+    }
+
+    const q = query.toLowerCase();
 
     const matchedNotes = notes.filter((n) => {
       if (!q) return true;
@@ -186,7 +225,7 @@ export default function CommandPalette({
     }
 
     return result;
-  }, [query, notes, tasks, commands, searchFullText, hideCompletedInSearch, onSelectNote, onSelectTask]);
+  }, [query, isTagSearch, allTags, notes, tasks, commands, searchFullText, hideCompletedInSearch, onSelectNote, onSelectTask, onFilterByTag, onShowNotes]);
 
   useEffect(() => {
     setFocusIndex(0);
@@ -231,7 +270,6 @@ export default function CommandPalette({
     [items, focusIndex, execute, close]
   );
 
-  // Group items by type for rendering sections
   const noteItems = items.filter((i) => i.type === "note");
   const taskItems = items.filter((i) => i.type === "task");
   const cmdItems = items.filter((i) => i.type === "command");
@@ -285,24 +323,41 @@ export default function CommandPalette({
             <div className={styles.empty}>一致する結果がありません</div>
           )}
 
-          {noteItems.length > 0 && (
+          {isTagSearch ? (
             <>
-              <div className={styles.sectionTitle}>ノート</div>
-              {noteItems.map(renderItem)}
+              {cmdItems.length > 0 && (
+                <>
+                  <div className={styles.sectionTitle}>タグ</div>
+                  {cmdItems.map(renderItem)}
+                </>
+              )}
+              {noteItems.length > 0 && (
+                <>
+                  <div className={styles.sectionTitle}>ノート</div>
+                  {noteItems.map(renderItem)}
+                </>
+              )}
             </>
-          )}
-
-          {taskItems.length > 0 && (
+          ) : (
             <>
-              <div className={styles.sectionTitle}>タスク</div>
-              {taskItems.map(renderItem)}
-            </>
-          )}
-
-          {cmdItems.length > 0 && (
-            <>
-              <div className={styles.sectionTitle}>コマンド</div>
-              {cmdItems.map(renderItem)}
+              {noteItems.length > 0 && (
+                <>
+                  <div className={styles.sectionTitle}>ノート</div>
+                  {noteItems.map(renderItem)}
+                </>
+              )}
+              {taskItems.length > 0 && (
+                <>
+                  <div className={styles.sectionTitle}>タスク</div>
+                  {taskItems.map(renderItem)}
+                </>
+              )}
+              {cmdItems.length > 0 && (
+                <>
+                  <div className={styles.sectionTitle}>コマンド</div>
+                  {cmdItems.map(renderItem)}
+                </>
+              )}
             </>
           )}
         </div>

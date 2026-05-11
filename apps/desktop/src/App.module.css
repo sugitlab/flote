@@ -333,6 +333,37 @@
 .convertBtnNote::after { content: "タスクに変換"; }
 .convertBtnTask::after { content: "ノートに変換"; }
 
+/* Tag chips in note detail header */
+.noteTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 5px 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.noteTag {
+  font-size: 10px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: var(--accent);
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  transition: all 0.15s;
+}
+
+.noteTag:hover {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  border-color: var(--accent);
+}
+
+.noteTagActive {
+  background: color-mix(in srgb, var(--accent) 25%, transparent);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
 /* Task detail in editor area */
 .taskDetail {
   display: flex;

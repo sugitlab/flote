@@ -181,3 +181,19 @@ html, body, #root {
 .preview-content tr:nth-child(even) td {
   background: color-mix(in srgb, var(--bg-input) 40%, transparent);
 }
+
+/* Hashtag syntax highlighting in preview */
+.preview-content .preview-hashtag {
+  display: inline;
+  font-weight: 600;
+}
+
+.preview-content .preview-hashtag-hash {
+  color: var(--accent);
+  opacity: 0.6;
+  font-weight: 700;
+}
+
+.preview-content .preview-hashtag-name {
+  color: var(--accent);
+}

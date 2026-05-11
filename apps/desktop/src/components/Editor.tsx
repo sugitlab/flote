@@ -9,6 +9,7 @@ import { vim, Vim, getCM } from "@replit/codemirror-vim";
 import type { EditorTheme } from "../editorThemes";
 import { resolveEditorTheme } from "../editorThemes";
 import { HLJS_THEME_CSS, renderPreview } from "../previewRenderer";
+import { tagHighlighter } from "../utils/tagHighlighter";
 
 type EditorProps = {
   docId: string;
@@ -129,6 +130,7 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
         history(),
         drawSelection(),
         markdown({ codeLanguages: languages }),
+        ...tagHighlighter,
         themeCompartment.of(resolveEditorTheme(editorTheme)),
         baseTheme,
         EditorView.updateListener.of((update) => {

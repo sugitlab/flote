@@ -1,27 +1,68 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import type { Note } from "@flote/types";
 import { relativeDate } from "../utils/date";
+import { extractTags, allTagsFromNotes } from "../utils/tags";
 import styles from "./NoteList.module.css";
 
 type Props = {
   notes: Note[];
   activeNoteId: string | null;
+  activeTag?: string | null;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onDeleteMultiple: (ids: string[]) => void;
   onNew: () => void;
+  onTagFilter?: (tag: string | null) => void;
 };
 
 export default function NoteList({
   notes,
   activeNoteId,
+  activeTag,
   onSelect,
   onDelete,
   onDeleteMultiple,
   onNew,
+  onTagFilter,
 }: Props) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectMode = selectedIds.size > 0;
+
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
+  const tagBtnRef = useRef<HTMLDivElement>(null);
+  const tagSearchRef = useRef<HTMLInputElement>(null);
+
+  const allTags = useMemo(() => allTagsFromNotes(notes), [notes]);
+
+  const filteredTagOptions = useMemo(
+    () =>
+      tagSearch
+        ? allTags.filter((t) => t.toLowerCase().includes(tagSearch.toLowerCase()))
+        : allTags,
+    [allTags, tagSearch]
+  );
+
+  const filteredNotes = useMemo(
+    () =>
+      activeTag
+        ? notes.filter((n) => extractTags(n.body_md).includes(activeTag))
+        : notes,
+    [notes, activeTag]
+  );
+
+  useEffect(() => {
+    if (!tagDropdownOpen) return;
+    setTagSearch("");
+    setTimeout(() => tagSearchRef.current?.focus(), 0);
+    const handler = (e: MouseEvent) => {
+      if (tagBtnRef.current && !tagBtnRef.current.contains(e.target as Node)) {
+        setTagDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [tagDropdownOpen]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -59,6 +100,14 @@ export default function NoteList({
     clearSelect();
   }, [selectedIds, onDeleteMultiple, clearSelect]);
 
+  const handleSelectTag = useCallback(
+    (tag: string) => {
+      onTagFilter?.(activeTag === tag ? null : tag);
+      setTagDropdownOpen(false);
+    },
+    [activeTag, onTagFilter]
+  );
+
   return (
     <div className={styles.root}>
       {selectMode ? (
@@ -74,12 +123,61 @@ export default function NoteList({
           </div>
         </div>
       ) : (
-        <button className={styles.newButton} onClick={onNew}>
-          + 新しいノート
-        </button>
+        <div className={styles.toolbar}>
+          <button className={styles.newButton} onClick={onNew}>
+            + 新しいノート
+          </button>
+
+          {allTags.length > 0 && (
+            <div className={styles.tagDropdownWrap} ref={tagBtnRef}>
+              <button
+                className={`${styles.tagFilterBtn} ${activeTag ? styles.tagFilterBtnActive : ""}`}
+                onClick={() => setTagDropdownOpen((v) => !v)}
+                title="タグで絞り込む"
+              >
+                {activeTag ? `#${activeTag}` : "#"}
+                {activeTag && (
+                  <span
+                    className={styles.tagClearX}
+                    onClick={(e) => { e.stopPropagation(); onTagFilter?.(null); }}
+                  >
+                    ×
+                  </span>
+                )}
+              </button>
+
+              {tagDropdownOpen && (
+                <div className={styles.tagDropdown}>
+                  <input
+                    ref={tagSearchRef}
+                    className={styles.tagSearchInput}
+                    value={tagSearch}
+                    onChange={(e) => setTagSearch(e.target.value)}
+                    placeholder="タグを検索..."
+                  />
+                  <div className={styles.tagList}>
+                    {filteredTagOptions.length === 0 && (
+                      <div className={styles.tagListEmpty}>見つかりません</div>
+                    )}
+                    {filteredTagOptions.map((tag) => (
+                      <button
+                        key={tag}
+                        className={`${styles.tagOption} ${activeTag === tag ? styles.tagOptionActive : ""}`}
+                        onClick={() => handleSelectTag(tag)}
+                      >
+                        <span className={styles.tagOptionHash}>#</span>{tag}
+                        {activeTag === tag && <span className={styles.tagOptionCheck}>✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
-      {notes.map((note, idx) => {
+      {filteredNotes.map((note, idx) => {
         const isSelected = selectedIds.has(note.id);
         return (
           <div
@@ -117,6 +215,12 @@ export default function NoteList({
           </div>
         );
       })}
+
+      {filteredNotes.length === 0 && (
+        <div className={styles.emptyMsg}>
+          {activeTag ? `#${activeTag} のノートはありません` : "ノートがありません"}
+        </div>
+      )}
     </div>
   );
 }

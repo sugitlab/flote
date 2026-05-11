@@ -11,6 +11,7 @@ import {
 } from "@flote/api-client";
 import { getConfig, setConfig } from "./config";
 import { checkSchema } from "./migrations";
+import { extractTags } from "./utils/tags";
 import SchemaSetup from "./components/SchemaSetup";
 import { useAuth } from "./hooks/useAuth";
 import { useRealtime } from "./hooks/useRealtime";
@@ -152,6 +153,7 @@ function MainApp({
   }, [sidebarWidth]);
 
   const [isEditing, setIsEditing] = useState(false);
+  const [activeNoteTag, setActiveNoteTag] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ type: "note" | "task"; id: string } | null>(null);
   const [confirmConvert, setConfirmConvert] = useState<{ type: "note" | "task"; id: string } | null>(null);
 
@@ -519,10 +521,12 @@ function MainApp({
                 <NoteList
                   notes={notes}
                   activeNoteId={activeNoteId}
+                  activeTag={activeNoteTag}
                   onSelect={(id) => { setIsEditing(false); setActiveNote(id); }}
                   onDelete={handleDeleteNote}
                   onDeleteMultiple={handleDeleteNotes}
                   onNew={handleCreateNote}
+                  onTagFilter={setActiveNoteTag}
                 />
               )}
 
@@ -571,6 +575,23 @@ function MainApp({
                   ↻
                 </button>
               </div>
+              {extractTags(selectedNote.body_md).length > 0 && (
+                <div className={styles.noteTags}>
+                  {extractTags(selectedNote.body_md).map((tag) => (
+                    <button
+                      key={tag}
+                      className={`${styles.noteTag} ${activeNoteTag === tag ? styles.noteTagActive : ""}`}
+                      onClick={() => {
+                        setActiveNoteTag(activeNoteTag === tag ? null : tag);
+                        setActiveTab("notes");
+                        setSidebarCollapsed(false);
+                      }}
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div
                 className={styles.editorWrap}
                 onDoubleClick={() => setIsEditing(true)}
@@ -696,6 +717,10 @@ function MainApp({
           onCycleTheme={cycleTheme}
           onShowNotes={handleShowNotes}
           onShowTasks={handleShowTasks}
+          onFilterByTag={(tag) => {
+            setActiveNoteTag(tag);
+            setSidebarCollapsed(false);
+          }}
         />
       )}
 

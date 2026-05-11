@@ -17,6 +17,7 @@ import sql from "highlight.js/lib/languages/sql";
 import yaml from "highlight.js/lib/languages/yaml";
 import markdown from "highlight.js/lib/languages/markdown";
 import { Marked } from "marked";
+import type { MarkedExtension, Tokens } from "marked";
 import DOMPurify from "dompurify";
 
 import oneDarkCss       from "highlight.js/styles/atom-one-dark.min.css?inline";
@@ -62,7 +63,28 @@ export const HLJS_THEME_CSS: Record<EditorTheme, string> = {
   solarizedLight: solarizedLightCss,
 };
 
-const previewMarked = new Marked({
+const TAG_RE = /^#([a-zA-Z぀-鿿][a-zA-Z0-9぀-鿿_-]*)/;
+
+const hashtagExtension: MarkedExtension = {
+  extensions: [
+    {
+      name: "hashtag",
+      level: "inline",
+      start(src: string) {
+        return src.indexOf("#");
+      },
+      tokenizer(src: string) {
+        const m = TAG_RE.exec(src);
+        if (m) return { type: "hashtag", raw: m[0], tag: m[1] };
+      },
+      renderer(token: Tokens.Generic) {
+        return `<span class="preview-hashtag"><span class="preview-hashtag-hash">#</span><span class="preview-hashtag-name">${token.tag}</span></span>`;
+      },
+    },
+  ],
+};
+
+const previewMarked = new Marked(hashtagExtension, {
   renderer: {
     code({ text, lang }) {
       const language = lang && hljs.getLanguage(lang) ? lang : null;
