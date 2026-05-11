@@ -155,6 +155,7 @@ function MainApp({
 
   const [isEditing, setIsEditing] = useState(false);
   const [activeNoteTag, setActiveNoteTag] = useState<string | null>(null);
+  const [activeTaskTag, setActiveTaskTag] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ type: "note" | "task"; id: string } | null>(null);
   const [confirmConvert, setConfirmConvert] = useState<{ type: "note" | "task"; id: string } | null>(null);
 
@@ -606,11 +607,13 @@ function MainApp({
                 <TaskList
                   tasks={tasks}
                   activeTaskId={activeTaskId}
+                  activeTag={activeTaskTag}
                   onToggleDone={(id) => toggleDone(id, userId)}
                   onDelete={handleDeleteTask}
                   onDeleteMultiple={handleDeleteTasks}
                   onAddTask={handleCreateTask}
                   onSelectTask={handleSelectTask}
+                  onTagFilter={setActiveTaskTag}
                 />
               )}
             </div>
@@ -717,6 +720,21 @@ function MainApp({
                   ↻
                 </button>
               </div>
+              {extractTags(selectedTask.body_md).length > 0 && (
+                <div className={styles.noteTags}>
+                  {extractTags(selectedTask.body_md).map((tag) => (
+                    <button
+                      key={tag}
+                      className={`${styles.noteTag} ${activeTaskTag === tag ? styles.noteTagActive : ""}`}
+                      onClick={() =>
+                        setActiveTaskTag(activeTaskTag === tag ? null : tag)
+                      }
+                    >
+                      #{tag}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div
                 className={styles.editorWrap}
                 onDoubleClick={() => setIsEditing(true)}

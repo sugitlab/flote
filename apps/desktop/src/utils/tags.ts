@@ -9,3 +9,8 @@ export function allTagsFromNotes(notes: { body_md: string }[]): string[] {
   const all = notes.flatMap((n) => extractTags(n.body_md));
   return [...new Set(all)].sort();
 }
+
+export function allTagsFromTasks(tasks: { body_md: string }[]): string[] {
+  const all = tasks.flatMap((t) => extractTags(t.body_md));
+  return [...new Set(all)].sort();
+}

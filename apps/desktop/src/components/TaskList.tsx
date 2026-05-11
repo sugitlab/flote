@@ -1,16 +1,19 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import type { Task } from "@flote/types";
+import { extractTags, allTagsFromTasks } from "../utils/tags";
 
 type SortOrder = "updated" | "due";
 
 type TaskListProps = {
   tasks: Task[];
   activeTaskId: string | null;
+  activeTag?: string | null;
   onToggleDone: (id: string) => void;
   onDelete: (id: string) => void;
   onDeleteMultiple: (ids: string[]) => void;
   onAddTask: () => void;
   onSelectTask: (id: string) => void;
+  onTagFilter?: (tag: string | null) => void;
 };
 
 function todayStr(): string {
@@ -62,17 +65,29 @@ export function groupTasks(tasks: Task[]): Group[] {
 export default function TaskList({
   tasks,
   activeTaskId,
+  activeTag,
   onToggleDone,
   onDelete,
   onDeleteMultiple,
   onAddTask,
   onSelectTask,
+  onTagFilter,
 }: TaskListProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectMode = selectedIds.size > 0;
   const [sortOrder, setSortOrder] = useState<SortOrder>("updated");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const sortBtnRef = useRef<HTMLButtonElement>(null);
+  const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
+  const tagSearchRef = useRef<HTMLInputElement>(null);
+  const tagBtnRef = useRef<HTMLButtonElement>(null);
+
+  const allTags = useMemo(() => allTagsFromTasks(tasks), [tasks]);
+  const filteredTagOptions = useMemo(
+    () => tagSearch ? allTags.filter((t) => t.toLowerCase().includes(tagSearch.toLowerCase())) : allTags,
+    [allTags, tagSearch]
+  );
 
   useEffect(() => {
     if (!sortMenuOpen) return;
@@ -85,12 +100,36 @@ export default function TaskList({
     return () => document.removeEventListener("mousedown", handler);
   }, [sortMenuOpen]);
 
+  useEffect(() => {
+    if (!tagDropdownOpen) return;
+    setTimeout(() => tagSearchRef.current?.focus(), 0);
+    const handler = (e: MouseEvent) => {
+      if (tagBtnRef.current && !tagBtnRef.current.closest("[data-tag-menu]")?.contains(e.target as Node)) {
+        setTagDropdownOpen(false);
+        setTagSearch("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [tagDropdownOpen]);
+
+  const handleTagSelect = useCallback(
+    (tag: string) => {
+      onTagFilter?.(activeTag === tag ? null : tag);
+      setTagDropdownOpen(false);
+      setTagSearch("");
+    },
+    [activeTag, onTagFilter]
+  );
+
   const sortedTasks = useMemo(() => {
-    const arr = [...tasks];
+    const source = activeTag
+      ? tasks.filter((t) => extractTags(t.body_md).includes(activeTag))
+      : tasks;
+    const arr = [...source];
     if (sortOrder === "updated") {
       arr.sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
     } else {
-      // 期日が近い順: due_date asc、期日なしは末尾
       arr.sort((a, b) => {
         if (a.done !== b.done) return a.done ? 1 : -1;
         if (!a.due_date && !b.due_date) return 0;
@@ -100,7 +139,7 @@ export default function TaskList({
       });
     }
     return arr;
-  }, [tasks, sortOrder]);
+  }, [tasks, sortOrder, activeTag]);
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -253,6 +292,64 @@ export default function TaskList({
           >
             + 新しいタスク
           </button>
+          {/* Tag filter */}
+          {allTags.length > 0 && (
+            <div className="relative" data-tag-menu="">
+              <button
+                ref={tagBtnRef}
+                onClick={() => setTagDropdownOpen((v) => !v)}
+                title="タグで絞り込み"
+                className={[
+                  "flex items-center gap-0.5 text-[10px] px-2 py-1 rounded border-none cursor-pointer transition-colors max-w-[72px] truncate",
+                  activeTag
+                    ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)]"
+                    : tagDropdownOpen
+                    ? "bg-[var(--bg-active)] text-[var(--text-primary)]"
+                    : "bg-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-hover)]",
+                ].join(" ")}
+              >
+                {activeTag ? `#${activeTag}` : "#"}
+                {activeTag && (
+                  <span
+                    className="ml-0.5 opacity-60 hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); onTagFilter?.(null); }}
+                  >✕</span>
+                )}
+              </button>
+              {tagDropdownOpen && (
+                <div className="absolute right-0 top-full mt-1 z-50 min-w-[160px] rounded-md border border-[var(--border)] bg-[var(--bg-sidebar)] shadow-lg overflow-hidden">
+                  <div className="p-1.5 border-b border-[var(--border)]">
+                    <input
+                      ref={tagSearchRef}
+                      className="w-full text-[11px] px-2 py-1 rounded border border-[var(--border)] bg-[var(--bg-input)] text-[var(--text-primary)] outline-none"
+                      placeholder="タグを検索..."
+                      value={tagSearch}
+                      onChange={(e) => setTagSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="max-h-[180px] overflow-y-auto">
+                    {filteredTagOptions.length === 0 ? (
+                      <div className="px-3 py-2 text-[11px] text-[var(--text-muted)]">タグがありません</div>
+                    ) : filteredTagOptions.map((tag) => (
+                      <button
+                        key={tag}
+                        onClick={() => handleTagSelect(tag)}
+                        className={[
+                          "w-full text-left text-[11px] px-3 py-1.5 border-none cursor-pointer transition-colors flex items-center gap-1.5",
+                          activeTag === tag
+                            ? "bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] text-[var(--accent)] font-semibold"
+                            : "bg-transparent text-[var(--text-primary)] hover:bg-[var(--bg-hover)]",
+                        ].join(" ")}
+                      >
+                        <span className="opacity-50">#</span>{tag}
+                        {activeTag === tag && <span className="ml-auto">✓</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
           {/* Sort menu */}
           <div className="relative" data-sort-menu="">
             <button
@@ -310,8 +407,10 @@ export default function TaskList({
             {group.tasks.map((task) => renderTask(task))}
           </div>
         ))}
-        {tasks.length === 0 && (
-          <div className="px-3 py-4 text-[11px] text-[var(--text-muted)]">タスクがありません</div>
+        {sortedTasks.length === 0 && (
+          <div className="px-3 py-4 text-[11px] text-[var(--text-muted)]">
+            {activeTag ? `#${activeTag} のタスクがありません` : "タスクがありません"}
+          </div>
         )}
       </div>
     </div>
