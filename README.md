@@ -62,4 +62,4 @@ pnpm build:desktop      # デスクトップ本番ビルド
 
 ## ライセンス
 
-[MIT](LICENSE) © 2024 sugitlab
+[MIT](LICENSE) © 2026 sugitlab
