@@ -40,7 +40,6 @@
     "opener:default",
     "sql:allow-execute",
     "sql:allow-select",
-    "sql:allow-load",
-    "dialog:allow-open"
+    "sql:allow-load"
   ]
 }

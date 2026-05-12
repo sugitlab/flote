@@ -168,7 +168,7 @@ export const ja = {
       exporting: "エクスポート中...",
       exportDone: "エクスポートしました",
       exportError: "エクスポートに失敗しました",
-      exportHint: "フォルダを選択し、notes/ tasks/ にMarkdownで書き出します",
+      exportHint: "アプリデータフォルダ内の exports/ にMarkdownで書き出します",
       cloudDesc: "Floteのクラウドに保存します。複数デバイスで同期できます。",
       useCloud: "クラウドを使う",
       selfhostDesc: "あなたが管理するSupabaseに保存します。デスクトップ版とモバイル版で同期できます。",

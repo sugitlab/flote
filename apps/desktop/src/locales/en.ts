@@ -170,7 +170,7 @@ export const en: typeof ja = {
       exporting: "Exporting...",
       exportDone: "Exported",
       exportError: "Export failed",
-      exportHint: "Choose a folder — writes notes/ and tasks/ as Markdown files",
+      exportHint: "Exports notes/ and tasks/ as Markdown into the app data exports/ folder",
       cloudDesc: "Store in Flote Cloud. Sync across multiple devices.",
       useCloud: "Use Cloud",
       selfhostDesc: "Store in your own Supabase. Sync between desktop and mobile.",

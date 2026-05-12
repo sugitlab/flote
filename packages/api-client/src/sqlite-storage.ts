@@ -1,6 +1,6 @@
 import Database from "@tauri-apps/plugin-sql";
 import { writeTextFile, exists, mkdir } from "@tauri-apps/plugin-fs";
-import { join } from "@tauri-apps/api/path";
+import { appDataDir, join } from "@tauri-apps/api/path";
 import type { Note, Task } from "@flote/types";
 
 // ── singleton DB connection ───────────────────────────────────────────────────
@@ -133,13 +133,13 @@ function taskFrontmatter(task: Task): string {
   return lines.join("\n");
 }
 
-export async function exportToMarkdown(
-  notes: Note[],
-  tasks: Task[],
-  destDir: string
-): Promise<void> {
-  const notesDir = await join(destDir, "notes");
-  const tasksDir = await join(destDir, "tasks");
+// Returns the export folder path so the caller can reveal it in Finder.
+export async function exportToMarkdown(notes: Note[], tasks: Task[]): Promise<string> {
+  const base = await appDataDir();
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const exportDir = await join(base, "exports", `flote-export-${timestamp}`);
+  const notesDir = await join(exportDir, "notes");
+  const tasksDir = await join(exportDir, "tasks");
 
   for (const dir of [notesDir, tasksDir]) {
     if (!(await exists(dir))) await mkdir(dir, { recursive: true });
@@ -148,18 +148,14 @@ export async function exportToMarkdown(
   const usedNotes = new Set<string>();
   for (const note of notes) {
     const filename = uniqueName(sanitizeFilename(note.title || note.id), usedNotes);
-    await writeTextFile(
-      await join(notesDir, filename),
-      noteFrontmatter(note) + note.body_md
-    );
+    await writeTextFile(await join(notesDir, filename), noteFrontmatter(note) + note.body_md);
   }
 
   const usedTasks = new Set<string>();
   for (const task of tasks) {
     const filename = uniqueName(sanitizeFilename(task.title || task.id), usedTasks);
-    await writeTextFile(
-      await join(tasksDir, filename),
-      taskFrontmatter(task) + task.body_md
-    );
+    await writeTextFile(await join(tasksDir, filename), taskFrontmatter(task) + task.body_md);
   }
+
+  return exportDir;
 }

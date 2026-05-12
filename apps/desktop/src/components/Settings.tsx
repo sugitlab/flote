@@ -14,7 +14,6 @@ import type { DarkEditorTheme, LightEditorTheme } from "../store/uiStore";
 import { getConfig, setConfig } from "../config";
 import type { Language } from "../locales";
 import { reinitSupabase, getSupabase, exportToMarkdown } from "@flote/api-client";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useNoteStore } from "../store/noteStore";
 import { useTaskStore } from "../store/taskStore";
 import { SCHEMA_SQL } from "../migrations";
@@ -484,13 +483,11 @@ function LocalPane({
   }, []);
 
   const handleExport = async () => {
-    const destDir = await openDialog({ directory: true, multiple: false });
-    if (!destDir) return;
     setExporting(true);
     try {
-      await exportToMarkdown(notes, tasks, destDir as string);
+      const exportDir = await exportToMarkdown(notes, tasks);
       addToast("success", t.settings.storage.exportDone);
-      invoke("open_path", { path: destDir as string }).catch(() => {});
+      invoke("open_path", { path: exportDir }).catch(() => {});
     } catch {
       addToast("error", t.settings.storage.exportError);
     } finally {
