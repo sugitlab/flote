@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { appDataDir } from "@tauri-apps/api/path";
 import { getVersion } from "@tauri-apps/api/app";
+import { useT } from "../hooks/useT";
 import {
   enable as enableAutostart,
   disable as disableAutostart,
@@ -11,6 +12,7 @@ import { useUIStore, type ThemeMode } from "../store/uiStore";
 import { DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS } from "@flote/types";
 import type { DarkEditorTheme, LightEditorTheme } from "../store/uiStore";
 import { getConfig, setConfig } from "../config";
+import type { Language } from "../locales";
 import { reinitSupabase, getSupabase } from "@flote/api-client";
 import { SCHEMA_SQL } from "../migrations";
 import { useAuth } from "../hooks/useAuth";
@@ -29,20 +31,21 @@ export default function Settings({
   onClose,
   onStorageModeChange,
 }: Props) {
+  const t = useT();
   const [tab, setTab] = useState<SettingsTab>("general");
 
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
         <div className={styles.nav}>
-          <div className={styles.navHeader}>設定</div>
+          <div className={styles.navHeader}>{t.settings.title}</div>
           {(
             [
-              ["general", "一般"],
-              ["shortcuts", "ショートカット"],
-              ["howto", "使い方"],
-              ["storage", "保存先"],
-              ["about", "Floteについて"],
+              ["general", t.settings.nav.general],
+              ["shortcuts", t.settings.nav.shortcuts],
+              ["howto", t.settings.nav.howto],
+              ["storage", t.settings.nav.storage],
+              ["about", t.settings.nav.about],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -55,7 +58,7 @@ export default function Settings({
           ))}
           <div className={styles.navSpacer} />
           <button className={styles.closeBtn} onClick={onClose}>
-            Esc 閉じる
+            {t.settings.closeBtn}
           </button>
         </div>
         <div className={styles.content}>
@@ -78,6 +81,7 @@ export default function Settings({
 /* ─── General ─── */
 
 function GeneralTab() {
+  const t = useT();
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
   const editorThemeDark = useUIStore((s) => s.editorThemeDark);
@@ -91,6 +95,8 @@ function GeneralTab() {
   const setHideCompletedInSearch = useUIStore((s) => s.setHideCompletedInSearch);
   const vimMode = useUIStore((s) => s.vimMode);
   const setVimMode = useUIStore((s) => s.setVimMode);
+  const language = useUIStore((s) => s.language);
+  const setLanguage = useUIStore((s) => s.setLanguage);
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
   const [hideOnBlur, setHideOnBlur] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
@@ -118,6 +124,11 @@ function GeneralTab() {
   const handleVimMode = (v: boolean) => {
     setVimMode(v);
     setConfig({ vimMode: v });
+  };
+
+  const handleLanguage = (lang: Language) => {
+    setLanguage(lang);
+    setConfig({ language: lang });
   };
 
   const handleTheme = (t: ThemeMode) => {
@@ -168,18 +179,18 @@ function GeneralTab() {
 
   return (
     <>
-      <h3 className={styles.sectionTitle}>一般</h3>
+      <h3 className={styles.sectionTitle}>{t.settings.general.title}</h3>
 
       <div className={styles.field}>
-        <div className={styles.fieldLabel}>テーマ</div>
+        <div className={styles.fieldLabel}>{t.settings.general.theme}</div>
         <div className={styles.toggleGroup}>
-          {(["dark", "light", "system"] as const).map((t) => (
+          {(["dark", "light", "system"] as const).map((th) => (
             <button
-              key={t}
-              className={`${styles.toggleBtn} ${theme === t ? styles.toggleBtnActive : ""}`}
-              onClick={() => handleTheme(t)}
+              key={th}
+              className={`${styles.toggleBtn} ${theme === th ? styles.toggleBtnActive : ""}`}
+              onClick={() => handleTheme(th)}
             >
-              {t === "dark" ? "Dark" : t === "light" ? "Light" : "System"}
+              {th === "dark" ? "Dark" : th === "light" ? "Light" : "System"}
             </button>
           ))}
         </div>
@@ -187,61 +198,59 @@ function GeneralTab() {
 
       <div className={styles.field}>
         <div className={styles.switchRow}>
-          <span className={styles.switchLabel}>常に最前面</span>
+          <span className={styles.switchLabel}>{t.settings.general.alwaysOnTop}</span>
           <Toggle checked={alwaysOnTop} onChange={handleAlwaysOnTop} />
         </div>
       </div>
 
       <div className={styles.field}>
         <div className={styles.switchRow}>
-          <span className={styles.switchLabel}>
-            フォーカスを失ったとき非表示にする
-          </span>
+          <span className={styles.switchLabel}>{t.settings.general.hideOnBlur}</span>
           <Toggle checked={hideOnBlur} onChange={handleHideOnBlur} />
         </div>
       </div>
 
       <div className={styles.field}>
         <div className={styles.switchRow}>
-          <span className={styles.switchLabel}>ログイン時に起動</span>
+          <span className={styles.switchLabel}>{t.settings.general.launchAtLogin}</span>
           <Toggle checked={launchAtLogin} onChange={handleLaunchAtLogin} />
         </div>
       </div>
 
       <div className={styles.field}>
         <div className={styles.switchRow}>
-          <span className={styles.switchLabel}>Dockアイコンを非表示</span>
+          <span className={styles.switchLabel}>{t.settings.general.hideDockIcon}</span>
           <Toggle checked={hideDockIcon} onChange={handleHideDockIcon} />
         </div>
       </div>
 
-      <h3 className={styles.sectionTitle}>エディタ</h3>
+      <h3 className={styles.sectionTitle}>{t.settings.general.editor}</h3>
 
       <div className={styles.field}>
-        <div className={styles.fieldLabel}>Syntax highlight — ダークモード</div>
+        <div className={styles.fieldLabel}>{t.settings.general.syntaxDark}</div>
         <div className={styles.editorThemeGrid}>
-          {DARK_CODE_THEME_OPTIONS.map((t) => (
+          {DARK_CODE_THEME_OPTIONS.map((opt) => (
             <button
-              key={t.value}
-              className={`${styles.editorThemeBtn} ${editorThemeDark === t.value ? styles.editorThemeBtnActive : ""}`}
-              onClick={() => handleEditorThemeDark(t.value)}
+              key={opt.value}
+              className={`${styles.editorThemeBtn} ${editorThemeDark === opt.value ? styles.editorThemeBtnActive : ""}`}
+              onClick={() => handleEditorThemeDark(opt.value)}
             >
-              {t.label}
+              {opt.label}
             </button>
           ))}
         </div>
       </div>
 
       <div className={styles.field}>
-        <div className={styles.fieldLabel}>Syntax highlight — ライトモード</div>
+        <div className={styles.fieldLabel}>{t.settings.general.syntaxLight}</div>
         <div className={styles.editorThemeGrid}>
-          {LIGHT_CODE_THEME_OPTIONS.map((t) => (
+          {LIGHT_CODE_THEME_OPTIONS.map((opt) => (
             <button
-              key={t.value}
-              className={`${styles.editorThemeBtn} ${editorThemeLight === t.value ? styles.editorThemeBtnActive : ""}`}
-              onClick={() => handleEditorThemeLight(t.value)}
+              key={opt.value}
+              className={`${styles.editorThemeBtn} ${editorThemeLight === opt.value ? styles.editorThemeBtnActive : ""}`}
+              onClick={() => handleEditorThemeLight(opt.value)}
             >
-              {t.label}
+              {opt.label}
             </button>
           ))}
         </div>
@@ -249,23 +258,37 @@ function GeneralTab() {
 
       <div className={styles.field}>
         <div className={styles.switchRow}>
-          <span className={styles.switchLabel}>Vim キーバインド</span>
+          <span className={styles.switchLabel}>{t.settings.general.vimMode}</span>
           <Toggle checked={vimMode} onChange={handleVimMode} />
         </div>
       </div>
 
-      <h3 className={styles.sectionTitle}>検索</h3>
+      <div className={styles.field}>
+        <div className={styles.switchRow}>
+          <span className={styles.switchLabel}>{t.settings.general.language}</span>
+          <select
+            className={styles.select}
+            value={language}
+            onChange={(e) => handleLanguage(e.target.value as Language)}
+          >
+            <option value="ja">日本語</option>
+            <option value="en">English (US)</option>
+          </select>
+        </div>
+      </div>
+
+      <h3 className={styles.sectionTitle}>{t.settings.general.search}</h3>
 
       <div className={styles.field}>
         <div className={styles.switchRow}>
-          <span className={styles.switchLabel}>コマンドパレットで本文も検索する</span>
+          <span className={styles.switchLabel}>{t.settings.general.searchFullText}</span>
           <Toggle checked={searchFullText} onChange={handleSearchFullText} />
         </div>
       </div>
 
       <div className={styles.field}>
         <div className={styles.switchRow}>
-          <span className={styles.switchLabel}>完了済みタスクを検索から除外する</span>
+          <span className={styles.switchLabel}>{t.settings.general.hideCompleted}</span>
           <Toggle checked={hideCompletedInSearch} onChange={handleHideCompletedInSearch} />
         </div>
       </div>
@@ -276,6 +299,7 @@ function GeneralTab() {
 /* ─── Shortcuts ─── */
 
 function ShortcutsTab() {
+  const t = useT();
   const [globalShortcut, setGlobalShortcut] = useState("CmdOrCtrl+Shift+N");
   const [captureShortcut, setCaptureShortcut] = useState("CmdOrCtrl+Shift+Space");
   const [recording, setRecording] = useState<"main" | "capture" | null>(null);
@@ -311,17 +335,17 @@ function ShortcutsTab() {
         invoke("update_global_shortcut", { shortcut })
           .then(() => {
             setConfig({ globalShortcut: shortcut });
-            addToast("success", `ショートカットを ${shortcut} に変更しました`);
+            addToast("success", t.toasts.shortcutChanged(shortcut));
           })
-          .catch(() => addToast("error", "ショートカットの変更に失敗しました"));
+          .catch(() => addToast("error", t.toasts.shortcutFailed));
       } else {
         setCaptureShortcut(shortcut);
         invoke("update_capture_shortcut", { shortcut })
           .then(() => {
             setConfig({ captureShortcut: shortcut });
-            addToast("success", `クイックキャプチャのショートカットを ${shortcut} に変更しました`);
+            addToast("success", t.toasts.captureShortcutChanged(shortcut));
           })
-          .catch(() => addToast("error", "ショートカットの変更に失敗しました"));
+          .catch(() => addToast("error", t.toasts.shortcutFailed));
       }
     };
 
@@ -329,57 +353,34 @@ function ShortcutsTab() {
     return () => window.removeEventListener("keydown", handler, true);
   }, [recording, addToast]);
 
-  const appShortcuts = [
-    ["コマンドパレット", "⌘K"],
-    ["新規ノート", "⌘N"],
-    ["新規タスク", "⌘T"],
-    ["検索フォーカス", "⌘F"],
-    ["Notesタブ", "⌘1"],
-    ["Tasksタブ", "⌘2"],
-    ["前のアイテム", "⌘↑"],
-    ["次のアイテム", "⌘↓"],
-    ["テーマ切替", "⌘⇧L"],
-    ["設定", "⌘,"],
-  ];
-
   return (
     <>
-      <h3 className={styles.sectionTitle}>ショートカット</h3>
+      <h3 className={styles.sectionTitle}>{t.settings.shortcuts.title}</h3>
 
       <div className={styles.field}>
-        <div className={styles.fieldLabel}>グローバルショートカット</div>
+        <div className={styles.fieldLabel}>{t.settings.shortcuts.globalShortcut}</div>
         {recording === "main" ? (
-          <div className={styles.recording}>
-            キーの組み合わせを押してください...
-          </div>
+          <div className={styles.recording}>{t.settings.shortcuts.recording}</div>
         ) : (
           <div className={styles.shortcutRow}>
-            <span className={styles.shortcutLabel}>Floteを開く/閉じる</span>
+            <span className={styles.shortcutLabel}>{t.settings.shortcuts.openClose}</span>
             <div className={styles.shortcutRight}>
               <span className={styles.shortcutKeys}>{globalShortcut}</span>
-              <button
-                className={styles.shortcutChangeBtn}
-                onClick={() => setRecording("main")}
-              >
-                変更
+              <button className={styles.shortcutChangeBtn} onClick={() => setRecording("main")}>
+                {t.settings.shortcuts.change}
               </button>
             </div>
           </div>
         )}
         {recording === "capture" ? (
-          <div className={styles.recording}>
-            キーの組み合わせを押してください...
-          </div>
+          <div className={styles.recording}>{t.settings.shortcuts.recording}</div>
         ) : (
           <div className={styles.shortcutRow}>
-            <span className={styles.shortcutLabel}>クイックキャプチャ</span>
+            <span className={styles.shortcutLabel}>{t.settings.shortcuts.quickCapture}</span>
             <div className={styles.shortcutRight}>
               <span className={styles.shortcutKeys}>{captureShortcut}</span>
-              <button
-                className={styles.shortcutChangeBtn}
-                onClick={() => setRecording("capture")}
-              >
-                変更
+              <button className={styles.shortcutChangeBtn} onClick={() => setRecording("capture")}>
+                {t.settings.shortcuts.change}
               </button>
             </div>
           </div>
@@ -387,8 +388,8 @@ function ShortcutsTab() {
       </div>
 
       <div className={styles.field}>
-        <div className={styles.fieldLabel}>アプリ内ショートカット</div>
-        {appShortcuts.map(([label, keys]) => (
+        <div className={styles.fieldLabel}>{t.settings.shortcuts.appShortcuts}</div>
+        {t.settings.shortcuts.names.map(([label, keys]) => (
           <div key={label} className={styles.shortcutRow}>
             <span className={styles.shortcutLabel}>{label}</span>
             <span className={styles.shortcutKeys}>{keys}</span>
@@ -408,21 +409,24 @@ function StorageTab({
   currentMode: StorageMode;
   onStorageModeChange: (mode: StorageMode) => void;
 }) {
+  const t = useT();
   const [pane, setPane] = useState<StorageMode>(currentMode);
   const cloudAvailable = !!(
     import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY
   );
 
+  const storageTabs = [
+    { mode: "local" as StorageMode, label: t.settings.storage.local },
+    { mode: "supabase" as StorageMode, label: t.settings.storage.cloud },
+    { mode: "selfhost" as StorageMode, label: t.settings.storage.selfhost },
+  ];
+
   return (
     <>
-      <h3 className={styles.sectionTitle}>保存先</h3>
+      <h3 className={styles.sectionTitle}>{t.settings.storage.title}</h3>
 
       <div className={styles.storageModeTabs}>
-        {([
-          ["local", "ローカル"],
-          ["supabase", "クラウド"],
-          ["selfhost", "セルフホスト"],
-        ] as const).map(([mode, label]) => (
+        {storageTabs.map(({ mode, label }) => (
           <button
             key={mode}
             className={[
@@ -451,9 +455,7 @@ function StorageTab({
         )}
       </div>
 
-      <div className={styles.storageFootnote}>
-        ローカルデータは保持されます。保存先を切り替えてもデータは削除されません。
-      </div>
+      <div className={styles.storageFootnote}>{t.settings.storage.footnote}</div>
     </>
   );
 }
@@ -462,11 +464,12 @@ function StorageTab({
 
 function LocalPane({
   currentMode,
-  onStorageModeChange,
+  onStorageModeChange: _onStorageModeChange,
 }: {
   currentMode: StorageMode;
   onStorageModeChange: (mode: StorageMode) => void;
 }) {
+  const t = useT();
   const [dataDir, setDataDir] = useState("");
 
   useEffect(() => {
@@ -475,9 +478,7 @@ function LocalPane({
 
   return (
     <>
-      <p className={styles.storageDesc}>
-        ノートとタスクはこのデバイスにのみ保存されます。インターネット接続は不要です。
-      </p>
+      <p className={styles.storageDesc}>{t.settings.storage.localDesc}</p>
 
       {currentMode !== "local" && (
         <button
@@ -487,22 +488,22 @@ function LocalPane({
             window.location.reload();
           }}
         >
-          ローカルを使う
+          {t.settings.storage.useLocal}
         </button>
       )}
 
       {dataDir && (
         <div className={styles.field}>
-          <div className={styles.fieldLabel}>データ保存場所</div>
+          <div className={styles.fieldLabel}>{t.settings.storage.dataLocation}</div>
           <button
             className={styles.dataDirBtn}
             onClick={() => invoke("open_path", { path: dataDir })}
-            title="Finderで開く"
+            title={t.settings.storage.finderHint}
           >
             <span className={styles.dataDirPath}>{dataDir}</span>
             <span className={styles.dataDirIcon}>↗</span>
           </button>
-          <div className={styles.fieldHint}>クリックするとFinderで開きます</div>
+          <div className={styles.fieldHint}>{t.settings.storage.finderHint}</div>
         </div>
       )}
     </>
@@ -513,11 +514,12 @@ function LocalPane({
 
 function CloudPane({
   currentMode,
-  onStorageModeChange,
+  onStorageModeChange: _onStorageModeChange,
 }: {
   currentMode: StorageMode;
   onStorageModeChange: (mode: StorageMode) => void;
 }) {
+  const t = useT();
   const { session, signOut } = useAuth();
   const setSupabaseReady = useUIStore((s) => s.setSupabaseReady);
   const addToast = useUIStore((s) => s.addToast);
@@ -554,7 +556,7 @@ function CloudPane({
       await setConfig({ storageMode: "supabase" });
       window.location.reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
+      setError(err instanceof Error ? err.message : t.auth.error);
       setLoading(false);
     }
   };
@@ -583,11 +585,11 @@ function CloudPane({
               window.location.reload();
             }}
           >
-            クラウドを使う
+            {t.settings.storage.useCloud}
           </button>
         )}
         <button className={styles.logoutBtn} onClick={handleSignOut}>
-          ログアウト
+          {t.settings.storage.logout}
         </button>
       </>
     );
@@ -595,9 +597,7 @@ function CloudPane({
 
   return (
     <>
-      <p className={styles.storageDesc}>
-        Floteのクラウドに保存します。複数デバイスで同期できます。
-      </p>
+      <p className={styles.storageDesc}>{t.settings.storage.cloudDesc}</p>
       <form className={styles.authForm} onSubmit={handleSubmit}>
         <div className={styles.authTabs}>
           <button
@@ -605,20 +605,18 @@ function CloudPane({
             className={`${styles.authTab} ${authTab === "login" ? styles.authTabActive : ""}`}
             onClick={() => { setAuthTab("login"); setError(null); }}
           >
-            ログイン
+            {t.settings.storage.loginTab}
           </button>
           <button
             type="button"
             className={`${styles.authTab} ${authTab === "signup" ? styles.authTabActive : ""}`}
             onClick={() => { setAuthTab("signup"); setError(null); }}
           >
-            サインアップ
+            {t.settings.storage.signupTab}
           </button>
         </div>
         {authTab === "signup" ? (
-          <div className={styles.signupClosed}>
-            現在、新規アカウントの受付を停止しています。
-          </div>
+          <div className={styles.signupClosed}>{t.settings.storage.signupClosed}</div>
         ) : (
           <>
             {error && <div className={styles.authError}>{error}</div>}
@@ -626,7 +624,7 @@ function CloudPane({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="メールアドレス"
+              placeholder={t.auth.emailPlaceholder}
               required
               className={styles.authInput}
             />
@@ -634,13 +632,13 @@ function CloudPane({
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="パスワード"
+              placeholder={t.auth.passwordPlaceholder}
               required
               minLength={6}
               className={styles.authInput}
             />
             <button type="submit" disabled={loading} className={styles.authSubmit}>
-              {loading ? "処理中..." : "ログイン"}
+              {loading ? t.auth.processing : t.settings.storage.loginTab}
             </button>
           </>
         )}
@@ -653,11 +651,12 @@ function CloudPane({
 
 function SelfhostPane({
   currentMode,
-  onStorageModeChange,
+  onStorageModeChange: _onStorageModeChange,
 }: {
   currentMode: StorageMode;
   onStorageModeChange: (mode: StorageMode) => void;
 }) {
+  const t = useT();
   const { session, signOut } = useAuth();
   const setSupabaseReady = useUIStore((s) => s.setSupabaseReady);
   const addToast = useUIStore((s) => s.addToast);
@@ -682,7 +681,7 @@ function SelfhostPane({
     const url = customUrl.trim();
     const key = customKey.trim();
     if (!url || !key) {
-      addToast("error", "URLとAnon Keyを両方入力してください");
+      addToast("error", t.settings.storage.anonKeyHint);
       return;
     }
     setSaving(true);
@@ -709,12 +708,10 @@ function SelfhostPane({
 
   return (
     <>
-      <p className={styles.storageDesc}>
-        あなたが管理するSupabaseに保存します。デスクトップ版とモバイル版で同期できます。
-      </p>
+      <p className={styles.storageDesc}>{t.settings.storage.selfhostDesc}</p>
 
       {/* Connection config */}
-      <div className={styles.subSectionTitle}>接続設定</div>
+      <div className={styles.subSectionTitle}>{t.settings.storage.connectionSettings}</div>
       <div className={styles.field}>
         <div className={styles.fieldLabel}>Supabase URL</div>
         <input
@@ -732,12 +729,10 @@ function SelfhostPane({
           value={customKey}
           onChange={(e) => setCustomKey(e.target.value)}
         />
-        <div className={styles.fieldHint}>
-          Supabase ダッシュボードの「プロジェクト設定 → API」から取得できます。
-        </div>
+        <div className={styles.fieldHint}>{t.settings.storage.anonKeyHint}</div>
         <div className={styles.supabaseActions}>
           <button className={styles.authSubmit} onClick={handleSave} disabled={saving}>
-            {saving ? "保存中..." : "保存して接続"}
+            {saving ? t.settings.storage.saving : t.settings.storage.saveConnect}
           </button>
           {customUrl && (
             <button
@@ -745,7 +740,7 @@ function SelfhostPane({
               style={{ color: "var(--danger, #e53e3e)" }}
               onClick={handleClear}
             >
-              削除
+              {t.settings.storage.deleteConnection}
             </button>
           )}
         </div>
@@ -754,7 +749,7 @@ function SelfhostPane({
       {/* Auth state */}
       {customUrl && (
         <>
-          <div className={styles.subSectionTitle}>アカウント</div>
+          <div className={styles.subSectionTitle}>{t.settings.storage.account}</div>
           {session ? (
             <>
               <div className={styles.userProfile}>
@@ -773,41 +768,37 @@ function SelfhostPane({
                     window.location.reload();
                   }}
                 >
-                  セルフホストを使う
+                  {t.settings.storage.useSelfhost}
                 </button>
               )}
               <button className={styles.logoutBtn} onClick={handleSignOut}>
-                ログアウト
+                {t.settings.storage.logout}
               </button>
             </>
           ) : (
-            <p className={styles.storageDesc}>
-              接続設定を保存するとログイン画面が表示されます。
-            </p>
+            <p className={styles.storageDesc}>{t.settings.storage.loginPending}</p>
           )}
         </>
       )}
 
       {/* Schema setup */}
       <div className={styles.subSectionTitle}>
-        スキーマセットアップ
+        {t.settings.storage.schemaSetup}
         <button
           className={styles.schemaToggleBtn}
           onClick={() => setShowSchema((v) => !v)}
         >
-          {showSchema ? "閉じる" : "SQLを表示"}
+          {showSchema ? t.settings.storage.hideSQL : t.settings.storage.showSQL}
         </button>
       </div>
       {showSchema && (
         <>
-          <p className={styles.storageDesc}>
-            初回接続時はSupabaseの「SQL エディタ」で以下を実行してください。
-          </p>
+          <p className={styles.storageDesc}>{t.settings.storage.schemaDesc}</p>
           <div className={styles.sqlBox}>
             <pre className={styles.sqlPre}>{SCHEMA_SQL}</pre>
           </div>
           <button className={styles.shortcutChangeBtn} onClick={handleCopySQL}>
-            {copied ? "✓ コピーしました" : "SQLをコピー"}
+            {copied ? t.settings.storage.copiedSQL : t.settings.storage.copySQL}
           </button>
         </>
       )}
@@ -818,77 +809,21 @@ function SelfhostPane({
 /* ─── How To ─── */
 
 function HowToTab() {
+  const t = useT();
   return (
     <>
-      <h3 className={styles.sectionTitle}>使い方</h3>
-
-      <div className={styles.helpSection}>
-        <div className={styles.helpSectionTitle}>基本操作</div>
-        <div className={styles.helpItem}>
-          <span className={styles.helpLabel}>ノート・タスクを開く</span>
-          <span className={styles.helpDesc}>サイドバーのアイテムをクリック</span>
+      <h3 className={styles.sectionTitle}>{t.settings.howto.title}</h3>
+      {t.settings.howto.sections.map((section) => (
+        <div key={section.title} className={styles.helpSection}>
+          <div className={styles.helpSectionTitle}>{section.title}</div>
+          {section.items.map((item) => (
+            <div key={item.label} className={styles.helpItem}>
+              <span className={styles.helpLabel}>{item.label}</span>
+              <span className={styles.helpDesc}>{item.desc}</span>
+            </div>
+          ))}
         </div>
-        <div className={styles.helpItem}>
-          <span className={styles.helpLabel}>ノートを編集する</span>
-          <span className={styles.helpDesc}>エディタエリアをダブルクリック</span>
-        </div>
-        <div className={styles.helpItem}>
-          <span className={styles.helpLabel}>編集を終了する</span>
-          <span className={styles.helpDesc}><kbd className={styles.kbd}>Esc</kbd> キー</span>
-        </div>
-        <div className={styles.helpItem}>
-          <span className={styles.helpLabel}>新規ノートを作成</span>
-          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘N</kbd> またはサイドバー上部の「＋ 新しいノート」</span>
-        </div>
-        <div className={styles.helpItem}>
-          <span className={styles.helpLabel}>新規タスクを追加</span>
-          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘T</kbd> またはサイドバー上部の「＋ 新しいタスク」</span>
-        </div>
-      </div>
-
-      <div className={styles.helpSection}>
-        <div className={styles.helpSectionTitle}>一括削除</div>
-        <div className={styles.helpItem}>
-          <span className={styles.helpLabel}>複数選択して削除する</span>
-          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘クリック</kbd> または 右クリックで選択モードに入り、削除ボタンを押す</span>
-        </div>
-        <div className={styles.helpItem}>
-          <span className={styles.helpLabel}>選択を解除する</span>
-          <span className={styles.helpDesc}>「キャンセル」をクリック</span>
-        </div>
-      </div>
-
-      <div className={styles.helpSection}>
-        <div className={styles.helpSectionTitle}>ナビゲーション</div>
-        <div className={styles.helpItem}>
-          <span className={styles.helpLabel}>コマンドパレットを開く</span>
-          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘K</kbd></span>
-        </div>
-        <div className={styles.helpItem}>
-          <span className={styles.helpLabel}>ノート / タスクタブを切替</span>
-          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘1</kbd> / <kbd className={styles.kbd}>⌘2</kbd></span>
-        </div>
-        <div className={styles.helpItem}>
-          <span className={styles.helpLabel}>前後のアイテムへ移動</span>
-          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘↑</kbd> / <kbd className={styles.kbd}>⌘↓</kbd></span>
-        </div>
-        <div className={styles.helpItem}>
-          <span className={styles.helpLabel}>番号でアイテムを選択</span>
-          <span className={styles.helpDesc}><kbd className={styles.kbd}>⌘1</kbd>〜<kbd className={styles.kbd}>⌘9</kbd>（タブ切替後は番号キー）</span>
-        </div>
-      </div>
-
-      <div className={styles.helpSection}>
-        <div className={styles.helpSectionTitle}>コマンドパレット</div>
-        <div className={styles.helpItem}>
-          <span className={styles.helpLabel}>ノート・タスクを検索</span>
-          <span className={styles.helpDesc}>タイトルで絞り込み</span>
-        </div>
-        <div className={styles.helpItem}>
-          <span className={styles.helpLabel}>英語でコマンド検索</span>
-          <span className={styles.helpDesc}>add note / add task / show notes / settings など</span>
-        </div>
-      </div>
+      ))}
     </>
   );
 }
@@ -896,6 +831,7 @@ function HowToTab() {
 /* ─── About ─── */
 
 function AboutTab() {
+  const t = useT();
   const [version, setVersion] = useState("");
 
   useEffect(() => {
@@ -903,37 +839,35 @@ function AboutTab() {
   }, []);
 
   const oss = [
-    { name: "Tauri", license: "MIT / Apache-2.0", url: "https://tauri.app" },
-    { name: "React", license: "MIT", url: "https://react.dev" },
-    { name: "CodeMirror", license: "MIT", url: "https://codemirror.net" },
-    { name: "Zustand", license: "MIT", url: "https://zustand-demo.pmnd.rs" },
-    { name: "Tailwind CSS", license: "MIT", url: "https://tailwindcss.com" },
-    { name: "Supabase JS", license: "MIT", url: "https://supabase.com" },
+    { name: "Tauri", license: "MIT / Apache-2.0" },
+    { name: "React", license: "MIT" },
+    { name: "CodeMirror", license: "MIT" },
+    { name: "Zustand", license: "MIT" },
+    { name: "Tailwind CSS", license: "MIT" },
+    { name: "Supabase JS", license: "MIT" },
   ];
 
   return (
     <>
-      <h3 className={styles.sectionTitle}>Floteについて</h3>
+      <h3 className={styles.sectionTitle}>{t.settings.about.title}</h3>
 
       <div className={styles.aboutCard}>
         <div className={styles.aboutAppName}>Flote</div>
         {version && (
-          <div className={styles.aboutVersion}>バージョン {version}</div>
+          <div className={styles.aboutVersion}>{t.settings.about.versionLabel(version)}</div>
         )}
-        <div className={styles.aboutDesc}>
-          ショートカット起動のフローティングノート＆タスク管理アプリ。
-        </div>
+        <div className={styles.aboutDesc}>{t.settings.about.appDesc}</div>
       </div>
 
-      <h3 className={styles.sectionTitle}>ライセンス</h3>
+      <h3 className={styles.sectionTitle}>{t.settings.about.licenseTitle}</h3>
       <div className={styles.helpSection}>
         <div className={styles.helpItem}>
           <span className={styles.helpLabel}>Flote</span>
-          <span className={styles.helpDesc}>MIT License © 2024 sugitlab</span>
+          <span className={styles.helpDesc}>{t.settings.about.licenseValue}</span>
         </div>
       </div>
 
-      <h3 className={styles.sectionTitle}>使用しているOSSライブラリ</h3>
+      <h3 className={styles.sectionTitle}>{t.settings.about.ossTitle}</h3>
       <div className={styles.helpSection}>
         {oss.map(({ name, license }) => (
           <div key={name} className={styles.helpItem}>
@@ -943,14 +877,14 @@ function AboutTab() {
         ))}
       </div>
 
-      <h3 className={styles.sectionTitle}>法的情報</h3>
+      <h3 className={styles.sectionTitle}>{t.settings.about.legalTitle}</h3>
       <div className={styles.helpSection}>
         <div className={styles.helpItem}>
           <button
             className={styles.legalLink}
             onClick={() => window.open("https://github.com/sugitlab/flote?tab=MIT-1-ov-file#readme", "_blank")}
           >
-            MIT License
+            {t.settings.about.licenseLink}
           </button>
         </div>
         <div className={styles.helpItem}>
@@ -958,7 +892,7 @@ function AboutTab() {
             className={styles.legalLink}
             onClick={() => window.open("https://github.com/sugitlab/flote", "_blank")}
           >
-            ソースコード (GitHub)
+            {t.settings.about.sourceCode}
           </button>
         </div>
       </div>

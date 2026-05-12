@@ -330,8 +330,8 @@
   opacity: 1;
 }
 
-.convertBtnNote::after { content: "タスクに変換"; }
-.convertBtnTask::after { content: "ノートに変換"; }
+.convertBtnNote::after { content: attr(data-tooltip); }
+.convertBtnTask::after { content: attr(data-tooltip); }
 
 /* Tag chips in note detail header */
 .noteTags {

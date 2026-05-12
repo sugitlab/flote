@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { DarkCodeTheme, LightCodeTheme } from "@flote/types";
+import type { Language } from "../locales";
 
 export type ThemeMode = "dark" | "light" | "system";
 export type DarkEditorTheme = DarkCodeTheme;
@@ -25,7 +26,9 @@ type UIStore = {
   vimMode: boolean;
   sidebarCollapsed: boolean;
   supabaseReady: boolean;
+  language: Language;
   setSupabaseReady: (v: boolean) => void;
+  setLanguage: (lang: Language) => void;
   setVimMode: (v: boolean) => void;
   setSidebarCollapsed: (v: boolean) => void;
   toggleSidebar: () => void;
@@ -55,8 +58,10 @@ export const useUIStore = create<UIStore>((set, get) => ({
   vimMode: false,
   sidebarCollapsed: false,
   supabaseReady: false,
+  language: "ja",
 
   setSupabaseReady: (v) => set({ supabaseReady: v }),
+  setLanguage: (lang) => set({ language: lang }),
   setVimMode: (v) => set({ vimMode: v }),
   setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),

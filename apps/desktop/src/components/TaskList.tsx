@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import type { Task } from "@flote/types";
 import { extractTags, allTagsFromTasks } from "../utils/tags";
+import { useT } from "../hooks/useT";
 
 type SortOrder = "updated" | "due";
 
@@ -35,7 +36,8 @@ function formatDate(date: string | null): string {
 
 type Group = { label: string; tasks: Task[]; danger?: boolean };
 
-export function groupTasks(tasks: Task[]): Group[] {
+export function groupTasks(tasks: Task[], labels?: { overdue: string; today: string; upcoming: string; done: string }): Group[] {
+  const l = labels ?? { overdue: "期限切れ", today: "今日", upcoming: "今後", done: "完了済み" };
   const today = todayStr();
   const overdue: Task[] = [];
   const todayTasks: Task[] = [];
@@ -55,10 +57,10 @@ export function groupTasks(tasks: Task[]): Group[] {
   }
 
   const groups: Group[] = [];
-  if (overdue.length) groups.push({ label: "期限切れ", tasks: overdue, danger: true });
-  if (todayTasks.length) groups.push({ label: "今日", tasks: todayTasks });
-  if (upcoming.length) groups.push({ label: "今後", tasks: upcoming });
-  if (done.length) groups.push({ label: "完了済み", tasks: done });
+  if (overdue.length) groups.push({ label: l.overdue, tasks: overdue, danger: true });
+  if (todayTasks.length) groups.push({ label: l.today, tasks: todayTasks });
+  if (upcoming.length) groups.push({ label: l.upcoming, tasks: upcoming });
+  if (done.length) groups.push({ label: l.done, tasks: done });
   return groups;
 }
 
@@ -73,6 +75,7 @@ export default function TaskList({
   onSelectTask,
   onTagFilter,
 }: TaskListProps) {
+  const t = useT();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectMode = selectedIds.size > 0;
   const [sortOrder, setSortOrder] = useState<SortOrder>("updated");
@@ -177,7 +180,7 @@ export default function TaskList({
     clearSelect();
   }, [selectedIds, onDeleteMultiple, clearSelect]);
 
-  const groups = groupTasks(sortedTasks);
+  const groups = groupTasks(sortedTasks, t.taskList.groups);
   const orderedIds = groups.flatMap((g) => g.tasks.map((t) => t.id));
 
   function renderTask(task: Task) {
@@ -267,20 +270,20 @@ export default function TaskList({
       {selectMode ? (
         <div className="flex items-center justify-between px-[10px] py-[6px] border-b border-[var(--border)]">
           <span className="text-[11px] font-semibold text-[var(--text-primary)]">
-            {selectedIds.size}件選択中
+            {t.taskList.selectedCount(selectedIds.size)}
           </span>
           <div className="flex gap-[6px]">
             <button
               className="text-[11px] px-2 py-0.5 rounded border-none bg-[var(--danger)] text-white cursor-pointer opacity-100 hover:opacity-85 transition-opacity"
               onClick={handleDeleteSelected}
             >
-              削除
+              {t.taskList.delete}
             </button>
             <button
               className="text-[11px] px-2 py-0.5 rounded border-none bg-[var(--bg-input)] text-[var(--text-secondary)] cursor-pointer hover:bg-[var(--bg-hover)] transition-colors"
               onClick={clearSelect}
             >
-              キャンセル
+              {t.taskList.cancel}
             </button>
           </div>
         </div>
@@ -290,7 +293,7 @@ export default function TaskList({
             onClick={onAddTask}
             className="flex-1 text-left text-[11px] text-[var(--accent)] bg-transparent border-none cursor-pointer py-[8px] px-[10px] hover:bg-[var(--bg-hover)] transition-colors"
           >
-            + 新しいタスク
+            {t.taskList.newTask}
           </button>
           {/* Tag filter */}
           {allTags.length > 0 && (
@@ -298,7 +301,7 @@ export default function TaskList({
               <button
                 ref={tagBtnRef}
                 onClick={() => setTagDropdownOpen((v) => !v)}
-                title="タグで絞り込み"
+                title={t.taskList.filterByTag}
                 className={[
                   "flex items-center gap-0.5 text-[10px] px-2 py-1 rounded border-none cursor-pointer transition-colors max-w-[72px] truncate",
                   activeTag
@@ -322,14 +325,14 @@ export default function TaskList({
                     <input
                       ref={tagSearchRef}
                       className="w-full text-[11px] px-2 py-1 rounded border border-[var(--border)] bg-[var(--bg-input)] text-[var(--text-primary)] outline-none"
-                      placeholder="タグを検索..."
+                      placeholder={t.taskList.searchTags}
                       value={tagSearch}
                       onChange={(e) => setTagSearch(e.target.value)}
                     />
                   </div>
                   <div className="max-h-[180px] overflow-y-auto">
                     {filteredTagOptions.length === 0 ? (
-                      <div className="px-3 py-2 text-[11px] text-[var(--text-muted)]">タグがありません</div>
+                      <div className="px-3 py-2 text-[11px] text-[var(--text-muted)]">{t.taskList.noTags}</div>
                     ) : filteredTagOptions.map((tag) => (
                       <button
                         key={tag}
@@ -355,7 +358,7 @@ export default function TaskList({
             <button
               ref={sortBtnRef}
               onClick={() => setSortMenuOpen((v) => !v)}
-              title="並び替え"
+              title={t.taskList.sort}
               className={[
                 "flex items-center gap-0.5 text-[10px] px-2 py-1 mr-1 rounded border-none cursor-pointer transition-colors",
                 sortMenuOpen
@@ -369,8 +372,8 @@ export default function TaskList({
               <div className="absolute right-0 top-full mt-1 z-50 min-w-[130px] rounded-md border border-[var(--border)] bg-[var(--bg-sidebar)] shadow-lg overflow-hidden">
                 {(
                   [
-                    { key: "updated", label: "更新日時順" },
-                    { key: "due",     label: "期日が近い順" },
+                    { key: "updated", label: t.taskList.sortByUpdated },
+                    { key: "due",     label: t.taskList.sortByDue },
                   ] as { key: SortOrder; label: string }[]
                 ).map(({ key, label }) => (
                   <button
@@ -409,7 +412,7 @@ export default function TaskList({
         ))}
         {sortedTasks.length === 0 && (
           <div className="px-3 py-4 text-[11px] text-[var(--text-muted)]">
-            {activeTag ? `#${activeTag} のタスクがありません` : "タスクがありません"}
+            {activeTag ? t.taskList.emptyFiltered(activeTag) : t.taskList.empty}
           </div>
         )}
       </div>

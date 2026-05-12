@@ -1,6 +1,7 @@
 import { load } from "@tauri-apps/plugin-store";
 import type { StorageMode } from "@flote/types";
 import type { ThemeMode, DarkEditorTheme, LightEditorTheme } from "./store/uiStore";
+import type { Language } from "./locales";
 
 export type AppSettings = {
   storageMode: StorageMode;
@@ -21,6 +22,7 @@ export type AppSettings = {
   vimMode: boolean;
   sidebarToggleShortcut: string;
   sidebarWidth: number;
+  language: Language;
 };
 
 const STORE_PATH = "settings.json";
@@ -44,6 +46,7 @@ const DEFAULTS: AppSettings = {
   vimMode: false,
   sidebarToggleShortcut: "CmdOrCtrl+B",
   sidebarWidth: 200,
+  language: "ja",
 };
 
 async function getStore() {

@@ -12,6 +12,7 @@ import {
 } from "@flote/api-client";
 import { getConfig, setConfig } from "./config";
 import { checkSchema } from "./migrations";
+import { useT } from "./hooks/useT";
 import { extractTags } from "./utils/tags";
 import SchemaSetup from "./components/SchemaSetup";
 import { useAuth } from "./hooks/useAuth";
@@ -41,9 +42,9 @@ if (envSupabaseUrl && envSupabaseKey) {
   initSupabase(envSupabaseUrl, envSupabaseKey);
 }
 
-function extractTitle(bodyMd: string): string {
+function extractTitle(bodyMd: string, fallback = "Untitled Note"): string {
   const firstLine = bodyMd.split("\n")[0]?.replace(/^#+\s*/, "").trim();
-  return firstLine || "無題のノート";
+  return firstLine || fallback;
 }
 
 function countWords(text: string): number {
@@ -96,6 +97,7 @@ function MainApp({
     setActiveTask,
   } = useTaskStore();
 
+  const t = useT();
   const activeTab = useUIStore((s) => s.activeTab);
   const setActiveTab = useUIStore((s) => s.setActiveTab);
   const isCommandPaletteOpen = useUIStore((s) => s.isCommandPaletteOpen);
@@ -186,12 +188,12 @@ function MainApp({
       const { text } = event.payload;
       const note: Note = {
         id: crypto.randomUUID(),
-        title: extractTitle(text) || text.slice(0, 60),
+        title: extractTitle(text, t.defaults.untitledNote) || text.slice(0, 60),
         body_md: text,
         updated_at: new Date().toISOString(),
       };
       saveNote(note, userId);
-      addToast("success", "クイックメモを保存しました");
+      addToast("success", t.toasts.quickNoteSaved);
     });
     return () => { unlisten.then((fn) => fn()); };
   }, [userId, saveNote, addToast]);
@@ -260,7 +262,7 @@ function MainApp({
     prevTaskIdRef.current = activeTaskId;
     if (!prevId || prevId === activeTaskId) return;
     const prev = tasksRef.current.find((t) => t.id === prevId);
-    if (prev && prev.body_md.trim() === "" && prev.title === "新しいタスク") deleteTaskRef.current(prevId);
+    if (prev && prev.body_md.trim() === "" && (prev.title === "新しいタスク" || prev.title === "New Task")) deleteTaskRef.current(prevId);
   }, [activeTaskId]);
 
   // Auto-cleanup on tab switch: covers the case where the active ID itself doesn't change
@@ -279,14 +281,14 @@ function MainApp({
       const id = activeTaskIdRef.current;
       if (!id) return;
       const task = tasksRef.current.find((t) => t.id === id);
-      if (task && task.body_md.trim() === "" && task.title === "新しいタスク") deleteTaskRef.current(id);
+      if (task && task.body_md.trim() === "" && (task.title === "新しいタスク" || task.title === "New Task")) deleteTaskRef.current(id);
     }
   }, [activeTab]);
 
   const handleCreateNote = useCallback(() => {
     const note: Note = {
       id: crypto.randomUUID(),
-      title: "無題のノート",
+      title: t.defaults.untitledNote,
       body_md: "",
       updated_at: new Date().toISOString(),
     };
@@ -300,7 +302,7 @@ function MainApp({
   const handleCreateTask = useCallback(() => {
     const task: Task = {
       id: crypto.randomUUID(),
-      title: "新しいタスク",
+      title: t.defaults.newTask,
       body_md: "",
       due_date: null,
       done: false,
@@ -402,7 +404,7 @@ function MainApp({
         onStorageModeChange(mode);
       } else {
         setConfig({ storageMode: mode });
-        addToast("info", "設定を反映するにはアプリを再起動してください");
+        addToast("info", t.toasts.restartRequired);
       }
     },
     [onStorageModeChange, addToast]
@@ -507,7 +509,7 @@ function MainApp({
         setActiveNote(null);
         setActiveTab("tasks");
         setIsEditing(false);
-        addToast("success", "ノートをタスクに変換しました");
+        addToast("success", t.toasts.noteToTask);
       }
     } else {
       const task = tasks.find((t) => t.id === confirmConvert.id);
@@ -524,7 +526,7 @@ function MainApp({
         setActiveTask(null);
         setActiveTab("notes");
         setIsEditing(false);
-        addToast("success", "タスクをノートに変換しました");
+        addToast("success", t.toasts.taskToNote);
       }
     }
     setConfirmConvert(null);
@@ -572,18 +574,18 @@ function MainApp({
                 className={`${styles.tab} ${activeTab === "notes" ? styles.tabActive : ""}`}
                 onClick={handleShowNotes}
               >
-                ノート <span className={styles.tabKbd}>⌘1</span>
+                {t.tabs.notes} <span className={styles.tabKbd}>⌘1</span>
               </button>
               <button
                 className={`${styles.tab} ${activeTab === "tasks" ? styles.tabActive : ""}`}
                 onClick={handleShowTasks}
               >
-                タスク <span className={styles.tabKbd}>⌘2</span>
+                {t.tabs.tasks} <span className={styles.tabKbd}>⌘2</span>
               </button>
               <button
                 className={styles.sidebarCollapseBtn}
                 onClick={toggleSidebar}
-                title="リストを閉じる"
+                title={t.sidebar.collapse}
               >
                 ‹
               </button>
@@ -635,7 +637,7 @@ function MainApp({
             <button
               className={styles.sidebarReopenBtn}
               onClick={toggleSidebar}
-              title="リストを表示"
+              title={t.sidebar.expand}
             >
               ›
             </button>
@@ -645,6 +647,7 @@ function MainApp({
               <div className={styles.noteDetailHeader}>
                 <button
                   className={`${styles.convertBtn} ${styles.convertBtnNote}`}
+                  data-tooltip={t.confirm.convertToTask}
                   onClick={() => setConfirmConvert({ type: "note", id: selectedNote.id })}
                 >
                   ↻
@@ -679,6 +682,8 @@ function MainApp({
                   onExitEdit={handleExitEditor}
                   editorTheme={activeEditorTheme}
                   vimMode={vimMode}
+                  placeholderText={t.editor.editorPlaceholder}
+                  emptyNoteText={t.editor.emptyNote}
                 />
               </div>
             </div>
@@ -699,12 +704,12 @@ function MainApp({
                     className={styles.taskDetailStatus}
                     style={{ color: selectedTask.done ? "var(--accent)" : "#f59e0b" }}
                   >
-                    {selectedTask.done ? "完了" : "未完了"}
+                    {selectedTask.done ? t.taskStatus.done : t.taskStatus.notDone}
                   </span>
                 </button>
                 <div className={styles.datePickerWrap}>
                   <span className={styles.taskDetailDateInput}>
-                    {selectedTask.due_date || "期日を設定"}
+                    {selectedTask.due_date || t.taskStatus.setDueDate}
                   </span>
                   <input
                     type="date"
@@ -715,6 +720,7 @@ function MainApp({
                 </div>
                 <button
                   className={`${styles.convertBtn} ${styles.convertBtnTask}`}
+                  data-tooltip={t.confirm.convertToNote}
                   onClick={() => setConfirmConvert({ type: "task", id: selectedTask.id })}
                 >
                   ↻
@@ -747,14 +753,16 @@ function MainApp({
                   onExitEdit={handleExitEditor}
                   editorTheme={activeEditorTheme}
                   vimMode={vimMode}
+                  placeholderText={t.editor.editorPlaceholder}
+                  emptyNoteText={t.editor.emptyNote}
                 />
               </div>
             </div>
           ) : (
             <div className={styles.editorPlaceholder}>
               {activeTab === "notes"
-                ? "ノートを選択するか、⌘N で新しいノートを作成"
-                : "タスクを選択してメモを編集"}
+                ? t.editor.notePlaceholder
+                : t.editor.taskPlaceholder}
             </div>
           )}
         </div>
@@ -766,29 +774,29 @@ function MainApp({
           {activeTab === "notes" && selectedNote && (
             <>
               <span>{wordCount} words</span>
-              <span>{isEditing ? "編集" : "プレビュー"}</span>
+              <span>{isEditing ? t.editor.editing : t.editor.preview}</span>
             </>
           )}
           {activeTab === "tasks" && selectedTask && (
             <>
-              <span>{selectedTask.done ? "完了" : "未完了"}</span>
+              <span>{selectedTask.done ? t.taskStatus.done : t.taskStatus.notDone}</span>
               {selectedTask.due_date && (
-                <span>期限: {selectedTask.due_date}</span>
+                <span>{t.taskStatus.dueLabel(selectedTask.due_date)}</span>
               )}
-              <span>{isEditing ? "編集" : "プレビュー"}</span>
+              <span>{isEditing ? t.editor.editing : t.editor.preview}</span>
             </>
           )}
         </div>
         <div className={styles.statusRight}>
           {overdueCount > 0 && (
             <span className={styles.overdueBadge}>
-              {overdueCount} 期限切れ
+              {t.taskStatus.overdueBadge(overdueCount)}
             </span>
           )}
           <button
             className={styles.settingsBtn}
             onClick={() => setSettingsOpen(true)}
-            title="設定 (⌘,)"
+            title={`${t.settings.title} (⌘,)`}
           >
             ⚙
           </button>
@@ -826,7 +834,7 @@ function MainApp({
       {/* Confirm Dialog */}
       {confirmDelete && (
         <ConfirmDialog
-          message={confirmDelete.type === "note" ? "このノートを削除しますか？" : "このタスクを削除しますか？"}
+          message={confirmDelete.type === "note" ? t.confirm.deleteNote : t.confirm.deleteTask}
           onConfirm={handleConfirmDelete}
           onCancel={() => setConfirmDelete(null)}
         />
@@ -834,7 +842,8 @@ function MainApp({
 
       {confirmConvert && (
         <ConfirmDialog
-          message={confirmConvert.type === "note" ? "このノートをタスクに変換しますか？元のノートは削除されます。" : "このタスクをノートに変換しますか？元のタスクは削除されます。"}
+          message={confirmConvert.type === "note" ? t.confirm.convertNoteToTask : t.confirm.convertTaskToNote}
+          confirmLabel={t.confirm.convert}
           onConfirm={handleConfirmConvert}
           onCancel={() => setConfirmConvert(null)}
         />
@@ -855,15 +864,26 @@ function App() {
   const { session, loading: authLoading, signIn, signUp, signOut } = useAuth();
   const supabaseReady = useUIStore((s) => s.supabaseReady);
   const setSupabaseReady = useUIStore((s) => s.setSupabaseReady);
+  const setLanguage = useUIStore((s) => s.setLanguage);
+  const t = useT();
 
   const initNoteStore = useNoteStore((s) => s.initStore);
   const initTaskStore = useTaskStore((s) => s.initStore);
 
   useTheme();
 
+  // Sync tray menu labels whenever language changes
+  useEffect(() => {
+    invoke("update_tray_menu", {
+      openLabel: t.tray.open,
+      quitLabel: t.tray.quit,
+    }).catch(() => {});
+  }, [t]);
+
   // Load config on mount — initialize Supabase based on storage mode
   useEffect(() => {
     getConfig().then((config) => {
+      if (config.language) setLanguage(config.language);
       let mode = config.storageMode;
 
       if (mode === "supabase") {
@@ -930,7 +950,7 @@ function App() {
     return (
       <div className={styles.loading}>
         <div data-tauri-drag-region className={styles.loadingDrag} />
-        <div className={styles.loadingContent}>読み込み中...</div>
+        <div className={styles.loadingContent}>{t.loading}</div>
       </div>
     );
   }
@@ -952,13 +972,13 @@ function App() {
         <div data-tauri-drag-region className={styles.loadingDrag} />
         <div className={styles.supabaseWarning}>
           <div className={styles.warningBox}>
-            <p className={styles.warningTitle}>クラウド未設定</p>
-            <p>保存先がクラウドに設定されていますが、接続情報がありません。</p>
+            <p className={styles.warningTitle}>{t.cloud.notConfiguredTitle}</p>
+            <p>{t.cloud.notConfiguredDesc}</p>
             <p>
               <code className={styles.warningCode}>
                 apps/desktop/.env.local
               </code>{" "}
-              に接続情報を設定してください。
+              {t.cloud.notConfiguredHint}
             </p>
           </div>
         </div>
@@ -971,7 +991,7 @@ function App() {
     return (
       <div className={styles.loading}>
         <div data-tauri-drag-region className={styles.loadingDrag} />
-        <div className={styles.loadingContent}>読み込み中...</div>
+        <div className={styles.loadingContent}>{t.loading}</div>
       </div>
     );
   }

@@ -1,20 +1,21 @@
 import { useEffect, useRef } from "react";
+import { useT } from "../hooks/useT";
 import styles from "./ConfirmDialog.module.css";
 
 type Props = {
   message: string;
+  confirmLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
 };
 
-export default function ConfirmDialog({ message, onConfirm, onCancel }: Props) {
+export default function ConfirmDialog({ message, confirmLabel, onConfirm, onCancel }: Props) {
+  const t = useT();
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Focus the dialog itself so keyboard events land here, not the main app.
     dialogRef.current?.focus();
 
-    // Capture phase: block ALL keys from reaching the main app while dialog is open.
     const handler = (e: KeyboardEvent) => {
       e.stopPropagation();
       if (e.key === "Enter") {
@@ -32,7 +33,6 @@ export default function ConfirmDialog({ message, onConfirm, onCancel }: Props) {
 
   return (
     <div className={styles.overlay} onClick={onCancel}>
-      {/* tabIndex / outline:none so the div is focusable but invisible */}
       <div
         ref={dialogRef}
         className={styles.dialog}
@@ -42,10 +42,10 @@ export default function ConfirmDialog({ message, onConfirm, onCancel }: Props) {
         <div className={styles.message}>{message}</div>
         <div className={styles.actions}>
           <button className={`${styles.btn} ${styles.btnCancel}`} onClick={onCancel}>
-            キャンセル<span className={styles.kbd}>Esc</span>
+            {t.confirm.cancel}<span className={styles.kbd}>Esc</span>
           </button>
           <button className={`${styles.btn} ${styles.btnConfirm}`} onClick={onConfirm}>
-            削除<span className={styles.kbd}>↵</span>
+            {confirmLabel ?? t.confirm.delete}<span className={styles.kbd}>↵</span>
           </button>
         </div>
       </div>

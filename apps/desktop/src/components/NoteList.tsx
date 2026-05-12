@@ -2,6 +2,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import type { Note } from "@flote/types";
 import { relativeDate } from "../utils/date";
 import { extractTags, allTagsFromNotes } from "../utils/tags";
+import { useT } from "../hooks/useT";
 import styles from "./NoteList.module.css";
 
 type Props = {
@@ -25,6 +26,7 @@ export default function NoteList({
   onNew,
   onTagFilter,
 }: Props) {
+  const t = useT();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectMode = selectedIds.size > 0;
 
@@ -38,7 +40,7 @@ export default function NoteList({
   const filteredTagOptions = useMemo(
     () =>
       tagSearch
-        ? allTags.filter((t) => t.toLowerCase().includes(tagSearch.toLowerCase()))
+        ? allTags.filter((tag) => tag.toLowerCase().includes(tagSearch.toLowerCase()))
         : allTags,
     [allTags, tagSearch]
   );
@@ -112,20 +114,20 @@ export default function NoteList({
     <div className={styles.root}>
       {selectMode ? (
         <div className={styles.selectBar}>
-          <span className={styles.selectCount}>{selectedIds.size}件選択中</span>
+          <span className={styles.selectCount}>{t.noteList.selectedCount(selectedIds.size)}</span>
           <div className={styles.selectActions}>
             <button className={styles.deleteSelectedBtn} onClick={handleDeleteSelected}>
-              削除
+              {t.noteList.delete}
             </button>
             <button className={styles.cancelBtn} onClick={clearSelect}>
-              キャンセル
+              {t.noteList.cancel}
             </button>
           </div>
         </div>
       ) : (
         <div className={styles.toolbar}>
           <button className={styles.newButton} onClick={onNew}>
-            + 新しいノート
+            {t.noteList.newNote}
           </button>
 
           {allTags.length > 0 && (
@@ -133,7 +135,7 @@ export default function NoteList({
               <button
                 className={`${styles.tagFilterBtn} ${activeTag ? styles.tagFilterBtnActive : ""}`}
                 onClick={() => setTagDropdownOpen((v) => !v)}
-                title="タグで絞り込む"
+                title={t.noteList.filterByTag}
               >
                 {activeTag ? `#${activeTag}` : "#"}
                 {activeTag && (
@@ -153,11 +155,11 @@ export default function NoteList({
                     className={styles.tagSearchInput}
                     value={tagSearch}
                     onChange={(e) => setTagSearch(e.target.value)}
-                    placeholder="タグを検索..."
+                    placeholder={t.noteList.searchTags}
                   />
                   <div className={styles.tagList}>
                     {filteredTagOptions.length === 0 && (
-                      <div className={styles.tagListEmpty}>見つかりません</div>
+                      <div className={styles.tagListEmpty}>{t.noteList.noTagsFound}</div>
                     )}
                     {filteredTagOptions.map((tag) => (
                       <button
@@ -198,8 +200,8 @@ export default function NoteList({
               idx < 9 && <span className={styles.indexBadge}>{idx + 1}</span>
             )}
             <div className={styles.itemContent}>
-              <div className={styles.itemTitle}>{note.title || "無題のノート"}</div>
-              <div className={styles.itemDate}>{relativeDate(note.updated_at)}</div>
+              <div className={styles.itemTitle}>{note.title || t.defaults.untitledNote}</div>
+              <div className={styles.itemDate}>{relativeDate(note.updated_at, t.date)}</div>
             </div>
             {!selectMode && (
               <button
@@ -218,7 +220,7 @@ export default function NoteList({
 
       {filteredNotes.length === 0 && (
         <div className={styles.emptyMsg}>
-          {activeTag ? `#${activeTag} のノートはありません` : "ノートがありません"}
+          {activeTag ? t.noteList.emptyFiltered(activeTag) : t.noteList.empty}
         </div>
       )}
     </div>

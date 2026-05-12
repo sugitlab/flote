@@ -1,5 +1,6 @@
 import { useState } from "react";
 import FloteLogo from "./FloteLogo";
+import { useT } from "../hooks/useT";
 import styles from "./Auth.module.css";
 
 type AuthProps = {
@@ -9,6 +10,7 @@ type AuthProps = {
 };
 
 export default function Auth({ onSignIn, onSignUp, onUseLocal }: AuthProps) {
+  const t = useT();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isSignUp, setIsSignUp] = useState(false);
@@ -26,7 +28,7 @@ export default function Auth({ onSignIn, onSignUp, onUseLocal }: AuthProps) {
         await onSignIn(email, password);
       }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
+      setError(err instanceof Error ? err.message : t.auth.error);
     } finally {
       setLoading(false);
     }
@@ -42,12 +44,12 @@ export default function Auth({ onSignIn, onSignUp, onUseLocal }: AuthProps) {
             <span className={styles.appName}>Flote</span>
           </div>
           <p className={styles.subtitle}>
-            {isSignUp ? "アカウント作成" : "ログイン"}
+            {isSignUp ? t.auth.signup : t.auth.login}
           </p>
 
           {isSignUp ? (
             <div className={styles.signupClosed}>
-              現在、新規アカウントの受付を停止しています。
+              {t.auth.signupClosed}
             </div>
           ) : (
             <>
@@ -57,7 +59,7 @@ export default function Auth({ onSignIn, onSignUp, onUseLocal }: AuthProps) {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="メールアドレス"
+                placeholder={t.auth.emailPlaceholder}
                 required
                 className={styles.input}
               />
@@ -65,14 +67,14 @@ export default function Auth({ onSignIn, onSignUp, onUseLocal }: AuthProps) {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="パスワード"
+                placeholder={t.auth.passwordPlaceholder}
                 required
                 minLength={6}
                 className={styles.input}
               />
 
               <button type="submit" disabled={loading} className={styles.submitBtn}>
-                {loading ? "処理中..." : "ログイン"}
+                {loading ? t.auth.processing : t.auth.login}
               </button>
             </>
           )}
@@ -85,12 +87,12 @@ export default function Auth({ onSignIn, onSignUp, onUseLocal }: AuthProps) {
             }}
             className={styles.toggleBtn}
           >
-            {isSignUp ? "アカウントをお持ちの方はこちら" : "アカウントを作成する"}
+            {isSignUp ? t.auth.switchToLogin : t.auth.switchToSignup}
           </button>
 
           {onUseLocal && (
             <button type="button" onClick={onUseLocal} className={styles.localBtn}>
-              ローカルに保存して利用する
+              {t.auth.useLocal}
             </button>
           )}
         </form>

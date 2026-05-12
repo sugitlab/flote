@@ -96,7 +96,7 @@ const previewMarked = new Marked(hashtagExtension, {
   },
 });
 
-export function renderPreview(value: string): string {
-  const raw = previewMarked.parse(value || "*ノートが空です*") as string;
+export function renderPreview(value: string, emptyText = "ノートが空です"): string {
+  const raw = previewMarked.parse(value || `*${emptyText}*`) as string;
   return DOMPurify.sanitize(raw);
 }

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { getConfig } from "./config";
+import { getLocale, type Locale } from "./locales";
 import styles from "./QuickCapture.module.css";
 
 function applyTheme(theme: string) {
@@ -13,6 +14,7 @@ function applyTheme(theme: string) {
 export default function QuickCapture() {
   const [text, setText] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [t, setT] = useState<Locale>(() => getLocale("ja"));
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   const hide = useCallback(() => {
@@ -42,8 +44,11 @@ export default function QuickCapture() {
     const unlisten = win.onFocusChanged(({ payload: focused }) => {
       clearTimeout(blurTimer);
       if (focused) {
-        // Re-read theme each time the window appears (may have changed in main window)
-        getConfig().then((c) => applyTheme(c.theme)).catch(() => {});
+        // Re-read theme and language each time the window appears (may have changed in main window)
+        getConfig().then((c) => {
+          applyTheme(c.theme);
+          if (c.language) setT(getLocale(c.language));
+        }).catch(() => {});
         setText("");
         setConfirming(false);
         requestAnimationFrame(() => inputRef.current?.focus());
@@ -52,8 +57,11 @@ export default function QuickCapture() {
       }
     });
 
-    // Apply theme on first mount
-    getConfig().then((c) => applyTheme(c.theme)).catch(() => {});
+    // Apply theme and language on first mount
+    getConfig().then((c) => {
+      applyTheme(c.theme);
+      if (c.language) setT(getLocale(c.language));
+    }).catch(() => {});
     requestAnimationFrame(() => inputRef.current?.focus());
 
     return () => {
@@ -100,20 +108,20 @@ export default function QuickCapture() {
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="クイックメモ..."
+        placeholder={t.quickCapture.placeholder}
         spellCheck={false}
         autoComplete="off"
       />
       <span className={styles.hint}>
-        {text ? "⇧↵ 保存  Esc 閉じる" : "Esc"}
+        {text ? t.quickCapture.hintWithText : t.quickCapture.hintEmpty}
       </span>
 
       {confirming && (
         <div className={styles.overlay}>
-          <p className={styles.overlayMessage}>入力内容を破棄しますか？</p>
+          <p className={styles.overlayMessage}>{t.quickCapture.discardTitle}</p>
           <p className={styles.overlayHint}>
-            <span>↵ 破棄</span>
-            <span>Esc キャンセル</span>
+            <span>{t.quickCapture.discardConfirm}</span>
+            <span>{t.quickCapture.discardCancel}</span>
           </p>
         </div>
       )}

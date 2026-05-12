@@ -3,6 +3,7 @@ import type { Note, Task } from "@flote/types";
 import { useUIStore } from "../store/uiStore";
 import { relativeDate } from "../utils/date";
 import { extractTags, allTagsFromNotes } from "../utils/tags";
+import { useT } from "../hooks/useT";
 import styles from "./CommandPalette.module.css";
 
 function bodySnippet(body: string, query: string, radius = 40): string {
@@ -56,6 +57,7 @@ export default function CommandPalette({
   onShowTasks,
   onFilterByTag,
 }: Props) {
+  const t = useT();
   const setOpen = useUIStore((s) => s.setCommandPaletteOpen);
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
   const searchFullText = useUIStore((s) => s.searchFullText);
@@ -80,48 +82,48 @@ export default function CommandPalette({
     () => [
       {
         id: "show-notes",
-        label: "ノート一覧を表示",
+        label: t.palette.commands.showNotes,
         keywords: ["show notes", "notes", "list notes"],
         kbd: "⌘1",
         action: onShowNotes,
       },
       {
         id: "show-tasks",
-        label: "タスク一覧を表示",
+        label: t.palette.commands.showTasks,
         keywords: ["show tasks", "tasks", "list tasks"],
         kbd: "⌘2",
         action: onShowTasks,
       },
       {
         id: "new-note",
-        label: "新規ノートを作成",
+        label: t.palette.commands.newNote,
         keywords: ["add note", "new note", "create note"],
         kbd: "⌘N",
         action: onNewNote,
       },
       {
         id: "new-task",
-        label: "新規タスクを追加",
+        label: t.palette.commands.newTask,
         keywords: ["add task", "new task", "create task"],
         kbd: "⌘T",
         action: onNewTask,
       },
       {
         id: "settings",
-        label: "設定を開く",
+        label: t.palette.commands.settings,
         keywords: ["settings", "preferences", "config"],
         kbd: "⌘,",
         action: () => setSettingsOpen(true),
       },
       {
         id: "theme",
-        label: "テーマを切り替え",
+        label: t.palette.commands.toggleTheme,
         keywords: ["theme", "toggle theme", "dark mode", "light mode"],
         kbd: "⌘⇧L",
         action: onCycleTheme,
       },
     ],
-    [onShowNotes, onShowTasks, onNewNote, onNewTask, setSettingsOpen, onCycleTheme]
+    [t, onShowNotes, onShowTasks, onNewNote, onNewTask, setSettingsOpen, onCycleTheme]
   );
 
   const isTagSearch = query.startsWith("#");
@@ -140,7 +142,7 @@ export default function CommandPalette({
           type: "command",
           id: `tag:${tag}`,
           label: `#${tag}`,
-          meta: `${count}件のノート`,
+          meta: t.palette.tagCount(count),
           action: () => {
             onFilterByTag?.(tag);
             onShowNotes();
@@ -154,8 +156,8 @@ export default function CommandPalette({
         result.push({
           type: "note",
           id: n.id,
-          label: n.title || "無題のノート",
-          meta: relativeDate(n.updated_at),
+          label: n.title || t.defaults.untitledNote,
+          meta: relativeDate(n.updated_at, t.date),
           action: () => onSelectNote(n.id),
         });
       }
@@ -167,7 +169,7 @@ export default function CommandPalette({
     const matchedNotes = notes.filter((n) => {
       if (!q) return true;
       if (n.title.toLowerCase().includes(q)) return true;
-      if (relativeDate(n.updated_at).includes(q)) return true;
+      if (relativeDate(n.updated_at, t.date).includes(q)) return true;
       if (searchFullText && n.body_md.toLowerCase().includes(q)) return true;
       return false;
     });
@@ -180,31 +182,31 @@ export default function CommandPalette({
       result.push({
         type: "note",
         id: n.id,
-        label: n.title || "無題のノート",
-        meta: inBody ? bodySnippet(n.body_md, query) : relativeDate(n.updated_at),
+        label: n.title || t.defaults.untitledNote,
+        meta: inBody ? bodySnippet(n.body_md, query) : relativeDate(n.updated_at, t.date),
         action: () => onSelectNote(n.id),
       });
     }
 
-    const matchedTasks = tasks.filter((t) => {
-      if (hideCompletedInSearch && t.done) return false;
+    const matchedTasks = tasks.filter((task) => {
+      if (hideCompletedInSearch && task.done) return false;
       if (!q) return true;
-      if (t.title.toLowerCase().includes(q)) return true;
-      if (searchFullText && t.body_md.toLowerCase().includes(q)) return true;
+      if (task.title.toLowerCase().includes(q)) return true;
+      if (searchFullText && task.body_md.toLowerCase().includes(q)) return true;
       return false;
     });
-    for (const t of matchedTasks.slice(0, 5)) {
+    for (const task of matchedTasks.slice(0, 5)) {
       const inBody =
         searchFullText &&
         q &&
-        !t.title.toLowerCase().includes(q) &&
-        t.body_md.toLowerCase().includes(q);
+        !task.title.toLowerCase().includes(q) &&
+        task.body_md.toLowerCase().includes(q);
       result.push({
         type: "task",
-        id: t.id,
-        label: `${t.done ? "✓ " : ""}${t.title}`,
-        meta: inBody ? bodySnippet(t.body_md, query) : (t.due_date ?? undefined),
-        action: () => onSelectTask(t.id),
+        id: task.id,
+        label: `${task.done ? "✓ " : ""}${task.title}`,
+        meta: inBody ? bodySnippet(task.body_md, query) : (task.due_date ?? undefined),
+        action: () => onSelectTask(task.id),
       });
     }
 
@@ -225,7 +227,7 @@ export default function CommandPalette({
     }
 
     return result;
-  }, [query, isTagSearch, allTags, notes, tasks, commands, searchFullText, hideCompletedInSearch, onSelectNote, onSelectTask, onFilterByTag, onShowNotes]);
+  }, [t, query, isTagSearch, allTags, notes, tasks, commands, searchFullText, hideCompletedInSearch, onSelectNote, onSelectTask, onFilterByTag, onShowNotes]);
 
   useEffect(() => {
     setFocusIndex(0);
@@ -314,26 +316,26 @@ export default function CommandPalette({
             onChange={(e) => setQuery(e.target.value)}
             onCompositionStart={() => { composingRef.current = true; }}
             onCompositionEnd={() => { setTimeout(() => { composingRef.current = false; }, 0); }}
-            placeholder="検索..."
+            placeholder={t.palette.placeholder}
           />
         </div>
 
         <div ref={resultsRef} className={styles.results}>
           {items.length === 0 && (
-            <div className={styles.empty}>一致する結果がありません</div>
+            <div className={styles.empty}>{t.palette.noResults}</div>
           )}
 
           {isTagSearch ? (
             <>
               {cmdItems.length > 0 && (
                 <>
-                  <div className={styles.sectionTitle}>タグ</div>
+                  <div className={styles.sectionTitle}>{t.palette.sections.tags}</div>
                   {cmdItems.map(renderItem)}
                 </>
               )}
               {noteItems.length > 0 && (
                 <>
-                  <div className={styles.sectionTitle}>ノート</div>
+                  <div className={styles.sectionTitle}>{t.palette.sections.notes}</div>
                   {noteItems.map(renderItem)}
                 </>
               )}
@@ -342,19 +344,19 @@ export default function CommandPalette({
             <>
               {noteItems.length > 0 && (
                 <>
-                  <div className={styles.sectionTitle}>ノート</div>
+                  <div className={styles.sectionTitle}>{t.palette.sections.notes}</div>
                   {noteItems.map(renderItem)}
                 </>
               )}
               {taskItems.length > 0 && (
                 <>
-                  <div className={styles.sectionTitle}>タスク</div>
+                  <div className={styles.sectionTitle}>{t.palette.sections.tasks}</div>
                   {taskItems.map(renderItem)}
                 </>
               )}
               {cmdItems.length > 0 && (
                 <>
-                  <div className={styles.sectionTitle}>コマンド</div>
+                  <div className={styles.sectionTitle}>{t.palette.sections.commands}</div>
                   {cmdItems.map(renderItem)}
                 </>
               )}
@@ -364,13 +366,13 @@ export default function CommandPalette({
 
         <div className={styles.footer}>
           <span>
-            <span className={styles.footerKbd}>↑↓</span>移動
+            <span className={styles.footerKbd}>↑↓</span>{t.palette.footer.navigate}
           </span>
           <span>
-            <span className={styles.footerKbd}>↵</span>開く
+            <span className={styles.footerKbd}>↵</span>{t.palette.footer.open}
           </span>
           <span>
-            <span className={styles.footerKbd}>Esc</span>閉じる
+            <span className={styles.footerKbd}>Esc</span>{t.palette.footer.close}
           </span>
         </div>
       </div>

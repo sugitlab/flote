@@ -103,18 +103,33 @@ fn toggle_capture_window(app: &tauri::AppHandle) {
 // ── commands ──────────────────────────────────────────────────────────────────
 
 #[tauri::command]
-fn update_tray_badge(app: tauri::AppHandle, count: u32) {
+fn update_tray_badge(app: tauri::AppHandle, count: u32, overdue_tooltip: Option<String>) {
     let tray_id = TrayIconId::new("main-tray");
     if let Some(tray) = app.tray_by_id(&tray_id) {
         let title = if count > 0 { Some(count.to_string()) } else { None };
         let _ = tray.set_title(title.as_deref());
         let tooltip = if count > 0 {
-            format!("Flote – {}件の期限切れタスク", count)
+            overdue_tooltip.unwrap_or_else(|| format!("Flote – {}件の期限切れタスク", count))
         } else {
             "Flote".to_string()
         };
         let _ = tray.set_tooltip(Some(&tooltip));
     }
+}
+
+#[tauri::command]
+fn update_tray_menu(app: tauri::AppHandle, open_label: String, quit_label: String) -> Result<(), String> {
+    let open_i = MenuItem::with_id(&app, "open", &open_label, true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let quit_i = MenuItem::with_id(&app, "quit", &quit_label, true, None::<&str>)
+        .map_err(|e| e.to_string())?;
+    let menu = Menu::with_items(&app, &[&open_i, &quit_i])
+        .map_err(|e| e.to_string())?;
+    let tray_id = TrayIconId::new("main-tray");
+    if let Some(tray) = app.tray_by_id(&tray_id) {
+        tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -282,6 +297,7 @@ pub fn run() {
         }))
         .invoke_handler(tauri::generate_handler![
             update_tray_badge,
+            update_tray_menu,
             set_always_on_top,
             set_dock_visible,
             update_global_shortcut,

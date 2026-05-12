@@ -20,6 +20,8 @@ type EditorProps = {
   onExitEdit?: () => void;
   editorTheme?: EditorTheme;
   vimMode?: boolean;
+  placeholderText?: string;
+  emptyNoteText?: string;
 };
 
 const baseTheme = EditorView.theme({
@@ -36,6 +38,7 @@ const baseTheme = EditorView.theme({
 const themeCompartment = new Compartment();
 const vimCompartment = new Compartment();
 const escCompartment = new Compartment();
+const placeholderCompartment = new Compartment();
 
 // Register visual-block insert (I in Ctrl+V mode) globally once.
 // Creates one cursor per selected line at the block's start column so
@@ -88,7 +91,7 @@ function ensureVimExCommands(onExit: () => void) {
   Vim.map("<Esc>", ":q<CR>", "normal");
 }
 
-export default function Editor({ docId, value, onChange, editing, onExitEdit, editorTheme, vimMode = false }: EditorProps) {
+export default function Editor({ docId, value, onChange, editing, onExitEdit, editorTheme, vimMode = false, placeholderText = "# タイトルを入力...", emptyNoteText = "ノートが空です" }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -140,7 +143,7 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
             onChangeRef.current(update.state.doc.toString());
           }
         }),
-        placeholder("# タイトルを入力..."),
+        placeholderCompartment.of(placeholder(placeholderText)),
         EditorView.lineWrapping,
       ],
     });
@@ -184,6 +187,13 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
       }
     });
   }, [vimMode]);
+
+  // Swap placeholder text without recreating the editor
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({ effects: placeholderCompartment.reconfigure(placeholder(placeholderText)) });
+  }, [placeholderText]);
 
   // Swap editor theme without recreating the editor
   useEffect(() => {
@@ -249,8 +259,8 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
 
   const previewHtml = useMemo(() => {
     if (editing) return "";
-    return renderPreview(value);
-  }, [value, editing]);
+    return renderPreview(value, emptyNoteText);
+  }, [value, editing, emptyNoteText]);
 
   return (
     <div className="h-full w-full overflow-hidden relative">
