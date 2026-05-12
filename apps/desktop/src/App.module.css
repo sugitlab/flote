@@ -40,6 +40,33 @@
   gap: 6px;
 }
 
+.pinBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.pinBtn:hover {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+}
+
+.pinBtnActive {
+  color: var(--accent);
+}
+
+.pinBtnActive:hover {
+  color: var(--accent-hover);
+}
+
 
 /* Main layout */
 .main {

@@ -276,6 +276,10 @@ export const ja = {
     quit: "終了",
     overdueTooltip: (n: number) => `Flote – ${n}件の期限切れタスク`,
   },
+  titlebar: {
+    pin: "ピン留め（フォーカスが外れても閉じない）",
+    unpin: "ピン留め解除",
+  },
   date: {
     justNow: "たった今",
     minutesAgo: (n: number) => `${n}分前`,

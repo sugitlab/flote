@@ -278,6 +278,10 @@ export const en: typeof ja = {
     quit: "Quit",
     overdueTooltip: (n: number) => `Flote – ${n} overdue task${n === 1 ? "" : "s"}`,
   },
+  titlebar: {
+    pin: "Pin (keep open when unfocused)",
+    unpin: "Unpin",
+  },
   date: {
     justNow: "just now",
     minutesAgo: (n: number) => `${n}m ago`,

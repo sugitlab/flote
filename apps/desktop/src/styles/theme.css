@@ -1,5 +1,6 @@
 :root,
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg-window: rgba(22, 22, 37, 0.92);
   --bg-sidebar: rgba(33, 33, 54, 0.95);
   --bg-editor: rgba(22, 22, 37, 0.92);
@@ -26,6 +27,7 @@
 }
 
 [data-theme="light"] {
+  color-scheme: light;
   --bg-window: rgba(250, 250, 254, 0.9);
   --bg-sidebar: rgba(243, 243, 248, 0.95);
   --bg-editor: rgba(250, 250, 254, 0.9);
