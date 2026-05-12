@@ -540,6 +540,38 @@
   text-decoration: underline;
 }
 
+.aboutCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 20px 16px;
+  margin-bottom: 16px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.aboutAppName {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.3px;
+}
+
+.aboutVersion {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.aboutDesc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin-top: 4px;
+}
+
 .editorThemeGrid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

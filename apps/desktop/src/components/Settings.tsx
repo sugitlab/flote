@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { appDataDir } from "@tauri-apps/api/path";
+import { getVersion } from "@tauri-apps/api/app";
 import {
   enable as enableAutostart,
   disable as disableAutostart,
@@ -15,7 +16,7 @@ import { SCHEMA_SQL } from "../migrations";
 import { useAuth } from "../hooks/useAuth";
 import styles from "./Settings.module.css";
 
-type SettingsTab = "general" | "shortcuts" | "howto" | "storage" | "legal";
+type SettingsTab = "general" | "shortcuts" | "howto" | "storage" | "about";
 
 type Props = {
   currentMode: StorageMode;
@@ -41,7 +42,7 @@ export default function Settings({
               ["shortcuts", "ショートカット"],
               ["howto", "使い方"],
               ["storage", "保存先"],
-              ["legal", "法的情報"],
+              ["about", "Floteについて"],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -67,7 +68,7 @@ export default function Settings({
               onStorageModeChange={onStorageModeChange}
             />
           )}
-          {tab === "legal" && <LegalTab />}
+          {tab === "about" && <AboutTab />}
         </div>
       </div>
     </div>
@@ -892,29 +893,74 @@ function HowToTab() {
   );
 }
 
-/* ─── Legal ─── */
+/* ─── About ─── */
 
-function LegalTab() {
-  const items = [
-    { label: "プライバシーポリシー", url: "https://example.com" },
-    { label: "利用規約", url: "https://example.com" },
-    { label: "ライセンス", url: "https://example.com" },
+function AboutTab() {
+  const [version, setVersion] = useState("");
+
+  useEffect(() => {
+    getVersion().then(setVersion).catch(() => {});
+  }, []);
+
+  const oss = [
+    { name: "Tauri", license: "MIT / Apache-2.0", url: "https://tauri.app" },
+    { name: "React", license: "MIT", url: "https://react.dev" },
+    { name: "CodeMirror", license: "MIT", url: "https://codemirror.net" },
+    { name: "Zustand", license: "MIT", url: "https://zustand-demo.pmnd.rs" },
+    { name: "Tailwind CSS", license: "MIT", url: "https://tailwindcss.com" },
+    { name: "Supabase JS", license: "MIT", url: "https://supabase.com" },
   ];
 
   return (
     <>
-      <h3 className={styles.sectionTitle}>法的情報</h3>
+      <h3 className={styles.sectionTitle}>Floteについて</h3>
+
+      <div className={styles.aboutCard}>
+        <div className={styles.aboutAppName}>Flote</div>
+        {version && (
+          <div className={styles.aboutVersion}>バージョン {version}</div>
+        )}
+        <div className={styles.aboutDesc}>
+          ショートカット起動のフローティングノート＆タスク管理アプリ。
+        </div>
+      </div>
+
+      <h3 className={styles.sectionTitle}>ライセンス</h3>
       <div className={styles.helpSection}>
-        {items.map(({ label, url }) => (
-          <div key={label} className={styles.helpItem}>
-            <button
-              className={styles.legalLink}
-              onClick={() => window.open(url, "_blank")}
-            >
-              {label}
-            </button>
+        <div className={styles.helpItem}>
+          <span className={styles.helpLabel}>Flote</span>
+          <span className={styles.helpDesc}>MIT License © 2024 sugitlab</span>
+        </div>
+      </div>
+
+      <h3 className={styles.sectionTitle}>使用しているOSSライブラリ</h3>
+      <div className={styles.helpSection}>
+        {oss.map(({ name, license }) => (
+          <div key={name} className={styles.helpItem}>
+            <span className={styles.helpLabel}>{name}</span>
+            <span className={styles.helpDesc}>{license}</span>
           </div>
         ))}
+      </div>
+
+      <h3 className={styles.sectionTitle}>法的情報</h3>
+      <div className={styles.helpSection}>
+        <div className={styles.helpItem}>
+          <button
+            className={styles.legalLink}
+            onClick={() => window.open("https://github.com/sugitlab/flote/blob/main/LICENSE", "_blank")}
+          >
+            MIT License
+          </button>
+        </div>
+        <div className={styles.helpItem}>
+          <button
+            className={styles.legalLink}
+            onClick={() => window.open("https://github.com/sugitlab/flote", "_blank")}
+          >
+            ソースコード (GitHub)
+          </button>
+        </div>
       </div>
     </>
   );
