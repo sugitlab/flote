@@ -948,7 +948,7 @@ function AboutTab() {
         <div className={styles.helpItem}>
           <button
             className={styles.legalLink}
-            onClick={() => window.open("https://github.com/sugitlab/flote/blob/main/LICENSE", "_blank")}
+            onClick={() => window.open("https://github.com/sugitlab/flote?tab=MIT-1-ov-file#readme", "_blank")}
           >
             MIT License
           </button>
