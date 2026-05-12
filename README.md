@@ -15,6 +15,21 @@
 - **テーマ対応** — ライト / ダーク / システム連動
 - **保存先を選べる** — ローカル（オフライン可）/ Supabase クラウド / セルフホスト
 
+## インストール（macOS）
+
+[Releases ページ](https://github.com/sugitlab/flote/releases) から最新の `.dmg` をダウンロードしてください。
+
+1. `.dmg` を開き、`flote.app` を `/Applications` フォルダへドラッグします。
+2. **初回起動時に「開発元を確認できない」と表示された場合**、ターミナルで以下を実行してください（macOS Gatekeeper の quarantine 属性を除去します）。
+
+   ```bash
+   xattr -rd com.apple.quarantine /Applications/flote.app
+   ```
+
+3. その後、アプリを通常通りダブルクリックで起動できます。
+
+> ターミナルを使いたくない場合は、`/Applications` の `flote.app` を右クリック →「開く」→「開く」で初回起動できることもあります（macOS のバージョンによって異なります）。
+
 ## スクリーンショット
 
 > 準備中

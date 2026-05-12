@@ -18,6 +18,7 @@ import { useNoteStore } from "../store/noteStore";
 import { useTaskStore } from "../store/taskStore";
 import { SCHEMA_SQL } from "../migrations";
 import { useAuth } from "../hooks/useAuth";
+import FloteLogo from "./FloteLogo";
 import styles from "./Settings.module.css";
 
 type SettingsTab = "general" | "shortcuts" | "howto" | "storage" | "about";
@@ -883,6 +884,7 @@ function AboutTab() {
       <h3 className={styles.sectionTitle}>{t.settings.about.title}</h3>
 
       <div className={styles.aboutCard}>
+        <FloteLogo size={64} className={styles.aboutIcon} />
         <div className={styles.aboutAppName}>Flote</div>
         {version && (
           <div className={styles.aboutVersion}>{t.settings.about.versionLabel(version)}</div>

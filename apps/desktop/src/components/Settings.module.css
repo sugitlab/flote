@@ -553,6 +553,10 @@
   text-align: center;
 }
 
+.aboutIcon {
+  margin-bottom: 4px;
+}
+
 .aboutAppName {
   font-size: 20px;
   font-weight: 700;
