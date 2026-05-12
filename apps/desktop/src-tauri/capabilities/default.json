@@ -37,6 +37,9 @@
     "autostart:allow-enable",
     "autostart:allow-disable",
     "autostart:allow-is-enabled",
-    "opener:default"
+    "opener:default",
+    "sql:allow-execute",
+    "sql:allow-select",
+    "sql:allow-load"
   ]
 }

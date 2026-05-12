@@ -1,22 +1,18 @@
 import type { Note } from "@flote/types";
 import type { NoteRepository } from "../types";
-import {
-  getNotes as getLocalNotes,
-  saveNote as saveLocalNote,
-  deleteNote as deleteLocalNote,
-} from "../../local-storage";
+import { getNotes, saveNote, deleteNote } from "../../sqlite-storage";
 
 export class LocalNoteRepository implements NoteRepository {
   async getNotes(_userId: string): Promise<Note[]> {
-    return getLocalNotes();
+    return getNotes();
   }
 
   async saveNote(note: Note, _userId: string): Promise<Note> {
-    await saveLocalNote(note);
+    await saveNote(note);
     return note;
   }
 
   async deleteNote(id: string): Promise<void> {
-    await deleteLocalNote(id);
+    await deleteNote(id);
   }
 }

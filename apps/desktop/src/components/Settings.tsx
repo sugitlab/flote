@@ -13,7 +13,9 @@ import { DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS } from "@flote/types"
 import type { DarkEditorTheme, LightEditorTheme } from "../store/uiStore";
 import { getConfig, setConfig } from "../config";
 import type { Language } from "../locales";
-import { reinitSupabase, getSupabase } from "@flote/api-client";
+import { reinitSupabase, getSupabase, exportToJson } from "@flote/api-client";
+import { useNoteStore } from "../store/noteStore";
+import { useTaskStore } from "../store/taskStore";
 import { SCHEMA_SQL } from "../migrations";
 import { useAuth } from "../hooks/useAuth";
 import styles from "./Settings.module.css";
@@ -470,11 +472,28 @@ function LocalPane({
   onStorageModeChange: (mode: StorageMode) => void;
 }) {
   const t = useT();
+  const notes = useNoteStore((s) => s.notes);
+  const tasks = useTaskStore((s) => s.tasks);
+  const addToast = useUIStore((s) => s.addToast);
   const [dataDir, setDataDir] = useState("");
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     appDataDir().then(setDataDir).catch(() => {});
   }, []);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const filePath = await exportToJson(notes, tasks);
+      addToast("success", t.settings.storage.exportDone);
+      invoke("open_path", { path: filePath }).catch(() => {});
+    } catch {
+      addToast("error", t.settings.storage.exportError);
+    } finally {
+      setExporting(false);
+    }
+  };
 
   return (
     <>
@@ -506,6 +525,18 @@ function LocalPane({
           <div className={styles.fieldHint}>{t.settings.storage.finderHint}</div>
         </div>
       )}
+
+      <div className={styles.field}>
+        <button
+          className={styles.useModeBtn}
+          onClick={handleExport}
+          disabled={exporting}
+          style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+        >
+          {exporting ? t.settings.storage.exporting : t.settings.storage.exportData}
+        </button>
+        <div className={styles.fieldHint}>JSON</div>
+      </div>
     </>
   );
 }

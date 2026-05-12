@@ -9,6 +9,7 @@ import {
   getSupabase,
   createNoteRepository,
   createTaskRepository,
+  initDb,
 } from "@flote/api-client";
 import { getConfig, setConfig } from "./config";
 import { checkSchema } from "./migrations";
@@ -882,7 +883,7 @@ function App() {
 
   // Load config on mount — initialize Supabase based on storage mode
   useEffect(() => {
-    getConfig().then((config) => {
+    getConfig().then(async (config) => {
       if (config.language) setLanguage(config.language);
       let mode = config.storageMode;
 
@@ -914,6 +915,8 @@ function App() {
       if (config.captureShortcut) {
         invoke("update_capture_shortcut", { shortcut: config.captureShortcut }).catch(() => {});
       }
+
+      if (mode === "local") await initDb();
 
       const noteRepo = createNoteRepository(mode);
       const taskRepo = createTaskRepository(mode);

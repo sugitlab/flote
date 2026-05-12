@@ -1,34 +1,25 @@
 import type { Task } from "@flote/types";
 import type { TaskRepository } from "../types";
-import {
-  getTasks as getLocalTasks,
-  saveTask as saveLocalTask,
-  deleteTask as deleteLocalTask,
-} from "../../local-storage";
+import { getTasks, saveTask, deleteTask } from "../../sqlite-storage";
 
 export class LocalTaskRepository implements TaskRepository {
   async getTasks(_userId: string): Promise<Task[]> {
-    return getLocalTasks();
+    return getTasks();
   }
 
   async saveTask(task: Task, _userId: string): Promise<Task> {
-    await saveLocalTask(task);
+    await saveTask(task);
     return task;
   }
 
   async deleteTask(id: string): Promise<void> {
-    await deleteLocalTask(id);
+    await deleteTask(id);
   }
 
   async toggleDone(id: string, done: boolean): Promise<void> {
-    const tasks = await getLocalTasks();
+    const tasks = await getTasks();
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
-    const updated: Task = {
-      ...task,
-      done,
-      updated_at: new Date().toISOString(),
-    };
-    await saveLocalTask(updated);
+    await saveTask({ ...task, done, updated_at: new Date().toISOString() });
   }
 }
