@@ -13,7 +13,8 @@ import { DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS } from "@flote/types"
 import type { DarkEditorTheme, LightEditorTheme } from "../store/uiStore";
 import { getConfig, setConfig } from "../config";
 import type { Language } from "../locales";
-import { reinitSupabase, getSupabase, exportToJson } from "@flote/api-client";
+import { reinitSupabase, getSupabase, exportToMarkdown } from "@flote/api-client";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useNoteStore } from "../store/noteStore";
 import { useTaskStore } from "../store/taskStore";
 import { SCHEMA_SQL } from "../migrations";
@@ -483,11 +484,13 @@ function LocalPane({
   }, []);
 
   const handleExport = async () => {
+    const destDir = await openDialog({ directory: true, multiple: false });
+    if (!destDir) return;
     setExporting(true);
     try {
-      const filePath = await exportToJson(notes, tasks);
+      await exportToMarkdown(notes, tasks, destDir as string);
       addToast("success", t.settings.storage.exportDone);
-      invoke("open_path", { path: filePath }).catch(() => {});
+      invoke("open_path", { path: destDir as string }).catch(() => {});
     } catch {
       addToast("error", t.settings.storage.exportError);
     } finally {
@@ -535,7 +538,7 @@ function LocalPane({
         >
           {exporting ? t.settings.storage.exporting : t.settings.storage.exportData}
         </button>
-        <div className={styles.fieldHint}>JSON</div>
+        <div className={styles.fieldHint}>{t.settings.storage.exportHint}</div>
       </div>
     </>
   );

@@ -1,10 +1,6 @@
 import Database from "@tauri-apps/plugin-sql";
-import {
-  writeTextFile,
-  exists,
-  mkdir,
-} from "@tauri-apps/plugin-fs";
-import { appDataDir, join } from "@tauri-apps/api/path";
+import { writeTextFile, exists, mkdir } from "@tauri-apps/plugin-fs";
+import { join } from "@tauri-apps/api/path";
 import type { Note, Task } from "@flote/types";
 
 // ── singleton DB connection ───────────────────────────────────────────────────
@@ -102,21 +98,68 @@ export async function deleteTask(id: string): Promise<void> {
 
 // ── export ────────────────────────────────────────────────────────────────────
 
-export async function exportToJson(notes: Note[], tasks: Task[]): Promise<string> {
-  const dir = await appDataDir();
-  const exportsDir = await join(dir, "exports");
-  if (!(await exists(exportsDir))) {
-    await mkdir(exportsDir, { recursive: true });
+function sanitizeFilename(name: string): string {
+  return name.replace(/[/\\:*?"<>|]/g, "-").replace(/\s+/g, "-").slice(0, 80) || "untitled";
+}
+
+function uniqueName(base: string, used: Set<string>): string {
+  let name = `${base}.md`;
+  let i = 1;
+  while (used.has(name)) { name = `${base}-${i++}.md`; }
+  used.add(name);
+  return name;
+}
+
+function noteFrontmatter(note: Note): string {
+  return [
+    "---",
+    `id: "${note.id}"`,
+    `title: ${JSON.stringify(note.title)}`,
+    `updated_at: "${note.updated_at}"`,
+    "---",
+    "",
+  ].join("\n");
+}
+
+function taskFrontmatter(task: Task): string {
+  const lines = [
+    "---",
+    `id: "${task.id}"`,
+    `title: ${JSON.stringify(task.title)}`,
+    `done: ${task.done}`,
+  ];
+  if (task.due_date) lines.push(`due_date: "${task.due_date}"`);
+  lines.push(`updated_at: "${task.updated_at}"`, "---", "");
+  return lines.join("\n");
+}
+
+export async function exportToMarkdown(
+  notes: Note[],
+  tasks: Task[],
+  destDir: string
+): Promise<void> {
+  const notesDir = await join(destDir, "notes");
+  const tasksDir = await join(destDir, "tasks");
+
+  for (const dir of [notesDir, tasksDir]) {
+    if (!(await exists(dir))) await mkdir(dir, { recursive: true });
   }
 
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const filePath = await join(exportsDir, `flote-export-${timestamp}.json`);
+  const usedNotes = new Set<string>();
+  for (const note of notes) {
+    const filename = uniqueName(sanitizeFilename(note.title || note.id), usedNotes);
+    await writeTextFile(
+      await join(notesDir, filename),
+      noteFrontmatter(note) + note.body_md
+    );
+  }
 
-  await writeTextFile(filePath, JSON.stringify(
-    { version: "1.0", exportedAt: new Date().toISOString(), notes, tasks },
-    null,
-    2
-  ));
-
-  return filePath;
+  const usedTasks = new Set<string>();
+  for (const task of tasks) {
+    const filename = uniqueName(sanitizeFilename(task.title || task.id), usedTasks);
+    await writeTextFile(
+      await join(tasksDir, filename),
+      taskFrontmatter(task) + task.body_md
+    );
+  }
 }
