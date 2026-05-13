@@ -13,35 +13,121 @@ struct ShortcutConfig {
     capture: String,
 }
 
+// Scale factor of the monitor the main window was last shown on.
+// Used to correctly convert outer_size() (physical) → logical when
+// the compositor hasn't yet updated for the new monitor.
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-fn center_and_show(window: &tauri::WebviewWindow) {
-    if let Ok(cursor_pos) = window.cursor_position() {
-        let monitors = window.available_monitors().unwrap_or_default();
-        let target = monitors.iter().find(|m| {
-            let p = m.position();
-            let s = m.size();
-            cursor_pos.x >= p.x as f64
-                && cursor_pos.x < (p.x as f64 + s.width as f64)
-                && cursor_pos.y >= p.y as f64
-                && cursor_pos.y < (p.y as f64 + s.height as f64)
+/// cursor_position() returns logical coords (NSEvent.mouseLocation).
+/// monitor.position()/size() are physical. Convert to logical for comparison.
+fn monitor_contains_logical(m: &tauri::Monitor, lx: f64, ly: f64) -> bool {
+    let p = m.position();
+    let s = m.size();
+    let sf = m.scale_factor();
+    let mx = p.x as f64 / sf;
+    let my = p.y as f64 / sf;
+    let mw = s.width as f64 / sf;
+    let mh = s.height as f64 / sf;
+    lx >= mx && lx < mx + mw && ly >= my && ly < my + mh
+}
+
+/// Find monitor under cursor, falling back to the closest one if none matches
+/// (handles mobile/USB monitors whose coords may not be enumerated precisely).
+fn monitor_for_cursor(
+    monitors: &[tauri::Monitor],
+    cx: f64,
+    cy: f64,
+) -> Option<&tauri::Monitor> {
+    monitors
+        .iter()
+        .find(|m| monitor_contains_logical(m, cx, cy))
+        .or_else(|| {
+            monitors.iter().min_by_key(|m| {
+                let p = m.position();
+                let s = m.size();
+                let sf = m.scale_factor();
+                let center_x = p.x as f64 / sf + s.width as f64 / sf / 2.0;
+                let center_y = p.y as f64 / sf + s.height as f64 / sf / 2.0;
+                let dx = cx - center_x;
+                let dy = cy - center_y;
+                (dx * dx + dy * dy) as i64
+            })
+        })
+}
+
+/// outer_position() works for hidden windows (physical coords).
+/// Use it to find which monitor the window is currently on and return its scale.
+/// Falls back to primary monitor or 1.0 if position is unavailable.
+fn window_current_scale(window: &tauri::WebviewWindow) -> f64 {
+    let monitors = window.available_monitors().unwrap_or_default();
+    if let Ok(pos) = window.outer_position() {
+        // Find monitor whose physical rect contains the window's top-left corner.
+        let found = monitors.iter().find(|m| {
+            let mp = m.position();
+            let ms = m.size();
+            pos.x >= mp.x
+                && pos.x < mp.x + ms.width as i32
+                && pos.y >= mp.y
+                && pos.y < mp.y + ms.height as i32
         });
-        if let Some(m) = target.or(monitors.first()) {
-            let pos = m.position();
-            let size = m.size();
-            let scale = m.scale_factor();
-            let win = window
-                .outer_size()
-                .unwrap_or(tauri::PhysicalSize { width: 640, height: 480 });
-            let cx =
-                pos.x as f64 + (size.width as f64 - win.width as f64) / 2.0;
-            let cy = pos.y as f64
-                + (size.height as f64 - win.height as f64) / (2.0 * scale);
-            let _ = window
-                .set_position(tauri::PhysicalPosition::new(cx as i32, cy as i32));
+        if let Some(m) = found {
+            return m.scale_factor();
+        }
+        // Fallback: closest monitor by Manhattan distance to its origin.
+        if let Some(m) = monitors.iter().min_by_key(|m| {
+            let mp = m.position();
+            (pos.x - mp.x).abs() + (pos.y - mp.y).abs()
+        }) {
+            return m.scale_factor();
         }
     }
+    // Window never positioned — use primary monitor.
+    window
+        .primary_monitor()
+        .ok()
+        .flatten()
+        .map(|m| m.scale_factor())
+        .unwrap_or(1.0)
+}
+
+fn center_and_show(window: &tauri::WebviewWindow) {
+    let cur_scale = window_current_scale(window);
+    let win_phys = window
+        .outer_size()
+        .unwrap_or(tauri::PhysicalSize { width: 640, height: 480 });
+
     let _ = window.show();
+
+    if let Ok(cursor_pos) = window.cursor_position() {
+        let monitors = window.available_monitors().unwrap_or_default();
+
+        if let Some(m) = monitor_for_cursor(&monitors, cursor_pos.x, cursor_pos.y) {
+            let tpos = m.position();
+            let tsize = m.size();
+            let tscale = m.scale_factor();
+
+            // Window size in logical points (independent of which monitor it's on).
+            let win_lw = win_phys.width as f64 / cur_scale;
+            let win_lh = win_phys.height as f64 / cur_scale;
+
+            // monitor.position() is in physical pixels; monitor.size() is also physical.
+            // Convert both to logical points by dividing by the monitor's scale factor.
+            let mon_lx = tpos.x as f64 / tscale;
+            let mon_ly = tpos.y as f64 / tscale;
+            let mon_lw = tsize.width as f64 / tscale;
+            let mon_lh = tsize.height as f64 / tscale;
+
+            // Compute in logical points and pass as LogicalPosition so Tauri does NOT
+            // re-divide by the window's (stale) scale_factor(). If we passed
+            // PhysicalPosition, Tauri would divide by window.scale_factor() which is
+            // still the OLD monitor's scale right after show(), giving wrong coords.
+            let cx = mon_lx + (mon_lw - win_lw) / 2.0;
+            let cy = mon_ly + (mon_lh - win_lh) / 2.0;
+
+            let _ = window.set_position(tauri::LogicalPosition::new(cx, cy));
+        }
+    }
+
     let _ = window.set_focus();
 }
 
@@ -61,21 +147,10 @@ fn show_at_cursor(window: &tauri::WebviewWindow) {
             .outer_size()
             .unwrap_or(tauri::PhysicalSize { width: 600, height: 200 });
         let monitors = window.available_monitors().unwrap_or_default();
-        let monitor = monitors
-            .iter()
-            .find(|m| {
-                let p = m.position();
-                let s = m.size();
-                cursor.x >= p.x as f64
-                    && cursor.x < (p.x as f64 + s.width as f64)
-                    && cursor.y >= p.y as f64
-                    && cursor.y < (p.y as f64 + s.height as f64)
-            })
-            .or(monitors.first());
 
         let (mut x, mut y) = (cursor.x as i32, cursor.y as i32);
 
-        if let Some(m) = monitor {
+        if let Some(m) = monitor_for_cursor(&monitors, cursor.x, cursor.y) {
             let mp = m.position();
             let ms = m.size();
             let right_limit = mp.x + ms.width as i32 - win_size.width as i32;
