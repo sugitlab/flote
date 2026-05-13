@@ -1,4 +1,4 @@
-name: Release Desktop
+name: Release
 
 on:
   push:
@@ -6,6 +6,9 @@ on:
       - "v*"
 
 jobs:
+  # ────────────────────────────────────────────────────────────
+  # macOS (Apple Silicon + Intel) — Tauri DMG
+  # ────────────────────────────────────────────────────────────
   release-macos:
     runs-on: macos-latest
     permissions:
@@ -36,21 +39,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # arm64 (Apple Silicon) ビルド
-      - name: Build (arm64)
+      # arm64 (Apple Silicon) — リリースを新規作成してDMGをアップロード
+      - name: Build macOS arm64
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          # --- コード署名・公証 (Apple Developer Program 登録後に有効化) ---
-          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          # APPLE_ID: ${{ secrets.APPLE_ID }}
-          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # -----------------------------------------------------------------
         with:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
@@ -60,41 +55,30 @@ jobs:
           releaseBody: |
             ## Flote ${{ github.ref_name }}
 
-            ### インストール方法
+            ### macOS
             1. お使いのMacに合わせてDMGをダウンロード
                - **Apple Silicon (M1/M2/M3)**: `flote_*_aarch64.dmg`
                - **Intel Mac**: `flote_*_x86_64.dmg`
             2. DMGを開いてApplicationsフォルダにドラッグ
 
-            ### ⚠️ 初回起動時の注意（署名なし野良アプリのため）
-
-            macOS Sequoia 以降では「壊れているため開けません」と表示されます。
-            **ターミナルで以下を実行してから起動してください：**
-
+            #### ⚠️ 初回起動時の注意（署名なし）
             ```bash
             xattr -cr /Applications/flote.app
             ```
 
-            > このコマンドはmacOSが付与した隔離フラグを除去します。
-            > コード署名対応版がリリースされたら不要になります。
+            ### Android
+            1. `flote-android-${{ github.ref_name }}.apk` をダウンロード
+            2. Android端末で「提供元不明のアプリ」を許可してインストール
           releaseDraft: false
           prerelease: false
 
-      # x86_64 (Intel) ビルド — リリースは上で作成済みなので updater フラグなし
-      - name: Build (x86_64)
+      # x86_64 (Intel) — 既存リリースにDMGを追加
+      - name: Build macOS x86_64
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          # --- コード署名・公証 (Apple Developer Program 登録後に有効化) ---
-          # APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          # APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          # APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          # APPLE_ID: ${{ secrets.APPLE_ID }}
-          # APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          # APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # -----------------------------------------------------------------
         with:
           projectPath: apps/desktop
           tauriScript: pnpm tauri
@@ -102,3 +86,75 @@ jobs:
           tagName: ${{ github.ref_name }}
           releaseName: "Flote ${{ github.ref_name }}"
           releaseBody: ""
+
+  # ────────────────────────────────────────────────────────────
+  # Android — APK サイドロード配布
+  # macOS job がリリースを作成してから APK をアップロード
+  # ────────────────────────────────────────────────────────────
+  release-android:
+    needs: release-macos
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: temurin
+
+      - name: Install NDK
+        run: |
+          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager \
+            "ndk;26.1.10909125" \
+            "build-tools;34.0.0" \
+            "platforms;android-34"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Supabase 環境変数 — desktop の secret をそのまま流用
+      - name: Create .env.local
+        working-directory: apps/mobile
+        run: |
+          printf 'EXPO_PUBLIC_SUPABASE_URL=%s\nEXPO_PUBLIC_SUPABASE_ANON_KEY=%s\n' \
+            "${{ secrets.VITE_SUPABASE_URL }}" \
+            "${{ secrets.VITE_SUPABASE_ANON_KEY }}" > .env.local
+
+      - name: Expo prebuild (Android)
+        working-directory: apps/mobile
+        run: npx expo prebuild --platform android --clean --non-interactive
+
+      # 一貫した debug.keystore を配置（build.gradle が debug signing で release をビルドする構成）
+      - name: Place signing keystore
+        working-directory: apps/mobile/android/app
+        run: echo "${{ secrets.ANDROID_DEBUG_KEYSTORE_BASE64 }}" | base64 -d > debug.keystore
+
+      - name: Build release APK
+        working-directory: apps/mobile/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Rename APK
+        run: |
+          mv apps/mobile/android/app/build/outputs/apk/release/app-release.apk \
+             apps/mobile/android/app/build/outputs/apk/release/flote-android-${{ github.ref_name }}.apk
+
+      - name: Upload APK to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: apps/mobile/android/app/build/outputs/apk/release/flote-android-${{ github.ref_name }}.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
