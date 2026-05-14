@@ -22,11 +22,13 @@ import { useTaskStore } from "../../../src/store/taskStore";
 import { useNoteStore } from "../../../src/store/noteStore";
 import { supabase } from "../../../src/lib/supabase";
 import { generateId } from "../../../src/utils";
+import { useT } from "../../../src/hooks/useT";
 import type { Task, Note } from "@flote/types";
 
 export default function TaskDetailScreen() {
   const { id, edit } = useLocalSearchParams<{ id: string; edit?: string }>();
   const { colors } = useTheme();
+  const t = useT();
   const router = useRouter();
   const tasks = useTaskStore((s) => s.tasks);
   const saveTask = useTaskStore((s) => s.saveTask);
@@ -63,7 +65,7 @@ export default function TaskDetailScreen() {
         const updated: Task = {
           ...taskRef.current,
           body_md: text,
-          title: text.split("\n").find((l) => l.trim())?.replace(/^#{1,6}\s+/, "").trim() ?? "新しいタスク",
+          title: text.split("\n").find((l) => l.trim())?.replace(/^#{1,6}\s+/, "").trim() ?? t.tasks.untitled,
           updated_at: new Date().toISOString(),
         };
         taskRef.current = updated;
@@ -79,10 +81,10 @@ export default function TaskDetailScreen() {
   };
 
   const handleConvertToNote = () => {
-    Alert.alert("ノートに変換", "このタスクをノートに変換しますか？元のタスクは削除されます。", [
-      { text: "キャンセル", style: "cancel" },
+    Alert.alert(t.tasks.convertToNoteTitle, t.tasks.convertToNoteMessage, [
+      { text: t.common.cancel, style: "cancel" },
       {
-        text: "変換",
+        text: t.tasks.convert,
         onPress: async () => {
           if (!userId || !taskRef.current) return;
           const task = taskRef.current;
@@ -101,10 +103,10 @@ export default function TaskDetailScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert("削除確認", "このタスクを削除しますか？", [
-      { text: "キャンセル", style: "cancel" },
+    Alert.alert(t.tasks.deleteConfirmTitle, t.tasks.deleteConfirmMessage, [
+      { text: t.common.cancel, style: "cancel" },
       {
-        text: "削除",
+        text: t.common.delete,
         style: "destructive",
         onPress: async () => {
           if (id) {
@@ -182,7 +184,7 @@ export default function TaskDetailScreen() {
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setEditing(!editing)}>
                 <Text style={{ color: colors.accent, fontSize: 16 }}>
-                  {editing ? "完了" : "編集"}
+                  {editing ? t.common.done : t.common.edit}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleDelete}>
@@ -221,7 +223,7 @@ export default function TaskDetailScreen() {
                   { color: task.done ? colors.accent : "#ff9500" },
                 ]}
               >
-                {task.done ? "完了" : "未完了"}
+                {task.done ? t.tasks.markDone : t.tasks.markNotDone}
               </Text>
             </TouchableOpacity>
 
@@ -233,7 +235,7 @@ export default function TaskDetailScreen() {
             >
               <Ionicons name="calendar-outline" size={16} color={colors.textSecondary} />
               <Text style={[styles.metaDue, { color: colors.textSecondary }]}>
-                {task.due_date ? `期日: ${task.due_date}` : "期日を設定"}
+                {task.due_date ? `${t.tasks.dueLabel} ${task.due_date}` : t.tasks.setDueDate}
               </Text>
             </TouchableOpacity>
           </View>
@@ -263,7 +265,7 @@ export default function TaskDetailScreen() {
             multiline
             autoFocus
             textAlignVertical="top"
-            placeholder="メモをMarkdownで入力..."
+            placeholder={t.tasks.editorPlaceholder}
             placeholderTextColor={colors.textSecondary}
           />
         ) : (
@@ -273,7 +275,7 @@ export default function TaskDetailScreen() {
               <Markdown style={markdownStyles} rules={markdownRules}>{content}</Markdown>
             ) : (
               <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
-                メモがありません。「編集」をタップして書き始めましょう。
+                {t.tasks.emptyBody}
               </Text>
             )}
           </ScrollView>

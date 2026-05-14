@@ -63,6 +63,9 @@ export const ja = {
     selectedCount: (n: number) => `${n}件選択中`,
     delete: "削除",
     cancel: "キャンセル",
+    sort: "並び替え",
+    sortByUpdated: "更新日時順",
+    sortByTitle: "タイトル順",
   },
   taskList: {
     newTask: "+ 新しいタスク",
@@ -281,10 +284,9 @@ export const ja = {
     unpin: "ピン留め解除",
   },
   date: {
-    justNow: "たった今",
-    minutesAgo: (n: number) => `${n}分前`,
-    hoursAgo: (n: number) => `${n}時間前`,
+    today: "今日",
     daysAgo: (n: number) => `${n}日前`,
+    yearsAgo: (n: number) => `${n}年前`,
     locale: "ja-JP",
   },
 };

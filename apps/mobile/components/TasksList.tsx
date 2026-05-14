@@ -16,6 +16,8 @@ import { useTaskStore } from "../src/store/taskStore";
 import { useSettingsStore } from "../src/store/settingsStore";
 import { extractTags, allTags } from "../src/tagUtils";
 import { TagFilterIcon, SortIcon, TagChips } from "./TagFilterDropdown";
+import { useT } from "../src/hooks/useT";
+import { relativeDate } from "../src/utils/date";
 import type { Task } from "@flote/types";
 
 function todayStr(): string {
@@ -26,7 +28,7 @@ function todayStr(): string {
 
 type Section = { title: string; data: Task[] };
 
-function groupTasks(tasks: Task[]): Section[] {
+function groupTasks(tasks: Task[], groups: { overdue: string; today: string; upcoming: string; done: string }): Section[] {
   const today = todayStr();
   const overdue: Task[] = [], todayTasks: Task[] = [], upcoming: Task[] = [], done: Task[] = [];
   for (const t of tasks) {
@@ -36,10 +38,10 @@ function groupTasks(tasks: Task[]): Section[] {
     else upcoming.push(t);
   }
   const sections: Section[] = [];
-  if (overdue.length) sections.push({ title: "期限切れ", data: overdue });
-  if (todayTasks.length) sections.push({ title: "今日", data: todayTasks });
-  if (upcoming.length) sections.push({ title: "今後", data: upcoming });
-  if (done.length) sections.push({ title: "完了済み", data: done });
+  if (overdue.length) sections.push({ title: groups.overdue, data: overdue });
+  if (todayTasks.length) sections.push({ title: groups.today, data: todayTasks });
+  if (upcoming.length) sections.push({ title: groups.upcoming, data: upcoming });
+  if (done.length) sections.push({ title: groups.done, data: done });
   return sections;
 }
 
@@ -56,6 +58,7 @@ type Props = { userId: string | null };
 export default function TasksList({ userId }: Props) {
   const { colors } = useTheme();
   const router = useRouter();
+  const t = useT();
   const tasks = useTaskStore((s) => s.tasks);
   const loading = useTaskStore((s) => s.loading);
   const fetchTasks = useTaskStore((s) => s.fetchTasks);
@@ -76,12 +79,12 @@ export default function TasksList({ userId }: Props) {
 
   const filtered = useMemo(() => {
     let result = hideCompletedTasks ? tasks.filter((t) => !t.done) : tasks;
-    if (selectedTag) result = result.filter((t) => extractTags((t.title ?? "") + " " + t.body_md).includes(selectedTag));
+    if (selectedTag) result = result.filter((task) => extractTags((task.title ?? "") + " " + task.body_md).includes(selectedTag));
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter((t) => {
-        if ((t.title ?? "").toLowerCase().includes(q)) return true;
-        if (searchFullText && t.body_md.toLowerCase().includes(q)) return true;
+      result = result.filter((task) => {
+        if ((task.title ?? "").toLowerCase().includes(q)) return true;
+        if (searchFullText && task.body_md.toLowerCase().includes(q)) return true;
         return false;
       });
     }
@@ -100,7 +103,7 @@ export default function TasksList({ userId }: Props) {
     return arr;
   }, [tasks, hideCompletedTasks, selectedTag, search, searchFullText, sortOrder]);
 
-  const sections = useMemo(() => groupTasks(filtered), [filtered]);
+  const sections = useMemo(() => groupTasks(filtered, t.tasks.groups), [filtered, t]);
 
   const handleRefresh = useCallback(() => { if (userId) fetchTasks(userId); }, [userId]);
   const handleToggle = useCallback((id: string) => { if (userId) toggleDone(id, userId); }, [userId]);
@@ -111,14 +114,14 @@ export default function TasksList({ userId }: Props) {
   }, []);
 
   const handleDeleteSelected = useCallback(() => {
-    Alert.alert("削除の確認", `${selectedIds.size}件のタスクを削除しますか？`, [
-      { text: "キャンセル", style: "cancel" },
-      { text: "削除", style: "destructive", onPress: async () => {
+    Alert.alert(t.tasks.deleteTitle, t.tasks.deleteMessage(selectedIds.size), [
+      { text: t.common.cancel, style: "cancel" },
+      { text: t.common.delete, style: "destructive", onPress: async () => {
         await Promise.all([...selectedIds].map((id) => deleteTask(id)));
         exitSelectMode();
       }},
     ]);
-  }, [selectedIds, deleteTask, exitSelectMode]);
+  }, [selectedIds, deleteTask, exitSelectMode, t]);
 
   const renderItem = useCallback(({ item }: { item: Task }) => {
     const overdue = !item.done && item.due_date != null && item.due_date < todayStr();
@@ -146,9 +149,9 @@ export default function TasksList({ userId }: Props) {
             {isSelected && <Text style={styles.checkmarkText}>✓</Text>}
           </View>
           <Text style={[styles.itemTitle, { color: item.done ? colors.textSecondary : colors.text }, item.done && styles.doneTitle]} numberOfLines={1}>
-            {item.title || "無題のタスク"}
+            {item.title || t.tasks.untitled}
           </Text>
-          <Text style={[styles.itemDate, { color: overdue ? colors.danger : colors.textSecondary }]}>{item.due_date ?? ""}</Text>
+          <Text style={[styles.itemDate, { color: overdue ? colors.danger : colors.textSecondary }]}>{item.due_date ? relativeDate(item.due_date, t.date) : ""}</Text>
         </TouchableOpacity>
       );
     }
@@ -174,33 +177,33 @@ export default function TasksList({ userId }: Props) {
         >
           <View style={styles.itemHeader}>
             <Text style={[styles.itemTitle, { color: item.done ? colors.textSecondary : colors.text }, item.done && styles.doneTitle]} numberOfLines={1}>
-              {item.title || "無題のタスク"}
+              {item.title || t.tasks.untitled}
             </Text>
-            <Text style={[styles.itemDate, { color: overdue ? colors.danger : colors.textSecondary }]}>{item.due_date ?? ""}</Text>
+            <Text style={[styles.itemDate, { color: overdue ? colors.danger : colors.textSecondary }]}>{item.due_date ? relativeDate(item.due_date, t.date) : ""}</Text>
           </View>
           {snippet ? <Text style={[styles.itemSnippet, { color: colors.textSecondary }]} numberOfLines={2}>{snippet}</Text> : null}
           <TagChips tags={itemTags} accentColor={colors.accent} />
         </TouchableOpacity>
       </View>
     );
-  }, [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, enterSelectMode, handleToggle]);
+  }, [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, enterSelectMode, handleToggle, t]);
 
   const renderSectionHeader = useCallback(({ section }: { section: Section }) => (
     <Text style={[styles.sectionTitle, {
-      color: section.title === "期限切れ" ? colors.danger : colors.textSecondary,
+      color: section.title === t.tasks.groups.overdue ? colors.danger : colors.textSecondary,
       backgroundColor: colors.background,
     }]}>
       {section.title}
     </Text>
-  ), [colors]);
+  ), [colors, t]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {selectMode ? (
         <View style={[styles.selectHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <Text style={[styles.selectCount, { color: colors.text }]}>{selectedIds.size}件選択中</Text>
+          <Text style={[styles.selectCount, { color: colors.text }]}>{t.tasks.selectedCount(selectedIds.size)}</Text>
           <TouchableOpacity onPress={exitSelectMode}>
-            <Text style={[styles.cancelText, { color: colors.accent }]}>キャンセル</Text>
+            <Text style={[styles.cancelText, { color: colors.accent }]}>{t.common.cancel}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -208,7 +211,7 @@ export default function TasksList({ userId }: Props) {
           <View style={[styles.searchWrap, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
-              placeholder="検索..."
+              placeholder={t.common.search}
               placeholderTextColor={colors.textSecondary}
               value={search}
               onChangeText={setSearch}
@@ -224,8 +227,8 @@ export default function TasksList({ userId }: Props) {
           <TagFilterIcon tags={tags} selectedTag={selectedTag} onSelect={setSelectedTag} />
           <SortIcon
             options={[
-              { key: "updated", label: "更新日時" },
-              { key: "due",     label: "期限日" },
+              { key: "updated", label: t.tasks.sortByUpdated },
+              { key: "due",     label: t.tasks.sortByDue },
             ]}
             value={sortOrder}
             onChange={(v) => setSortOrder(v as "updated" | "due")}
@@ -245,7 +248,7 @@ export default function TasksList({ userId }: Props) {
         ListEmptyComponent={!loading ? (
           <View style={styles.empty}>
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {selectedTag ? `#${selectedTag} のタスクはありません` : "タスクがありません"}
+              {selectedTag ? t.tasks.emptyFiltered(selectedTag) : t.tasks.empty}
             </Text>
           </View>
         ) : null}
@@ -259,7 +262,7 @@ export default function TasksList({ userId }: Props) {
             disabled={selectedIds.size === 0}
             activeOpacity={0.8}
           >
-            <Text style={styles.deleteButtonText}>削除{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}</Text>
+            <Text style={styles.deleteButtonText}>{t.common.delete}{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}</Text>
           </TouchableOpacity>
         </View>
       )}

@@ -19,11 +19,13 @@ import { useNoteStore } from "../../../src/store/noteStore";
 import { useTaskStore } from "../../../src/store/taskStore";
 import { supabase } from "../../../src/lib/supabase";
 import { generateId } from "../../../src/utils";
+import { useT } from "../../../src/hooks/useT";
 import type { Note, Task } from "@flote/types";
 
 export default function NoteDetailScreen() {
   const { id, edit } = useLocalSearchParams<{ id: string; edit?: string }>();
   const { colors } = useTheme();
+  const t = useT();
   const router = useRouter();
   const notes = useNoteStore((s) => s.notes);
   const saveNote = useNoteStore((s) => s.saveNote);
@@ -74,16 +76,16 @@ export default function NoteDetailScreen() {
   };
 
   const handleConvertToTask = () => {
-    Alert.alert("タスクに変換", "このノートをタスクに変換しますか？元のノートは削除されます。", [
-      { text: "キャンセル", style: "cancel" },
+    Alert.alert(t.notes.convertToTaskTitle, t.notes.convertToTaskMessage, [
+      { text: t.common.cancel, style: "cancel" },
       {
-        text: "変換",
+        text: t.notes.convert,
         onPress: async () => {
           if (!userId || !noteRef.current) return;
           const note = noteRef.current;
           const newTask: Task = {
             id: generateId(),
-            title: note.title || content.split("\n").find((l) => l.trim())?.replace(/^#{1,6}\s+/, "").trim() || "新しいタスク",
+            title: note.title || content.split("\n").find((l) => l.trim())?.replace(/^#{1,6}\s+/, "").trim() || t.tasks.untitled,
             body_md: note.body_md,
             due_date: null,
             done: false,
@@ -98,10 +100,10 @@ export default function NoteDetailScreen() {
   };
 
   const handleDelete = () => {
-    Alert.alert("削除確認", "このノートを削除しますか？", [
-      { text: "キャンセル", style: "cancel" },
+    Alert.alert(t.notes.deleteConfirmTitle, t.notes.deleteConfirmMessage, [
+      { text: t.common.cancel, style: "cancel" },
       {
-        text: "削除",
+        text: t.common.delete,
         style: "destructive",
         onPress: async () => {
           if (id) {
@@ -141,7 +143,7 @@ export default function NoteDetailScreen() {
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setEditing(!editing)}>
                 <Text style={{ color: colors.accent, fontSize: 16 }}>
-                  {editing ? "完了" : "編集"}
+                  {editing ? t.common.done : t.common.edit}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleDelete}>
@@ -171,7 +173,7 @@ export default function NoteDetailScreen() {
             multiline
             autoFocus
             textAlignVertical="top"
-            placeholder="ここにMarkdownを入力..."
+            placeholder={t.notes.editorPlaceholder}
             placeholderTextColor={colors.textSecondary}
           />
         ) : (
@@ -181,7 +183,7 @@ export default function NoteDetailScreen() {
               <Markdown style={markdownStyles} rules={markdownRules}>{content}</Markdown>
             ) : (
               <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
-                ノートが空です。編集ボタンをタップして書き始めましょう。
+                {t.notes.emptyBody}
               </Text>
             )}
           </ScrollView>

@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../src/theme";
+import { useT } from "../src/hooks/useT";
 
 type Props = {
   tags: string[];
@@ -19,12 +20,13 @@ type Props = {
 
 function TagModal({ tags, selectedTag, onSelect, open, onClose }: Props & { open: boolean; onClose: () => void }) {
   const { colors } = useTheme();
+  const t = useT();
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
         <View style={[styles.menu, { backgroundColor: colors.surface, shadowColor: "#000" }]}>
           <Text style={[styles.menuHeader, { color: colors.textSecondary, borderBottomColor: colors.border }]}>
-            タグで絞り込む
+            {t.tags.filterByTag}
           </Text>
           <ScrollView bounces={false} style={{ maxHeight: 320 }}>
             <TouchableOpacity
@@ -33,7 +35,7 @@ function TagModal({ tags, selectedTag, onSelect, open, onClose }: Props & { open
               activeOpacity={0.7}
             >
               <Text style={[styles.menuItemText, { color: !selectedTag ? colors.accent : colors.text }]}>
-                すべて表示
+                {t.tags.showAll}
               </Text>
               {!selectedTag && <Ionicons name="checkmark" size={16} color={colors.accent} />}
             </TouchableOpacity>
@@ -95,6 +97,7 @@ export function TagFilterIcon({ tags, selectedTag, onSelect }: Props) {
 // Legacy full-bar dropdown (kept for compatibility, no longer used by lists)
 export function TagFilterDropdown({ tags, selectedTag, onSelect }: Props) {
   const { colors } = useTheme();
+  const t = useT();
   const [open, setOpen] = useState(false);
 
   if (tags.length === 0) return null;
@@ -108,7 +111,7 @@ export function TagFilterDropdown({ tags, selectedTag, onSelect }: Props) {
       >
         <Ionicons name="pricetag-outline" size={14} color={selectedTag ? colors.accent : colors.textSecondary} />
         <Text style={[styles.btnText, { color: selectedTag ? colors.accent : colors.textSecondary }]} numberOfLines={1}>
-          {selectedTag ? `#${selectedTag}` : "タグで絞り込む"}
+          {selectedTag ? `#${selectedTag}` : t.tags.filterByTag}
         </Text>
         <Ionicons name="chevron-down" size={14} color={selectedTag ? colors.accent : colors.textSecondary} />
       </TouchableOpacity>
@@ -139,6 +142,7 @@ type SortIconProps = {
 
 export function SortIcon({ options, value, onChange }: SortIconProps) {
   const { colors } = useTheme();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const active = value !== options[0]?.key;
 
@@ -166,7 +170,7 @@ export function SortIcon({ options, value, onChange }: SortIconProps) {
         <Pressable style={styles.overlay} onPress={() => setOpen(false)}>
           <View style={[styles.menu, { backgroundColor: colors.surface, shadowColor: "#000" }]}>
             <Text style={[styles.menuHeader, { color: colors.textSecondary, borderBottomColor: colors.border }]}>
-              並び替え
+              {t.tags.sort}
             </Text>
             <ScrollView bounces={false}>
               {options.map((opt) => {

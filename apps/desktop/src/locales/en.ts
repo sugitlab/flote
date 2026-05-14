@@ -65,6 +65,9 @@ export const en: typeof ja = {
     selectedCount: (n: number) => `${n} selected`,
     delete: "Delete",
     cancel: "Cancel",
+    sort: "Sort",
+    sortByUpdated: "By update date",
+    sortByTitle: "By title",
   },
   taskList: {
     newTask: "+ New Task",
@@ -283,10 +286,9 @@ export const en: typeof ja = {
     unpin: "Unpin",
   },
   date: {
-    justNow: "just now",
-    minutesAgo: (n: number) => `${n}m ago`,
-    hoursAgo: (n: number) => `${n}h ago`,
-    daysAgo: (n: number) => `${n}d ago`,
-    locale: "en-US",
+    today: "Today",
+    daysAgo: (n: number) => n === 1 ? "1 day ago" : `${n} days ago`,
+    yearsAgo: (n: number) => n === 1 ? "1 year ago" : `${n} years ago`,
+    locale: "en-GB",
   },
 };

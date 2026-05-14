@@ -15,21 +15,15 @@ import { useNoteStore } from "../src/store/noteStore";
 import { useSettingsStore } from "../src/store/settingsStore";
 import { extractTags, allTags } from "../src/tagUtils";
 import { TagFilterIcon, SortIcon, TagChips } from "./TagFilterDropdown";
+import { useT } from "../src/hooks/useT";
+import { relativeDate } from "../src/utils/date";
 import type { Note } from "@flote/types";
 
-function relativeDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  const diffDays = Math.floor((Date.now() - d.getTime()) / 86400000);
-  if (diffDays === 0) return "今日";
-  if (diffDays === 1) return "昨日";
-  return `${diffDays}日前`;
-}
-
-function extractTitle(note: Note): string {
+function extractTitle(note: Note, untitled: string): string {
   if (note.title) return note.title;
   const firstLine = note.body_md.split("\n").find((l) => l.trim());
-  if (!firstLine) return "無題のノート";
-  return firstLine.replace(/^#{1,6}\s+/, "").trim() || "無題のノート";
+  if (!firstLine) return untitled;
+  return firstLine.replace(/^#{1,6}\s+/, "").trim() || untitled;
 }
 
 function bodySnippet(body: string, query: string, radius = 40): string {
@@ -45,6 +39,7 @@ type Props = { userId: string | null };
 export default function NotesList({ userId }: Props) {
   const { colors } = useTheme();
   const router = useRouter();
+  const t = useT();
   const notes = useNoteStore((s) => s.notes);
   const loading = useNoteStore((s) => s.loading);
   const fetchNotes = useNoteStore((s) => s.fetchNotes);
@@ -66,19 +61,19 @@ export default function NotesList({ userId }: Props) {
     if (search) {
       const q = search.toLowerCase();
       result = result.filter((n) => {
-        if (extractTitle(n).toLowerCase().includes(q)) return true;
+        if (extractTitle(n, t.notes.untitled).toLowerCase().includes(q)) return true;
         if (searchFullText && n.body_md.toLowerCase().includes(q)) return true;
         return false;
       });
     }
     const arr = [...result];
     if (sortOrder === "title") {
-      arr.sort((a, b) => extractTitle(a).localeCompare(extractTitle(b), "ja"));
+      arr.sort((a, b) => extractTitle(a, t.notes.untitled).localeCompare(extractTitle(b, t.notes.untitled), "ja"));
     } else {
       arr.sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
     }
     return arr;
-  }, [notes, search, searchFullText, selectedTag, sortOrder]);
+  }, [notes, search, searchFullText, selectedTag, sortOrder, t]);
 
   const handleRefresh = useCallback(() => { if (userId) fetchNotes(userId); }, [userId]);
 
@@ -89,17 +84,17 @@ export default function NotesList({ userId }: Props) {
   }, []);
 
   const handleDeleteSelected = useCallback(() => {
-    Alert.alert("削除の確認", `${selectedIds.size}件のノートを削除しますか？`, [
-      { text: "キャンセル", style: "cancel" },
-      { text: "削除", style: "destructive", onPress: async () => {
+    Alert.alert(t.notes.deleteTitle, t.notes.deleteMessage(selectedIds.size), [
+      { text: t.common.cancel, style: "cancel" },
+      { text: t.common.delete, style: "destructive", onPress: async () => {
         await Promise.all([...selectedIds].map((id) => deleteNote(id)));
         exitSelectMode();
       }},
     ]);
-  }, [selectedIds, deleteNote, exitSelectMode]);
+  }, [selectedIds, deleteNote, exitSelectMode, t]);
 
   const renderItem = useCallback(({ item }: { item: Note }) => {
-    const title = extractTitle(item);
+    const title = extractTitle(item, t.notes.untitled);
     const isSelected = selectedIds.has(item.id);
     const itemTags = extractTags((item.title ?? "") + " " + item.body_md);
 
@@ -120,13 +115,13 @@ export default function NotesList({ userId }: Props) {
             {isSelected && <Text style={styles.checkmark}>✓</Text>}
           </View>
           <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{title}</Text>
-          <Text style={[styles.itemDate, { color: colors.textSecondary }]}>{relativeDate(item.updated_at)}</Text>
+          <Text style={[styles.itemDate, { color: colors.textSecondary }]}>{relativeDate(item.updated_at, t.date)}</Text>
         </TouchableOpacity>
       );
     }
 
     const q = search.trim();
-    const titleMatches = q ? extractTitle(item).toLowerCase().includes(q.toLowerCase()) : false;
+    const titleMatches = q ? extractTitle(item, t.notes.untitled).toLowerCase().includes(q.toLowerCase()) : false;
     const snippet = searchFullText && q && !titleMatches ? bodySnippet(item.body_md, q) : "";
 
     return (
@@ -139,21 +134,21 @@ export default function NotesList({ userId }: Props) {
       >
         <View style={styles.itemRow}>
           <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{title}</Text>
-          <Text style={[styles.itemDate, { color: colors.textSecondary }]}>{relativeDate(item.updated_at)}</Text>
+          <Text style={[styles.itemDate, { color: colors.textSecondary }]}>{relativeDate(item.updated_at, t.date)}</Text>
         </View>
         {snippet ? <Text style={[styles.itemSnippet, { color: colors.textSecondary }]} numberOfLines={2}>{snippet}</Text> : null}
         <TagChips tags={itemTags} accentColor={colors.accent} />
       </TouchableOpacity>
     );
-  }, [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, enterSelectMode]);
+  }, [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, enterSelectMode, t]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {selectMode ? (
         <View style={[styles.selectHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <Text style={[styles.selectCount, { color: colors.text }]}>{selectedIds.size}件選択中</Text>
+          <Text style={[styles.selectCount, { color: colors.text }]}>{t.notes.selectedCount(selectedIds.size)}</Text>
           <TouchableOpacity onPress={exitSelectMode}>
-            <Text style={[styles.cancelText, { color: colors.accent }]}>キャンセル</Text>
+            <Text style={[styles.cancelText, { color: colors.accent }]}>{t.common.cancel}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -161,7 +156,7 @@ export default function NotesList({ userId }: Props) {
           <View style={[styles.searchWrap, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <TextInput
               style={[styles.searchInput, { color: colors.text }]}
-              placeholder="検索..."
+              placeholder={t.common.search}
               placeholderTextColor={colors.textSecondary}
               value={search}
               onChangeText={setSearch}
@@ -177,8 +172,8 @@ export default function NotesList({ userId }: Props) {
           <TagFilterIcon tags={tags} selectedTag={selectedTag} onSelect={setSelectedTag} />
           <SortIcon
             options={[
-              { key: "updated", label: "更新日時" },
-              { key: "title",   label: "タイトル" },
+              { key: "updated", label: t.notes.sortByUpdated },
+              { key: "title",   label: t.notes.sortByTitle },
             ]}
             value={sortOrder}
             onChange={(v) => setSortOrder(v as "updated" | "title")}
@@ -197,7 +192,7 @@ export default function NotesList({ userId }: Props) {
         ListEmptyComponent={!loading ? (
           <View style={styles.empty}>
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {selectedTag ? `#${selectedTag} のノートはありません` : "ノートがありません"}
+              {selectedTag ? t.notes.emptyFiltered(selectedTag) : t.notes.empty}
             </Text>
           </View>
         ) : null}
@@ -211,7 +206,7 @@ export default function NotesList({ userId }: Props) {
             disabled={selectedIds.size === 0}
             activeOpacity={0.8}
           >
-            <Text style={styles.deleteButtonText}>削除{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}</Text>
+            <Text style={styles.deleteButtonText}>{t.common.delete}{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}</Text>
           </TouchableOpacity>
         </View>
       )}

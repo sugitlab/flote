@@ -20,6 +20,8 @@ import { useTaskStore } from "../src/store/taskStore";
 import { rescheduleAllReminders } from "../src/lib/notifications";
 import { supabase } from "../src/lib/supabase";
 import FloteLogo from "./FloteLogo";
+import { useT } from "../src/hooks/useT";
+import type { Language } from "../src/i18n";
 
 type SubPage = "general" | "storage" | "howto" | "about" | null;
 
@@ -27,6 +29,7 @@ type Props = { onSignOut: () => void };
 
 export default function SettingsPage({ onSignOut }: Props) {
   const { colors, mode } = useTheme();
+  const t = useT();
   const setThemeMode = useThemeStore((s) => s.setMode);
   const reminderHour = useSettingsStore((s) => s.reminderHour);
   const setReminderHour = useSettingsStore((s) => s.setReminderHour);
@@ -42,6 +45,8 @@ export default function SettingsPage({ onSignOut }: Props) {
   const customSupabaseAnonKey = useSettingsStore((s) => s.customSupabaseAnonKey);
   const setCustomSupabase = useSettingsStore((s) => s.setCustomSupabase);
   const clearCustomSupabase = useSettingsStore((s) => s.clearCustomSupabase);
+  const language = useSettingsStore((s) => s.language);
+  const setLanguage = useSettingsStore((s) => s.setLanguage);
   const isSelfHosted = !!customSupabaseUrl;
   const [storageMode, setStorageMode] = useState<"cloud" | "selfhosted">(isSelfHosted ? "selfhosted" : "cloud");
   const [supabaseUrlInput, setSupabaseUrlInput] = useState(customSupabaseUrl);
@@ -62,13 +67,13 @@ export default function SettingsPage({ onSignOut }: Props) {
 
   const handleToggleNotif = useCallback(async () => {
     if (notifEnabled) {
-      Alert.alert("通知の無効化", "通知を無効にするにはシステム設定から変更してください。", [{ text: "OK" }]);
+      Alert.alert(t.settings.pushNotifications, t.settings.notificationDisableMessage, [{ text: "OK" }]);
       return;
     }
     const { status } = await Notifications.requestPermissionsAsync();
     setNotifEnabled(status === "granted");
-    if (status !== "granted") Alert.alert("通知が許可されませんでした", "設定アプリから通知を許可してください。");
-  }, [notifEnabled]);
+    if (status !== "granted") Alert.alert(t.settings.notificationPermissionDenied, t.settings.notificationPermissionDeniedMessage);
+  }, [notifEnabled, t]);
 
   const handleChangeReminderHour = useCallback(async (delta: number) => {
     const next = Math.min(23, Math.max(0, reminderHour + delta));
@@ -77,11 +82,11 @@ export default function SettingsPage({ onSignOut }: Props) {
   }, [reminderHour, setReminderHour, tasks]);
 
   const handleSignOut = useCallback(() => {
-    Alert.alert("ログアウト", "ログアウトしますか？", [
-      { text: "キャンセル", style: "cancel" },
-      { text: "ログアウト", style: "destructive", onPress: async () => { await supabase.auth.signOut(); onSignOut(); } },
+    Alert.alert(t.settings.logout, t.settings.logoutConfirm, [
+      { text: t.common.cancel, style: "cancel" },
+      { text: t.settings.logout, style: "destructive", onPress: async () => { await supabase.auth.signOut(); onSignOut(); } },
     ]);
-  }, [onSignOut]);
+  }, [onSignOut, t]);
 
   const handleConnectSelfHosted = useCallback(async () => {
     const url = supabaseUrlInput.trim();
@@ -99,7 +104,7 @@ export default function SettingsPage({ onSignOut }: Props) {
       return;
     }
     Alert.alert("クラウド版に切り替え", "クラウド版に切り替えます。ログアウトされます。", [
-      { text: "キャンセル", style: "cancel" },
+      { text: t.common.cancel, style: "cancel" },
       { text: "切り替える", style: "destructive", onPress: async () => {
         await clearCustomSupabase();
         setSupabaseUrlInput("");
@@ -108,7 +113,7 @@ export default function SettingsPage({ onSignOut }: Props) {
         await supabase.auth.signOut();
       }},
     ]);
-  }, [isSelfHosted, clearCustomSupabase]);
+  }, [isSelfHosted, clearCustomSupabase, t]);
 
   const handleSwitchToSelfHosted = useCallback(() => {
     setSupabaseUrlInput(useSettingsStore.getState().customSupabaseUrl);
@@ -131,66 +136,77 @@ export default function SettingsPage({ onSignOut }: Props) {
     </View>
   );
 
-  // ── 一般 ──────────────────────────────────────────────────────────────────
-
   if (subPage === "general") return (
-    <SubPageWrap title="一般">
-      <Text style={s.sectionTitle}>テーマ</Text>
+    <SubPageWrap title={t.settings.general}>
+      <Text style={s.sectionTitle}>{t.settings.language}</Text>
       <View style={s.card}>
         <View style={s.themeRow}>
-          {(["system", "light", "dark"] as ThemeMode[]).map((m) => (
-            <TouchableOpacity key={m} style={[s.themeBtn, mode === m && { backgroundColor: colors.accent }]} onPress={() => setThemeMode(m)} activeOpacity={0.7}>
-              <Text style={[s.themeBtnText, mode === m && { color: "#fff" }]}>
-                {m === "system" ? "システム" : m === "light" ? "ライト" : "ダーク"}
+          {(["ja", "en"] as Language[]).map((lang) => (
+            <TouchableOpacity key={lang} style={[s.themeBtn, language === lang && { backgroundColor: colors.accent }]} onPress={() => setLanguage(lang)} activeOpacity={0.7}>
+              <Text style={[s.themeBtnText, language === lang && { color: "#fff" }]}>
+                {lang === "ja" ? "日本語" : "English"}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
 
-      <Text style={s.sectionTitle}>エディタ</Text>
+      <Text style={s.sectionTitle}>{t.settings.theme}</Text>
+      <View style={s.card}>
+        <View style={s.themeRow}>
+          {(["system", "light", "dark"] as ThemeMode[]).map((m) => (
+            <TouchableOpacity key={m} style={[s.themeBtn, mode === m && { backgroundColor: colors.accent }]} onPress={() => setThemeMode(m)} activeOpacity={0.7}>
+              <Text style={[s.themeBtnText, mode === m && { color: "#fff" }]}>
+                {m === "system" ? t.settings.themeSystem : m === "light" ? t.settings.themeLight : t.settings.themeDark}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <Text style={s.sectionTitle}>{t.settings.editor}</Text>
       <View style={s.card}>
         <View style={s.row}>
-          <Text style={s.label}>コードテーマ（ダーク）</Text>
+          <Text style={s.label}>{t.settings.codeThemeDark}</Text>
           <Dropdown options={DARK_CODE_THEME_OPTIONS} value={codeThemeDark} onChange={setCodeThemeDark} />
         </View>
         <View style={s.separator} />
         <View style={s.row}>
-          <Text style={s.label}>コードテーマ（ライト）</Text>
+          <Text style={s.label}>{t.settings.codeThemeLight}</Text>
           <Dropdown options={LIGHT_CODE_THEME_OPTIONS} value={codeThemeLight} onChange={setCodeThemeLight} />
         </View>
       </View>
 
-      <Text style={s.sectionTitle}>検索</Text>
+      <Text style={s.sectionTitle}>{t.settings.search}</Text>
       <View style={s.card}>
         <TouchableOpacity style={s.row} onPress={() => setSearchFullText(!searchFullText)} activeOpacity={0.7}>
-          <Text style={s.label}>本文も検索する</Text>
+          <Text style={s.label}>{t.settings.searchFullText}</Text>
           <View style={[s.badge, { backgroundColor: searchFullText ? colors.accent : colors.border }]}>
-            <Text style={s.badgeText}>{searchFullText ? "ON" : "OFF"}</Text>
+            <Text style={s.badgeText}>{searchFullText ? t.common.on : t.common.off}</Text>
           </View>
         </TouchableOpacity>
         <View style={s.separator} />
         <TouchableOpacity style={s.row} onPress={() => setHideCompletedTasks(!hideCompletedTasks)} activeOpacity={0.7}>
-          <Text style={s.label}>完了済みのタスクを非表示</Text>
+          <Text style={s.label}>{t.settings.hideCompleted}</Text>
           <View style={[s.badge, { backgroundColor: hideCompletedTasks ? colors.accent : colors.border }]}>
-            <Text style={s.badgeText}>{hideCompletedTasks ? "ON" : "OFF"}</Text>
+            <Text style={s.badgeText}>{hideCompletedTasks ? t.common.on : t.common.off}</Text>
           </View>
         </TouchableOpacity>
       </View>
 
       {Platform.OS !== "web" && (
         <>
-          <Text style={s.sectionTitle}>通知</Text>
+          <Text style={s.sectionTitle}>{t.settings.notifications}</Text>
           <View style={s.card}>
             <TouchableOpacity style={s.row} onPress={handleToggleNotif} activeOpacity={0.7}>
-              <Text style={s.label}>プッシュ通知</Text>
+              <Text style={s.label}>{t.settings.pushNotifications}</Text>
               <View style={[s.badge, { backgroundColor: notifEnabled ? colors.accent : colors.border }]}>
-                <Text style={s.badgeText}>{notifEnabled ? "ON" : "OFF"}</Text>
+                <Text style={s.badgeText}>{notifEnabled ? t.common.on : t.common.off}</Text>
               </View>
             </TouchableOpacity>
             <View style={s.separator} />
             <View style={s.row}>
-              <Text style={s.label}>リマインダー時刻</Text>
+              <Text style={s.label}>{t.settings.reminderHour}</Text>
               <View style={s.hourPicker}>
                 <TouchableOpacity style={[s.hourBtn, { backgroundColor: colors.border }]} onPress={() => handleChangeReminderHour(-1)} disabled={reminderHour <= 0}>
                   <Text style={[s.hourBtnText, { color: reminderHour <= 0 ? colors.textSecondary : colors.text }]}>−</Text>
@@ -207,11 +223,8 @@ export default function SettingsPage({ onSignOut }: Props) {
     </SubPageWrap>
   );
 
-  // ── 保存先 ────────────────────────────────────────────────────────────────
-
   if (subPage === "storage") return (
-    <SubPageWrap title="保存先">
-      {/* Cloud / Self-hosted toggle */}
+    <SubPageWrap title={t.settings.storage}>
       <Text style={s.sectionTitle}>接続先</Text>
       <View style={[s.card, { padding: 8 }]}>
         <View style={s.themeRow}>
@@ -220,27 +233,26 @@ export default function SettingsPage({ onSignOut }: Props) {
             onPress={handleSwitchToCloud}
             activeOpacity={0.7}
           >
-            <Text style={[s.themeBtnText, { color: storageMode === "cloud" ? "#fff" : colors.text }]}>クラウド版</Text>
+            <Text style={[s.themeBtnText, { color: storageMode === "cloud" ? "#fff" : colors.text }]}>{t.settings.cloud}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[s.themeBtn, storageMode === "selfhosted" && { backgroundColor: colors.accent }]}
             onPress={handleSwitchToSelfHosted}
             activeOpacity={0.7}
           >
-            <Text style={[s.themeBtnText, { color: storageMode === "selfhosted" ? "#fff" : colors.text }]}>セルフホスト版</Text>
+            <Text style={[s.themeBtnText, { color: storageMode === "selfhosted" ? "#fff" : colors.text }]}>{t.settings.selfHosted}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* Self-hosted connection form */}
       {storageMode === "selfhosted" && (
         <>
-          <Text style={s.sectionTitle}>Supabase接続設定</Text>
+          <Text style={s.sectionTitle}>{t.settings.supabaseSettings}</Text>
           <View style={s.card}>
             <View style={{ padding: 16, gap: 10 }}>
               <TextInput
                 style={[s.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-                placeholder="Supabase URL (https://xxxx.supabase.co)"
+                placeholder={t.settings.supabaseUrlPlaceholder}
                 placeholderTextColor={colors.textSecondary}
                 value={supabaseUrlInput}
                 onChangeText={setSupabaseUrlInput}
@@ -249,7 +261,7 @@ export default function SettingsPage({ onSignOut }: Props) {
               />
               <TextInput
                 style={[s.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-                placeholder="Anon Key (eyJ...)"
+                placeholder={t.settings.supabaseKeyPlaceholder}
                 placeholderTextColor={colors.textSecondary}
                 value={supabaseKeyInput}
                 onChangeText={setSupabaseKeyInput}
@@ -257,88 +269,116 @@ export default function SettingsPage({ onSignOut }: Props) {
                 secureTextEntry
               />
               <Text style={[s.hint, { color: colors.textSecondary }]}>
-                Supabase の「プロジェクト設定 → API」から取得できます。
+                {t.settings.supabaseHint}
               </Text>
               <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.accent }]} onPress={handleConnectSelfHosted} activeOpacity={0.8}>
-                <Text style={s.saveBtnText}>保存して接続</Text>
+                <Text style={s.saveBtnText}>{t.settings.saveAndConnect}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </>
       )}
 
-      {/* Account */}
-      <Text style={s.sectionTitle}>アカウント</Text>
+      <Text style={s.sectionTitle}>{t.settings.account}</Text>
       <View style={s.card}>
         <View style={s.row}>
-          <Text style={s.label}>メールアドレス</Text>
+          <Text style={s.label}>{t.settings.email}</Text>
           <Text style={s.value} numberOfLines={1}>{email ?? "—"}</Text>
         </View>
         <View style={s.separator} />
         <TouchableOpacity style={s.row} onPress={handleSignOut} activeOpacity={0.7}>
-          <Text style={[s.label, { color: colors.danger }]}>ログアウト</Text>
+          <Text style={[s.label, { color: colors.danger }]}>{t.settings.logout}</Text>
         </TouchableOpacity>
       </View>
     </SubPageWrap>
   );
 
-  // ── 使い方 ────────────────────────────────────────────────────────────────
+  if (subPage === "howto") {
+    const howToSections = [
+      {
+        title: t.settings.basicOperations,
+        items: [
+          { label: t.settings.tabSwitch, desc: t.settings.tabSwitchDesc },
+          { label: t.settings.refreshList, desc: t.settings.refreshListDesc },
+          { label: t.settings.editNote, desc: t.settings.editNoteDesc },
+          { label: t.settings.multiDelete, desc: t.settings.multiDeleteDesc },
+        ],
+      },
+      {
+        title: t.settings.tasksSection,
+        items: [
+          { label: t.settings.toggleDone, desc: t.settings.toggleDoneDesc },
+          { label: t.settings.setDueDate, desc: t.settings.setDueDateDesc },
+        ],
+      },
+      {
+        title: t.settings.tagsSection,
+        items: [
+          { label: t.settings.tagClassify, desc: t.settings.tagClassifyDesc },
+        ],
+      },
+    ];
 
-  if (subPage === "howto") return (
-    <SubPageWrap title="使い方">
-      {howToSections.map((section) => (
-        <View key={section.title}>
-          <Text style={s.sectionTitle}>{section.title}</Text>
-          <View style={s.card}>
-            {section.items.map((item, i) => (
-              <View key={i}>
-                {i > 0 && <View style={s.separator} />}
-                <View style={s.howToRow}>
-                  <Text style={s.howToLabel}>{item.label}</Text>
-                  <Text style={s.howToDesc}>{item.desc}</Text>
+    return (
+      <SubPageWrap title={t.settings.howToUse}>
+        {howToSections.map((section) => (
+          <View key={section.title}>
+            <Text style={s.sectionTitle}>{section.title}</Text>
+            <View style={s.card}>
+              {section.items.map((item, i) => (
+                <View key={i}>
+                  {i > 0 && <View style={s.separator} />}
+                  <View style={s.howToRow}>
+                    <Text style={s.howToLabel}>{item.label}</Text>
+                    <Text style={s.howToDesc}>{item.desc}</Text>
+                  </View>
                 </View>
-              </View>
-            ))}
-          </View>
-        </View>
-      ))}
-    </SubPageWrap>
-  );
-
-  // ── Floteについて ─────────────────────────────────────────────────────────
-
-  if (subPage === "about") return (
-    <SubPageWrap title="Floteについて">
-      <View style={s.aboutHeader}>
-        <FloteLogo size={64} />
-        <Text style={[s.aboutAppName, { color: colors.text }]}>Flote</Text>
-        <Text style={[s.aboutDesc, { color: colors.textSecondary }]}>
-          ショートカット起動のフローティングノート＆タスク管理アプリ。
-        </Text>
-      </View>
-      <Text style={s.sectionTitle}>法的情報</Text>
-      <View style={s.card}>
-        {legalItems.map((item, i) => (
-          <View key={item.label}>
-            {i > 0 && <View style={s.separator} />}
-            <TouchableOpacity style={s.row} onPress={() => Linking.openURL(item.url)} activeOpacity={0.7}>
-              <Text style={s.label}>{item.label}</Text>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
+              ))}
+            </View>
           </View>
         ))}
-      </View>
-    </SubPageWrap>
-  );
+      </SubPageWrap>
+    );
+  }
 
-  // ── メインメニュー ────────────────────────────────────────────────────────
+  if (subPage === "about") {
+    const legalItems = [
+      { label: t.settings.privacyPolicy, url: "https://example.com" },
+      { label: t.settings.terms, url: "https://example.com" },
+      { label: t.settings.license, url: "https://example.com" },
+    ];
+
+    return (
+      <SubPageWrap title={t.settings.about}>
+        <View style={s.aboutHeader}>
+          <FloteLogo size={64} />
+          <Text style={[s.aboutAppName, { color: colors.text }]}>Flote</Text>
+          <Text style={[s.aboutDesc, { color: colors.textSecondary }]}>
+            {t.settings.aboutDescription}
+          </Text>
+        </View>
+        <Text style={s.sectionTitle}>{t.settings.legal}</Text>
+        <View style={s.card}>
+          {legalItems.map((item, i) => (
+            <View key={item.label}>
+              {i > 0 && <View style={s.separator} />}
+              <TouchableOpacity style={s.row} onPress={() => Linking.openURL(item.url)} activeOpacity={0.7}>
+                <Text style={s.label}>{item.label}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      </SubPageWrap>
+    );
+  }
 
   type MenuItem = { key: SubPage; label: string; icon: keyof typeof Ionicons.glyphMap; desc?: string };
   const menuItems: MenuItem[] = [
-    { key: "general", label: "一般",          icon: "settings-outline",           desc: "テーマ・エディタ・検索・通知" },
-    { key: "howto",   label: "使い方",        icon: "help-circle-outline",        desc: "操作ガイド" },
-    { key: "storage", label: "保存先",        icon: "cloud-outline",              desc: customSupabaseUrl ? "カスタム接続" : "未設定" },
-    { key: "about",   label: "Floteについて", icon: "information-circle-outline" },
+    { key: "general", label: t.settings.general,  icon: "settings-outline",           desc: `${t.settings.theme} · ${t.settings.editor} · ${t.settings.search} · ${t.settings.notifications}` },
+    { key: "howto",   label: t.settings.howToUse, icon: "help-circle-outline",        desc: "操作ガイド" },
+    { key: "storage", label: t.settings.storage,  icon: "cloud-outline",              desc: customSupabaseUrl ? "カスタム接続" : "未設定" },
+    { key: "about",   label: t.settings.about,    icon: "information-circle-outline" },
   ];
 
   return (
@@ -348,7 +388,7 @@ export default function SettingsPage({ onSignOut }: Props) {
         <Text style={[s.appName, { color: colors.text }]}>Flote</Text>
       </View>
 
-      <Text style={s.sectionTitle}>設定</Text>
+      <Text style={s.sectionTitle}>{t.settings.settingsSection}</Text>
       <View style={s.card}>
         {menuItems.map((item, i) => (
           <View key={item.key}>
@@ -369,37 +409,6 @@ export default function SettingsPage({ onSignOut }: Props) {
     </ScrollView>
   );
 }
-
-const legalItems = [
-  { label: "プライバシーポリシー", url: "https://example.com" },
-  { label: "利用規約", url: "https://example.com" },
-  { label: "ライセンス (MIT)", url: "https://example.com" },
-];
-
-const howToSections = [
-  {
-    title: "基本操作",
-    items: [
-      { label: "タブの切り替え", desc: "左右にスワイプ、またはタブをタップ" },
-      { label: "リストを最新にする", desc: "リストを下に引っ張って放す（プルダウン更新）" },
-      { label: "ノートを編集する", desc: "リストからノートをタップ → 「編集」ボタン" },
-      { label: "複数選択して削除", desc: "リストのアイテムを長押し → チェックして「削除」" },
-    ],
-  },
-  {
-    title: "タスク",
-    items: [
-      { label: "完了切り替え", desc: "タスク一覧のチェックボックスをタップ" },
-      { label: "期日設定", desc: "タスク詳細画面のカレンダーアイコンをタップ" },
-    ],
-  },
-  {
-    title: "タグ",
-    items: [
-      { label: "#タグ で分類", desc: "ノートやタスクの本文に #タグ と書くと自動抽出され、リスト上部のドロップダウンでフィルターできます" },
-    ],
-  },
-];
 
 function makeStyles(colors: ReturnType<typeof import("../src/theme").useTheme>["colors"]) {
   return StyleSheet.create({

@@ -5,6 +5,8 @@ import { extractTags, allTagsFromNotes } from "../utils/tags";
 import { useT } from "../hooks/useT";
 import styles from "./NoteList.module.css";
 
+type SortOrder = "updated" | "title";
+
 type Props = {
   notes: Note[];
   activeNoteId: string | null;
@@ -30,6 +32,10 @@ export default function NoteList({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectMode = selectedIds.size > 0;
 
+  const [sortOrder, setSortOrder] = useState<SortOrder>("updated");
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const sortBtnRef = useRef<HTMLButtonElement>(null);
+
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);
   const [tagSearch, setTagSearch] = useState("");
   const tagBtnRef = useRef<HTMLDivElement>(null);
@@ -45,13 +51,28 @@ export default function NoteList({
     [allTags, tagSearch]
   );
 
-  const filteredNotes = useMemo(
-    () =>
-      activeTag
-        ? notes.filter((n) => extractTags(n.body_md).includes(activeTag))
-        : notes,
-    [notes, activeTag]
-  );
+  const filteredNotes = useMemo(() => {
+    const arr = activeTag
+      ? notes.filter((n) => extractTags(n.body_md).includes(activeTag))
+      : [...notes];
+    if (sortOrder === "title") {
+      arr.sort((a, b) => (a.title ?? "").localeCompare(b.title ?? "", "ja"));
+    } else {
+      arr.sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
+    }
+    return arr;
+  }, [notes, activeTag, sortOrder]);
+
+  useEffect(() => {
+    if (!sortMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (sortBtnRef.current && !sortBtnRef.current.closest("[data-sort-menu]")?.contains(e.target as Node)) {
+        setSortMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [sortMenuOpen]);
 
   useEffect(() => {
     if (!tagDropdownOpen) return;
@@ -129,6 +150,36 @@ export default function NoteList({
           <button className={styles.newButton} onClick={onNew}>
             {t.noteList.newNote}
           </button>
+
+          {/* Sort menu */}
+          <div className={styles.sortWrap} data-sort-menu="">
+            <button
+              ref={sortBtnRef}
+              className={`${styles.sortBtn} ${sortMenuOpen ? styles.sortBtnOpen : ""}`}
+              onClick={() => setSortMenuOpen((v) => !v)}
+              title={t.noteList.sort}
+            >
+              ⇅
+            </button>
+            {sortMenuOpen && (
+              <div className={styles.sortDropdown}>
+                {(
+                  [
+                    { key: "updated" as SortOrder, label: t.noteList.sortByUpdated },
+                    { key: "title" as SortOrder, label: t.noteList.sortByTitle },
+                  ]
+                ).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    className={`${styles.sortOption} ${sortOrder === key ? styles.sortOptionActive : ""}`}
+                    onClick={() => { setSortOrder(key); setSortMenuOpen(false); }}
+                  >
+                    {sortOrder === key && "✓ "}{label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {allTags.length > 0 && (
             <div className={styles.tagDropdownWrap} ref={tagBtnRef}>

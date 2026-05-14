@@ -6,6 +6,7 @@ import {
   type DarkCodeTheme,
   type LightCodeTheme,
 } from "@flote/types";
+import type { Language } from "../i18n";
 
 export type { DarkCodeTheme, LightCodeTheme };
 export { DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS };
@@ -17,6 +18,7 @@ const CODE_THEME_DARK_KEY = "flote_code_theme_dark";
 const CODE_THEME_LIGHT_KEY = "flote_code_theme_light";
 const CUSTOM_SUPABASE_URL_KEY = "flote_custom_supabase_url";
 const CUSTOM_SUPABASE_KEY_KEY = "flote_custom_supabase_key";
+const LANGUAGE_KEY = "flote_language";
 const DEFAULT_REMINDER_HOUR = 9;
 
 type SettingsStore = {
@@ -27,6 +29,7 @@ type SettingsStore = {
   codeThemeLight: LightCodeTheme;
   customSupabaseUrl: string;
   customSupabaseAnonKey: string;
+  language: Language;
   setReminderHour: (hour: number) => Promise<void>;
   setSearchFullText: (v: boolean) => Promise<void>;
   setHideCompletedTasks: (v: boolean) => Promise<void>;
@@ -34,6 +37,7 @@ type SettingsStore = {
   setCodeThemeLight: (theme: LightCodeTheme) => Promise<void>;
   setCustomSupabase: (url: string, anonKey: string) => Promise<void>;
   clearCustomSupabase: () => Promise<void>;
+  setLanguage: (lang: Language) => Promise<void>;
   loadSettings: () => Promise<void>;
 };
 
@@ -45,6 +49,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   codeThemeLight: "github",
   customSupabaseUrl: "",
   customSupabaseAnonKey: "",
+  language: "ja",
 
   setReminderHour: async (hour) => {
     set({ reminderHour: hour });
@@ -83,11 +88,17 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     await SecureStore.deleteItemAsync(CUSTOM_SUPABASE_KEY_KEY);
   },
 
+  setLanguage: async (lang) => {
+    set({ language: lang });
+    await SecureStore.setItemAsync(LANGUAGE_KEY, lang);
+  },
+
   loadSettings: async () => {
     const [
       hourStr, searchStr, hideCompletedStr,
       darkThemeStr, lightThemeStr,
       customUrlStr, customKeyStr,
+      languageStr,
     ] = await Promise.all([
       SecureStore.getItemAsync(REMINDER_HOUR_KEY),
       SecureStore.getItemAsync(SEARCH_FULL_TEXT_KEY),
@@ -96,6 +107,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       SecureStore.getItemAsync(CODE_THEME_LIGHT_KEY),
       SecureStore.getItemAsync(CUSTOM_SUPABASE_URL_KEY),
       SecureStore.getItemAsync(CUSTOM_SUPABASE_KEY_KEY),
+      SecureStore.getItemAsync(LANGUAGE_KEY),
     ]);
     const next: Partial<SettingsStore> = {};
     if (hourStr !== null) {
@@ -108,6 +120,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     if (lightThemeStr !== null) next.codeThemeLight = lightThemeStr as LightCodeTheme;
     if (customUrlStr !== null) next.customSupabaseUrl = customUrlStr;
     if (customKeyStr !== null) next.customSupabaseAnonKey = customKeyStr;
+    if (languageStr === "ja" || languageStr === "en") next.language = languageStr;
     if (Object.keys(next).length > 0) set(next as SettingsStore);
   },
 }));

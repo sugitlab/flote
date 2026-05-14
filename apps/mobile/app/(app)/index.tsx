@@ -15,6 +15,7 @@ import { useTheme } from "../../src/theme";
 import { useNoteStore } from "../../src/store/noteStore";
 import { useTaskStore } from "../../src/store/taskStore";
 import { supabase } from "../../src/lib/supabase";
+import { useT } from "../../src/hooks/useT";
 import NotesList from "../../components/NotesList";
 import TasksList from "../../components/TasksList";
 import SettingsPage from "../../components/SettingsPage";
@@ -38,12 +39,12 @@ function generateId(): string {
   return id;
 }
 
-const TABS = ["ノート", "タスク", "設定"] as const;
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const t = useT();
   const scrollRef = useRef<ScrollView>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [userId, setUserId] = useState<string | null>(null);
@@ -81,13 +82,13 @@ export default function HomeScreen() {
         await saveNote(newNote, userId);
         router.push(`/(app)/notes/${newNote.id}?edit=1` as never);
       } catch {
-        Alert.alert("エラー", "ノートの作成に失敗しました");
+        Alert.alert(t.auth.error, t.notes.createFailed);
       }
     } else {
       const now = new Date().toISOString();
       const newTask: Task = {
         id: generateId(),
-        title: "新しいタスク",
+        title: t.tasks.newTaskTitle,
         body_md: "",
         due_date: null,
         done: false,
@@ -97,7 +98,7 @@ export default function HomeScreen() {
         await saveTask(newTask, userId);
         router.push(`/(app)/tasks/${newTask.id}?edit=1` as never);
       } catch {
-        Alert.alert("エラー", "タスクの作成に失敗しました");
+        Alert.alert(t.auth.error, t.tasks.createFailed);
       }
     }
   }, [userId, activeTab, saveNote, saveTask]);
@@ -113,7 +114,7 @@ export default function HomeScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: TABS[activeTab],
+          title: [t.nav.notes, t.nav.tasks, t.nav.settings][activeTab],
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerShadowVisible: false,
@@ -138,7 +139,7 @@ export default function HomeScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Tab bar */}
         <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
-          {TABS.map((label, i) => (
+          {([t.nav.notes, t.nav.tasks, t.nav.settings] as string[]).map((label, i) => (
             <TouchableOpacity
               key={label}
               style={[

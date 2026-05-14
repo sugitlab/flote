@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../../src/theme";
 import { useTaskStore } from "../../../src/store/taskStore";
 import { supabase } from "../../../src/lib/supabase";
+import { useT } from "../../../src/hooks/useT";
 import type { Task } from "@flote/types";
 
 function generateUUID(): string {
@@ -38,6 +39,7 @@ function generateUUID(): string {
 export default function NewTaskScreen() {
   const { colors } = useTheme();
   const router = useRouter();
+  const t = useT();
   const saveTask = useTaskStore((s) => s.saveTask);
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState<Date | null>(null);
@@ -68,7 +70,7 @@ export default function NewTaskScreen() {
       await saveTask(task, userId);
       router.back();
     } catch {
-      Alert.alert("エラー", "タスクの作成に失敗しました");
+      Alert.alert(t.auth.error, t.tasks.createFailed);
     } finally {
       setLoading(false);
     }
@@ -83,14 +85,14 @@ export default function NewTaskScreen() {
     <>
       <Stack.Screen
         options={{
-          title: "新しいタスク",
+          title: t.tasks.newTaskTitle,
           presentation: "modal",
           headerShown: true,
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()}>
-              <Text style={{ color: colors.accent, fontSize: 16 }}>キャンセル</Text>
+              <Text style={{ color: colors.accent, fontSize: 16 }}>{t.common.cancel}</Text>
             </TouchableOpacity>
           ),
           headerRight: () => (
@@ -105,7 +107,7 @@ export default function NewTaskScreen() {
                     fontWeight: "600",
                   }}
                 >
-                  追加
+                  {t.tasks.add}
                 </Text>
               )}
             </TouchableOpacity>
@@ -118,7 +120,7 @@ export default function NewTaskScreen() {
       >
         <TextInput
           style={[styles.input, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
-          placeholder="タスク名"
+          placeholder={t.tasks.namePlaceholder}
           placeholderTextColor={colors.textSecondary}
           value={title}
           onChangeText={setTitle}
@@ -131,7 +133,7 @@ export default function NewTaskScreen() {
         >
           <Ionicons name="calendar-outline" size={20} color={colors.textSecondary} />
           <Text style={[styles.dateText, { color: dueDate ? colors.text : colors.textSecondary }]}>
-            {dueDate ? dueDate.toISOString().split("T")[0] : "期日を設定（任意）"}
+            {dueDate ? dueDate.toISOString().split("T")[0] : t.tasks.setDueDateOptional}
           </Text>
           {dueDate && (
             <TouchableOpacity onPress={() => setDueDate(null)}>

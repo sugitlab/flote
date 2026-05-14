@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import type { Task } from "@flote/types";
 import { extractTags, allTagsFromTasks } from "../utils/tags";
+import { relativeDate } from "../utils/date";
 import { useT } from "../hooks/useT";
 
 type SortOrder = "updated" | "due";
@@ -28,11 +29,6 @@ function isOverdue(task: Task): boolean {
   return task.due_date < todayStr();
 }
 
-function formatDate(date: string | null): string {
-  if (!date) return "";
-  const d = new Date(date + "T00:00:00");
-  return d.toLocaleDateString("ja-JP", { month: "short", day: "numeric" });
-}
 
 type Group = { label: string; tasks: Task[]; danger?: boolean };
 
@@ -245,7 +241,7 @@ export default function TaskList({
           </span>
           {task.due_date && !task.done && (
             <span className={`text-[10px] shrink-0 whitespace-nowrap ${overdue ? "text-[var(--danger)]" : "text-[var(--text-muted)]"}`}>
-              {formatDate(task.due_date)}
+              {relativeDate(task.due_date!, t.date)}
             </span>
           )}
         </div>

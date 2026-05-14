@@ -16,11 +16,13 @@ import { useTheme } from "../../src/theme";
 import { supabase, reinitSupabase, defaultUrl, defaultKey } from "../../src/lib/supabase";
 import { useSettingsStore } from "../../src/store/settingsStore";
 import FloteLogo from "../../components/FloteLogo";
+import { useT } from "../../src/hooks/useT";
 
 type ScreenView = "login" | "selfhosted-setup";
 
 export default function AuthScreen() {
   const { colors } = useTheme();
+  const t = useT();
   const customSupabaseUrl = useSettingsStore((s) => s.customSupabaseUrl);
   const customSupabaseAnonKey = useSettingsStore((s) => s.customSupabaseAnonKey);
   const setCustomSupabase = useSettingsStore((s) => s.setCustomSupabase);
@@ -36,7 +38,7 @@ export default function AuthScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("エラー", "メールアドレスとパスワードを入力してください");
+      Alert.alert(t.auth.error, t.auth.emptyFields);
       return;
     }
     setLoading(true);
@@ -44,7 +46,7 @@ export default function AuthScreen() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
     } catch (e: unknown) {
-      Alert.alert("エラー", e instanceof Error ? e.message : "ログインに失敗しました");
+      Alert.alert(t.auth.error, e instanceof Error ? e.message : t.auth.loginFailed);
     } finally {
       setLoading(false);
     }
@@ -60,7 +62,7 @@ export default function AuthScreen() {
     const url = urlInput.trim();
     const key = keyInput.trim();
     if (!url || !key) {
-      Alert.alert("エラー", "Supabase URLとAnon Keyを入力してください");
+      Alert.alert(t.auth.error, t.auth.emptySupabaseFields);
       return;
     }
     await setCustomSupabase(url, key);
@@ -82,17 +84,17 @@ export default function AuthScreen() {
         <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">
           <TouchableOpacity onPress={() => setView("login")} style={s.backRow}>
             <Ionicons name="chevron-back" size={22} color={colors.accent} />
-            <Text style={[s.backText, { color: colors.accent }]}>ログインに戻る</Text>
+            <Text style={[s.backText, { color: colors.accent }]}>{t.auth.backToLogin}</Text>
           </TouchableOpacity>
 
-          <Text style={[s.setupTitle, { color: colors.text }]}>セルフホスト版の設定</Text>
+          <Text style={[s.setupTitle, { color: colors.text }]}>{t.auth.selfHostedSetupTitle}</Text>
           <Text style={[s.setupDesc, { color: colors.textSecondary }]}>
-            自分でホストしたSupabaseのURLとAnon Keyを入力してください。サインアップはDesktop版で事前に行ってください。
+            {t.auth.selfHostedSetupDesc}
           </Text>
 
           <TextInput
             style={[s.input, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
-            placeholder="Supabase URL (https://...)"
+            placeholder={t.auth.supabaseUrlPlaceholder}
             placeholderTextColor={colors.textSecondary}
             value={urlInput}
             onChangeText={setUrlInput}
@@ -101,7 +103,7 @@ export default function AuthScreen() {
           />
           <TextInput
             style={[s.input, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
-            placeholder="Anon Key"
+            placeholder={t.auth.supabaseKeyPlaceholder}
             placeholderTextColor={colors.textSecondary}
             value={keyInput}
             onChangeText={setKeyInput}
@@ -113,7 +115,7 @@ export default function AuthScreen() {
             style={[s.button, { backgroundColor: colors.accent }]}
             onPress={handleSaveSelfHosted}
           >
-            <Text style={s.buttonText}>設定してログインに戻る</Text>
+            <Text style={s.buttonText}>{t.auth.saveAndReturn}</Text>
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -131,14 +133,14 @@ export default function AuthScreen() {
           <Text style={[s.title, { color: colors.text }]}>Flote</Text>
           {isSelfHosted && (
             <View style={[s.badge, { borderColor: colors.accent }]}>
-              <Text style={[s.badgeText, { color: colors.accent }]}>セルフホスト版</Text>
+              <Text style={[s.badgeText, { color: colors.accent }]}>{t.auth.selfHostedBadge}</Text>
             </View>
           )}
         </View>
 
         <TextInput
           style={[s.input, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
-          placeholder="メールアドレス"
+          placeholder={t.auth.emailPlaceholder}
           placeholderTextColor={colors.textSecondary}
           value={email}
           onChangeText={setEmail}
@@ -148,7 +150,7 @@ export default function AuthScreen() {
         />
         <TextInput
           style={[s.input, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
-          placeholder="パスワード"
+          placeholder={t.auth.passwordPlaceholder}
           placeholderTextColor={colors.textSecondary}
           value={password}
           onChangeText={setPassword}
@@ -163,25 +165,25 @@ export default function AuthScreen() {
         >
           {loading
             ? <ActivityIndicator color="#fff" />
-            : <Text style={s.buttonText}>ログイン</Text>}
+            : <Text style={s.buttonText}>{t.auth.login}</Text>}
         </TouchableOpacity>
 
         <Text style={[s.note, { color: colors.textSecondary }]}>
-          サインアップはDesktop版で行ってください
+          {t.auth.signupNote}
         </Text>
 
         <View style={[s.divider, { backgroundColor: colors.border }]} />
 
         <TouchableOpacity style={s.linkRow} onPress={openSelfHostedSetup}>
           <Text style={[s.linkText, { color: colors.accent }]}>
-            {isSelfHosted ? "セルフホスト版の接続設定を変更する" : "セルフホスト版を利用したい場合はこちら"}
+            {isSelfHosted ? t.auth.changeSettings : t.auth.selfHostedLink}
           </Text>
           <Ionicons name="chevron-forward" size={14} color={colors.accent} />
         </TouchableOpacity>
 
         {isSelfHosted && (
           <TouchableOpacity style={s.linkRow} onPress={handleResetToCloud}>
-            <Text style={[s.linkText, { color: colors.textSecondary }]}>クラウド版に切り替える</Text>
+            <Text style={[s.linkText, { color: colors.textSecondary }]}>{t.auth.switchToCloud}</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
