@@ -11,7 +11,7 @@ import {
 } from "@expo-google-fonts/noto-sans-jp";
 import * as Notifications from "expo-notifications";
 import type { Session } from "@supabase/supabase-js";
-import { supabase, reinitSupabase } from "../src/lib/supabase";
+import { supabase, reinitSupabase, addReinitListener } from "../src/lib/supabase";
 import { useThemeStore } from "../src/theme";
 import { useSettingsStore } from "../src/store/settingsStore";
 import { setupNotifications } from "../src/lib/notifications";
@@ -19,6 +19,9 @@ import { setupNotifications } from "../src/lib/notifications";
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [initialized, setInitialized] = useState(false);
+  // Increments each time reinitSupabase is called, causing the auth listener
+  // effect below to re-subscribe to the new Supabase client.
+  const [clientVersion, setClientVersion] = useState(0);
   const router = useRouter();
   const segments = useSegments();
   const [fontsLoaded] = useFonts({
@@ -41,7 +44,6 @@ export default function RootLayout() {
 
   useEffect(() => {
     setupNotifications();
-    // Load settings first so custom Supabase config can be applied before auth
     loadSettings().then(() => {
       const { customSupabaseUrl, customSupabaseAnonKey } = useSettingsStore.getState();
       if (customSupabaseUrl && customSupabaseAnonKey) {
@@ -59,19 +61,26 @@ export default function RootLayout() {
     return () => notifListenerRef.current?.remove();
   }, []);
 
+  // Re-subscribe to onAuthStateChange whenever the Supabase client is replaced.
+  useEffect(() => {
+    return addReinitListener(() => setClientVersion((v) => v + 1));
+  }, []);
+
   useEffect(() => {
     loadMode();
   }, []);
 
+  // Re-runs when clientVersion changes (i.e. after reinitSupabase),
+  // attaching the listener to the new client.
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
         setSession(session);
-        if (!initialized) setInitialized(true);
+        setInitialized(true);
       }
     );
     return () => subscription.unsubscribe();
-  }, []);
+  }, [clientVersion]);
 
   useEffect(() => {
     if (!initialized) return;

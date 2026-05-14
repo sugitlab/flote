@@ -14,7 +14,7 @@ import { useTheme } from "../src/theme";
 import { useNoteStore } from "../src/store/noteStore";
 import { useSettingsStore } from "../src/store/settingsStore";
 import { extractTags, allTags } from "../src/tagUtils";
-import { TagFilterDropdown, TagChips } from "./TagFilterDropdown";
+import { TagFilterIcon, SortIcon, TagChips } from "./TagFilterDropdown";
 import type { Note } from "@flote/types";
 
 function relativeDate(dateStr: string): string {
@@ -52,6 +52,7 @@ export default function NotesList({ userId }: Props) {
   const searchFullText = useSettingsStore((s) => s.searchFullText);
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<"updated" | "title">("updated");
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -62,14 +63,22 @@ export default function NotesList({ userId }: Props) {
   const filtered = useMemo(() => {
     let result = notes;
     if (selectedTag) result = result.filter((n) => extractTags((n.title ?? "") + " " + n.body_md).includes(selectedTag));
-    if (!search) return result;
-    const q = search.toLowerCase();
-    return result.filter((n) => {
-      if (extractTitle(n).toLowerCase().includes(q)) return true;
-      if (searchFullText && n.body_md.toLowerCase().includes(q)) return true;
-      return false;
-    });
-  }, [notes, search, searchFullText, selectedTag]);
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((n) => {
+        if (extractTitle(n).toLowerCase().includes(q)) return true;
+        if (searchFullText && n.body_md.toLowerCase().includes(q)) return true;
+        return false;
+      });
+    }
+    const arr = [...result];
+    if (sortOrder === "title") {
+      arr.sort((a, b) => extractTitle(a).localeCompare(extractTitle(b), "ja"));
+    } else {
+      arr.sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
+    }
+    return arr;
+  }, [notes, search, searchFullText, selectedTag, sortOrder]);
 
   const handleRefresh = useCallback(() => { if (userId) fetchNotes(userId); }, [userId]);
 
@@ -148,25 +157,34 @@ export default function NotesList({ userId }: Props) {
           </TouchableOpacity>
         </View>
       ) : (
-        <View style={[styles.searchWrap, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="検索..."
-            placeholderTextColor={colors.textSecondary}
-            value={search}
-            onChangeText={setSearch}
+        <View style={styles.searchRow}>
+          <View style={[styles.searchWrap, { backgroundColor: colors.surface, borderColor: colors.border }]}>
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder="検索..."
+              placeholderTextColor={colors.textSecondary}
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <View style={[styles.clearBtn, { backgroundColor: colors.textSecondary }]}>
+                  <Text style={styles.clearBtnText}>✕</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+          <TagFilterIcon tags={tags} selectedTag={selectedTag} onSelect={setSelectedTag} />
+          <SortIcon
+            options={[
+              { key: "updated", label: "更新日時" },
+              { key: "title",   label: "タイトル" },
+            ]}
+            value={sortOrder}
+            onChange={(v) => setSortOrder(v as "updated" | "title")}
           />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch("")} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <View style={[styles.clearBtn, { backgroundColor: colors.textSecondary }]}>
-                <Text style={styles.clearBtnText}>✕</Text>
-              </View>
-            </TouchableOpacity>
-          )}
         </View>
       )}
-
-      {!selectMode && <TagFilterDropdown tags={tags} selectedTag={selectedTag} onSelect={setSelectedTag} />}
 
       <FlatList
         data={filtered}
@@ -203,7 +221,8 @@ export default function NotesList({ userId }: Props) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  searchWrap: { flexDirection: "row", alignItems: "center", height: 40, marginHorizontal: 16, marginTop: 8, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12 },
+  searchRow: { flexDirection: "row", alignItems: "center", marginHorizontal: 16, marginTop: 8, gap: 8 },
+  searchWrap: { flex: 1, flexDirection: "row", alignItems: "center", height: 40, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12 },
   searchInput: { flex: 1, fontSize: 15, paddingVertical: 0 },
   clearBtn: { width: 18, height: 18, borderRadius: 9, alignItems: "center", justifyContent: "center" },
   clearBtnText: { color: "#fff", fontSize: 10, fontWeight: "bold", lineHeight: 12 },

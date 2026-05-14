@@ -164,6 +164,15 @@ export default function TaskDetailScreen() {
           title: "",
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
+          headerLeft: () => (
+            <TouchableOpacity
+              onPress={() => router.back()}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={{ marginRight: 8 }}
+            >
+              <Ionicons name="chevron-back" size={28} color={colors.text} />
+            </TouchableOpacity>
+          ),
           headerRight: () => (
             <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
               <TouchableOpacity onPress={handleConvertToNote} style={{ marginRight: 4 }}>

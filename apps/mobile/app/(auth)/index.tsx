@@ -9,74 +9,135 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
+  ScrollView,
 } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../src/theme";
-import { supabase } from "../../src/lib/supabase";
+import { supabase, reinitSupabase, defaultUrl, defaultKey } from "../../src/lib/supabase";
+import { useSettingsStore } from "../../src/store/settingsStore";
 import FloteLogo from "../../components/FloteLogo";
 
-type Mode = "login" | "signup";
+type ScreenView = "login" | "selfhosted-setup";
 
 export default function AuthScreen() {
   const { colors } = useTheme();
-  const [mode, setMode] = useState<Mode>("login");
+  const customSupabaseUrl = useSettingsStore((s) => s.customSupabaseUrl);
+  const customSupabaseAnonKey = useSettingsStore((s) => s.customSupabaseAnonKey);
+  const setCustomSupabase = useSettingsStore((s) => s.setCustomSupabase);
+  const clearCustomSupabase = useSettingsStore((s) => s.clearCustomSupabase);
+  const isSelfHosted = !!customSupabaseUrl;
+
+  const [view, setView] = useState<ScreenView>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
+  const [keyInput, setKeyInput] = useState("");
 
-  const handleSubmit = async () => {
+  const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("エラー", "メールアドレスとパスワードを入力してください");
       return;
     }
     setLoading(true);
     try {
-      if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        Alert.alert("確認", "確認メールを送信しました。メールを確認してください。");
-      }
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
     } catch (e: unknown) {
-      Alert.alert("エラー", e instanceof Error ? e.message : "認証に失敗しました");
+      Alert.alert("エラー", e instanceof Error ? e.message : "ログインに失敗しました");
     } finally {
       setLoading(false);
     }
   };
 
+  const openSelfHostedSetup = () => {
+    setUrlInput(customSupabaseUrl);
+    setKeyInput(customSupabaseAnonKey);
+    setView("selfhosted-setup");
+  };
+
+  const handleSaveSelfHosted = async () => {
+    const url = urlInput.trim();
+    const key = keyInput.trim();
+    if (!url || !key) {
+      Alert.alert("エラー", "Supabase URLとAnon Keyを入力してください");
+      return;
+    }
+    await setCustomSupabase(url, key);
+    reinitSupabase(url, key);
+    setView("login");
+  };
+
+  const handleResetToCloud = async () => {
+    await clearCustomSupabase();
+    reinitSupabase(defaultUrl, defaultKey);
+  };
+
+  if (view === "selfhosted-setup") {
+    return (
+      <KeyboardAvoidingView
+        style={[s.container, { backgroundColor: colors.background }]}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">
+          <TouchableOpacity onPress={() => setView("login")} style={s.backRow}>
+            <Ionicons name="chevron-back" size={22} color={colors.accent} />
+            <Text style={[s.backText, { color: colors.accent }]}>ログインに戻る</Text>
+          </TouchableOpacity>
+
+          <Text style={[s.setupTitle, { color: colors.text }]}>セルフホスト版の設定</Text>
+          <Text style={[s.setupDesc, { color: colors.textSecondary }]}>
+            自分でホストしたSupabaseのURLとAnon Keyを入力してください。サインアップはDesktop版で事前に行ってください。
+          </Text>
+
+          <TextInput
+            style={[s.input, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
+            placeholder="Supabase URL (https://...)"
+            placeholderTextColor={colors.textSecondary}
+            value={urlInput}
+            onChangeText={setUrlInput}
+            autoCapitalize="none"
+            keyboardType="url"
+          />
+          <TextInput
+            style={[s.input, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
+            placeholder="Anon Key"
+            placeholderTextColor={colors.textSecondary}
+            value={keyInput}
+            onChangeText={setKeyInput}
+            autoCapitalize="none"
+            multiline
+          />
+
+          <TouchableOpacity
+            style={[s.button, { backgroundColor: colors.accent }]}
+            onPress={handleSaveSelfHosted}
+          >
+            <Text style={s.buttonText}>設定してログインに戻る</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={[s.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      <View style={styles.inner}>
-        <View style={styles.logoWrap}>
+      <ScrollView contentContainerStyle={s.inner} keyboardShouldPersistTaps="handled">
+        <View style={s.logoWrap}>
           <FloteLogo size={72} />
-          <Text style={[styles.title, { color: colors.text }]}>Flote</Text>
-        </View>
-
-        <View style={[styles.segmented, { backgroundColor: colors.surface }]}>
-          <TouchableOpacity
-            style={[styles.segment, mode === "login" && { backgroundColor: colors.accent }]}
-            onPress={() => setMode("login")}
-          >
-            <Text style={[styles.segmentText, { color: mode === "login" ? "#fff" : colors.text }]}>
-              ログイン
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.segment, mode === "signup" && { backgroundColor: colors.accent }]}
-            onPress={() => setMode("signup")}
-          >
-            <Text style={[styles.segmentText, { color: mode === "signup" ? "#fff" : colors.text }]}>
-              サインアップ
-            </Text>
-          </TouchableOpacity>
+          <Text style={[s.title, { color: colors.text }]}>Flote</Text>
+          {isSelfHosted && (
+            <View style={[s.badge, { borderColor: colors.accent }]}>
+              <Text style={[s.badgeText, { color: colors.accent }]}>セルフホスト版</Text>
+            </View>
+          )}
         </View>
 
         <TextInput
-          style={[styles.input, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[s.input, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
           placeholder="メールアドレス"
           placeholderTextColor={colors.textSecondary}
           value={email}
@@ -86,7 +147,7 @@ export default function AuthScreen() {
           textContentType="emailAddress"
         />
         <TextInput
-          style={[styles.input, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[s.input, { color: colors.text, backgroundColor: colors.surface, borderColor: colors.border }]}
           placeholder="パスワード"
           placeholderTextColor={colors.textSecondary}
           value={password}
@@ -96,50 +157,54 @@ export default function AuthScreen() {
         />
 
         <TouchableOpacity
-          style={[styles.button, { backgroundColor: colors.accent }]}
-          onPress={handleSubmit}
+          style={[s.button, { backgroundColor: colors.accent }]}
+          onPress={handleLogin}
           disabled={loading}
         >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>
-              {mode === "login" ? "ログイン" : "サインアップ"}
-            </Text>
-          )}
+          {loading
+            ? <ActivityIndicator color="#fff" />
+            : <Text style={s.buttonText}>ログイン</Text>}
         </TouchableOpacity>
-      </View>
+
+        <Text style={[s.note, { color: colors.textSecondary }]}>
+          サインアップはDesktop版で行ってください
+        </Text>
+
+        <View style={[s.divider, { backgroundColor: colors.border }]} />
+
+        <TouchableOpacity style={s.linkRow} onPress={openSelfHostedSetup}>
+          <Text style={[s.linkText, { color: colors.accent }]}>
+            {isSelfHosted ? "セルフホスト版の接続設定を変更する" : "セルフホスト版を利用したい場合はこちら"}
+          </Text>
+          <Ionicons name="chevron-forward" size={14} color={colors.accent} />
+        </TouchableOpacity>
+
+        {isSelfHosted && (
+          <TouchableOpacity style={s.linkRow} onPress={handleResetToCloud}>
+            <Text style={[s.linkText, { color: colors.textSecondary }]}>クラウド版に切り替える</Text>
+          </TouchableOpacity>
+        )}
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center" },
-  inner: { paddingHorizontal: 32 },
-  logoWrap: { alignItems: "center", gap: 20, marginBottom: 40 },
-  title: { fontSize: 28, fontWeight: "700", textAlign: "center" },
-  segmented: {
-    flexDirection: "row",
-    borderRadius: 8,
-    marginBottom: 24,
-    overflow: "hidden",
-  },
-  segment: { flex: 1, paddingVertical: 10, alignItems: "center" },
-  segmentText: { fontSize: 15, fontWeight: "600" },
-  input: {
-    height: 48,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    fontSize: 16,
-    marginBottom: 12,
-  },
-  button: {
-    height: 48,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 8,
-  },
+const s = StyleSheet.create({
+  container: { flex: 1 },
+  inner: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 32, paddingVertical: 48 },
+  logoWrap: { alignItems: "center", gap: 12, marginBottom: 40 },
+  title: { fontSize: 28, fontWeight: "700" },
+  badge: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 3, marginTop: 4 },
+  badgeText: { fontSize: 12, fontWeight: "600" },
+  input: { height: 48, borderWidth: 1, borderRadius: 8, paddingHorizontal: 14, fontSize: 16, marginBottom: 12 },
+  button: { height: 48, borderRadius: 8, alignItems: "center", justifyContent: "center", marginTop: 4 },
   buttonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
+  note: { fontSize: 13, textAlign: "center", marginTop: 16 },
+  divider: { height: StyleSheet.hairlineWidth, marginVertical: 24 },
+  linkRow: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 6 },
+  linkText: { fontSize: 14 },
+  backRow: { flexDirection: "row", alignItems: "center", gap: 4, marginBottom: 32 },
+  backText: { fontSize: 16 },
+  setupTitle: { fontSize: 22, fontWeight: "700", marginBottom: 12 },
+  setupDesc: { fontSize: 14, lineHeight: 20, marginBottom: 24 },
 });

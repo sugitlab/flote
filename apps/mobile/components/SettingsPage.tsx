@@ -14,7 +14,7 @@ import * as Notifications from "expo-notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme, useThemeStore, type ThemeMode } from "../src/theme";
 import { useSettingsStore, DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS } from "../src/store/settingsStore";
-import { reinitSupabase } from "../src/lib/supabase";
+import { reinitSupabase, defaultUrl, defaultKey } from "../src/lib/supabase";
 import Dropdown from "./Dropdown";
 import { useTaskStore } from "../src/store/taskStore";
 import { rescheduleAllReminders } from "../src/lib/notifications";
@@ -39,13 +39,21 @@ export default function SettingsPage({ onSignOut }: Props) {
   const setCodeThemeDark = useSettingsStore((s) => s.setCodeThemeDark);
   const setCodeThemeLight = useSettingsStore((s) => s.setCodeThemeLight);
   const customSupabaseUrl = useSettingsStore((s) => s.customSupabaseUrl);
+  const customSupabaseAnonKey = useSettingsStore((s) => s.customSupabaseAnonKey);
   const setCustomSupabase = useSettingsStore((s) => s.setCustomSupabase);
+  const clearCustomSupabase = useSettingsStore((s) => s.clearCustomSupabase);
+  const isSelfHosted = !!customSupabaseUrl;
+  const [storageMode, setStorageMode] = useState<"cloud" | "selfhosted">(isSelfHosted ? "selfhosted" : "cloud");
   const [supabaseUrlInput, setSupabaseUrlInput] = useState(customSupabaseUrl);
-  const [supabaseKeyInput, setSupabaseKeyInput] = useState(useSettingsStore.getState().customSupabaseAnonKey);
+  const [supabaseKeyInput, setSupabaseKeyInput] = useState(customSupabaseAnonKey);
   const tasks = useTaskStore((s) => s.tasks);
   const [email, setEmail] = useState<string | null>(null);
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [subPage, setSubPage] = useState<SubPage>(null);
+
+  useEffect(() => {
+    setStorageMode(isSelfHosted ? "selfhosted" : "cloud");
+  }, [isSelfHosted]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null));
@@ -75,7 +83,7 @@ export default function SettingsPage({ onSignOut }: Props) {
     ]);
   }, [onSignOut]);
 
-  const handleSaveSupabase = useCallback(async () => {
+  const handleConnectSelfHosted = useCallback(async () => {
     const url = supabaseUrlInput.trim();
     const key = supabaseKeyInput.trim();
     if (!url || !key) { Alert.alert("入力エラー", "URLとAnon Keyの両方を入力してください。"); return; }
@@ -85,27 +93,40 @@ export default function SettingsPage({ onSignOut }: Props) {
     Alert.alert("接続先を変更しました", "新しいSupabaseに接続しました。再度ログインしてください。");
   }, [supabaseUrlInput, supabaseKeyInput, setCustomSupabase]);
 
-  const handleClearSupabase = useCallback(() => {
-    Alert.alert("接続設定を削除", "カスタム接続設定を削除しますか？", [
+  const handleSwitchToCloud = useCallback(() => {
+    if (!isSelfHosted) {
+      setStorageMode("cloud");
+      return;
+    }
+    Alert.alert("クラウド版に切り替え", "クラウド版に切り替えます。ログアウトされます。", [
       { text: "キャンセル", style: "cancel" },
-      { text: "削除", style: "destructive", onPress: async () => {
-        await setCustomSupabase("", "");
+      { text: "切り替える", style: "destructive", onPress: async () => {
+        await clearCustomSupabase();
         setSupabaseUrlInput("");
         setSupabaseKeyInput("");
+        reinitSupabase(defaultUrl, defaultKey);
         await supabase.auth.signOut();
       }},
     ]);
-  }, [setCustomSupabase]);
+  }, [isSelfHosted, clearCustomSupabase]);
+
+  const handleSwitchToSelfHosted = useCallback(() => {
+    setSupabaseUrlInput(useSettingsStore.getState().customSupabaseUrl);
+    setSupabaseKeyInput(useSettingsStore.getState().customSupabaseAnonKey);
+    setStorageMode("selfhosted");
+  }, []);
 
   const s = makeStyles(colors);
 
   const SubPageWrap = ({ title, children }: { title: string; children: React.ReactNode }) => (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <TouchableOpacity style={[s.backBar, { borderBottomColor: colors.border }]} onPress={() => setSubPage(null)} activeOpacity={0.7}>
-        <Ionicons name="chevron-back" size={22} color={colors.accent} />
-        <Text style={[s.backLabel, { color: colors.accent }]}>設定</Text>
+      <View style={[s.backBar, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => setSubPage(null)} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={s.backBtn}>
+          <Ionicons name="chevron-back" size={28} color={colors.text} />
+        </TouchableOpacity>
         <Text style={[s.backTitle, { color: colors.text }]}>{title}</Text>
-      </TouchableOpacity>
+        <View style={s.backBtnPlaceholder} />
+      </View>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content}>{children}</ScrollView>
     </View>
   );
@@ -190,49 +211,63 @@ export default function SettingsPage({ onSignOut }: Props) {
 
   if (subPage === "storage") return (
     <SubPageWrap title="保存先">
-      <Text style={s.sectionTitle}>Supabase接続設定</Text>
-      <View style={s.card}>
-        {customSupabaseUrl ? (
-          <>
-            <View style={s.row}>
-              <Text style={s.label}>接続先</Text>
-              <Text style={[s.value, { maxWidth: "50%" }]} numberOfLines={1}>{customSupabaseUrl}</Text>
-            </View>
-            <View style={s.separator} />
-            <TouchableOpacity style={s.row} onPress={handleClearSupabase} activeOpacity={0.7}>
-              <Text style={[s.label, { color: colors.danger }]}>接続設定を削除</Text>
-            </TouchableOpacity>
-            <View style={s.separator} />
-          </>
-        ) : null}
-        <View style={{ padding: 16, gap: 10 }}>
-          <TextInput
-            style={[s.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-            placeholder="Supabase URL (https://xxxx.supabase.co)"
-            placeholderTextColor={colors.textSecondary}
-            value={supabaseUrlInput}
-            onChangeText={setSupabaseUrlInput}
-            autoCapitalize="none"
-            keyboardType="url"
-          />
-          <TextInput
-            style={[s.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
-            placeholder="Anon Key (eyJ...)"
-            placeholderTextColor={colors.textSecondary}
-            value={supabaseKeyInput}
-            onChangeText={setSupabaseKeyInput}
-            autoCapitalize="none"
-            secureTextEntry
-          />
-          <Text style={[s.hint, { color: colors.textSecondary }]}>
-            Supabase の「プロジェクト設定 → API」から取得できます。
-          </Text>
-          <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.accent }]} onPress={handleSaveSupabase} activeOpacity={0.8}>
-            <Text style={s.saveBtnText}>保存して接続</Text>
+      {/* Cloud / Self-hosted toggle */}
+      <Text style={s.sectionTitle}>接続先</Text>
+      <View style={[s.card, { padding: 8 }]}>
+        <View style={s.themeRow}>
+          <TouchableOpacity
+            style={[s.themeBtn, storageMode === "cloud" && { backgroundColor: colors.accent }]}
+            onPress={handleSwitchToCloud}
+            activeOpacity={0.7}
+          >
+            <Text style={[s.themeBtnText, { color: storageMode === "cloud" ? "#fff" : colors.text }]}>クラウド版</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.themeBtn, storageMode === "selfhosted" && { backgroundColor: colors.accent }]}
+            onPress={handleSwitchToSelfHosted}
+            activeOpacity={0.7}
+          >
+            <Text style={[s.themeBtnText, { color: storageMode === "selfhosted" ? "#fff" : colors.text }]}>セルフホスト版</Text>
           </TouchableOpacity>
         </View>
       </View>
 
+      {/* Self-hosted connection form */}
+      {storageMode === "selfhosted" && (
+        <>
+          <Text style={s.sectionTitle}>Supabase接続設定</Text>
+          <View style={s.card}>
+            <View style={{ padding: 16, gap: 10 }}>
+              <TextInput
+                style={[s.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+                placeholder="Supabase URL (https://xxxx.supabase.co)"
+                placeholderTextColor={colors.textSecondary}
+                value={supabaseUrlInput}
+                onChangeText={setSupabaseUrlInput}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+              <TextInput
+                style={[s.input, { color: colors.text, borderColor: colors.border, backgroundColor: colors.background }]}
+                placeholder="Anon Key (eyJ...)"
+                placeholderTextColor={colors.textSecondary}
+                value={supabaseKeyInput}
+                onChangeText={setSupabaseKeyInput}
+                autoCapitalize="none"
+                secureTextEntry
+              />
+              <Text style={[s.hint, { color: colors.textSecondary }]}>
+                Supabase の「プロジェクト設定 → API」から取得できます。
+              </Text>
+              <TouchableOpacity style={[s.saveBtn, { backgroundColor: colors.accent }]} onPress={handleConnectSelfHosted} activeOpacity={0.8}>
+                <Text style={s.saveBtnText}>保存して接続</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </>
+      )}
+
+      {/* Account */}
       <Text style={s.sectionTitle}>アカウント</Text>
       <View style={s.card}>
         <View style={s.row}>
@@ -319,8 +354,8 @@ export default function SettingsPage({ onSignOut }: Props) {
           <View key={item.key}>
             {i > 0 && <View style={s.separator} />}
             <TouchableOpacity style={s.menuRow} onPress={() => setSubPage(item.key)} activeOpacity={0.7}>
-              <View style={[s.menuIconWrap, { backgroundColor: colors.accent + "18" }]}>
-                <Ionicons name={item.icon} size={18} color={colors.accent} />
+              <View style={[s.menuIconWrap, { backgroundColor: colors.accent }]}>
+                <Ionicons name={item.icon} size={18} color="#fff" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[s.label, { color: colors.text }]}>{item.label}</Text>
@@ -404,8 +439,9 @@ function makeStyles(colors: ReturnType<typeof import("../src/theme").useTheme>["
     hint: { fontSize: 12, lineHeight: 17 },
     saveBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, alignItems: "center" },
     saveBtnText: { color: "#fff", fontSize: 14, fontWeight: "600" },
-    backBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth, gap: 2 },
-    backLabel: { fontSize: 17 },
-    backTitle: { fontSize: 17, fontWeight: "600", marginLeft: 8 },
+    backBar: { flexDirection: "row", alignItems: "center", paddingHorizontal: 4, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+    backBtn: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+    backBtnPlaceholder: { width: 44 },
+    backTitle: { flex: 1, fontSize: 17, fontWeight: "600", textAlign: "center" },
   });
 }

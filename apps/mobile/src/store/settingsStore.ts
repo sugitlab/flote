@@ -33,6 +33,7 @@ type SettingsStore = {
   setCodeThemeDark: (theme: DarkCodeTheme) => Promise<void>;
   setCodeThemeLight: (theme: LightCodeTheme) => Promise<void>;
   setCustomSupabase: (url: string, anonKey: string) => Promise<void>;
+  clearCustomSupabase: () => Promise<void>;
   loadSettings: () => Promise<void>;
 };
 
@@ -74,6 +75,12 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     set({ customSupabaseUrl: url, customSupabaseAnonKey: anonKey });
     await SecureStore.setItemAsync(CUSTOM_SUPABASE_URL_KEY, url);
     await SecureStore.setItemAsync(CUSTOM_SUPABASE_KEY_KEY, anonKey);
+  },
+
+  clearCustomSupabase: async () => {
+    set({ customSupabaseUrl: "", customSupabaseAnonKey: "" });
+    await SecureStore.deleteItemAsync(CUSTOM_SUPABASE_URL_KEY);
+    await SecureStore.deleteItemAsync(CUSTOM_SUPABASE_KEY_KEY);
   },
 
   loadSettings: async () => {

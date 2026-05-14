@@ -17,6 +17,82 @@ type Props = {
   onSelect: (tag: string | null) => void;
 };
 
+function TagModal({ tags, selectedTag, onSelect, open, onClose }: Props & { open: boolean; onClose: () => void }) {
+  const { colors } = useTheme();
+  return (
+    <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <View style={[styles.menu, { backgroundColor: colors.surface, shadowColor: "#000" }]}>
+          <Text style={[styles.menuHeader, { color: colors.textSecondary, borderBottomColor: colors.border }]}>
+            タグで絞り込む
+          </Text>
+          <ScrollView bounces={false} style={{ maxHeight: 320 }}>
+            <TouchableOpacity
+              style={[styles.menuItem, !selectedTag && { backgroundColor: colors.accent + "18" }]}
+              onPress={() => { onSelect(null); onClose(); }}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.menuItemText, { color: !selectedTag ? colors.accent : colors.text }]}>
+                すべて表示
+              </Text>
+              {!selectedTag && <Ionicons name="checkmark" size={16} color={colors.accent} />}
+            </TouchableOpacity>
+            {tags.map((tag) => {
+              const active = selectedTag === tag;
+              return (
+                <TouchableOpacity
+                  key={tag}
+                  style={[styles.menuItem, active && { backgroundColor: colors.accent + "18" }]}
+                  onPress={() => { onSelect(tag); onClose(); }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.menuItemText, { color: active ? colors.accent : colors.text }]}>
+                    #{tag}
+                  </Text>
+                  {active && <Ionicons name="checkmark" size={16} color={colors.accent} />}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Pressable>
+    </Modal>
+  );
+}
+
+// Icon button for placement beside the search bar
+export function TagFilterIcon({ tags, selectedTag, onSelect }: Props) {
+  const { colors } = useTheme();
+  const [open, setOpen] = useState(false);
+
+  if (tags.length === 0) return null;
+
+  const active = !!selectedTag;
+  return (
+    <>
+      <TouchableOpacity
+        onPress={() => setOpen(true)}
+        activeOpacity={0.7}
+        style={[
+          styles.iconBtn,
+          {
+            backgroundColor: active ? colors.accent + "18" : colors.surface,
+            borderColor: active ? colors.accent : colors.border,
+          },
+        ]}
+      >
+        <Ionicons
+          name={active ? "pricetag" : "pricetag-outline"}
+          size={19}
+          color={active ? colors.accent : colors.textSecondary}
+        />
+      </TouchableOpacity>
+      <TagModal tags={tags} selectedTag={selectedTag} onSelect={onSelect} open={open} onClose={() => setOpen(false)} />
+    </>
+  );
+}
+
+// Legacy full-bar dropdown (kept for compatibility, no longer used by lists)
 export function TagFilterDropdown({ tags, selectedTag, onSelect }: Props) {
   const { colors } = useTheme();
   const [open, setOpen] = useState(false);
@@ -47,34 +123,63 @@ export function TagFilterDropdown({ tags, selectedTag, onSelect }: Props) {
         </TouchableOpacity>
       )}
 
+      <TagModal tags={tags} selectedTag={selectedTag} onSelect={onSelect} open={open} onClose={() => setOpen(false)} />
+    </View>
+  );
+}
+
+// Sort icon button for placement inside the search bar
+export type SortOption = { key: string; label: string };
+
+type SortIconProps = {
+  options: SortOption[];
+  value: string;
+  onChange: (v: string) => void;
+};
+
+export function SortIcon({ options, value, onChange }: SortIconProps) {
+  const { colors } = useTheme();
+  const [open, setOpen] = useState(false);
+  const active = value !== options[0]?.key;
+
+  return (
+    <>
+      <TouchableOpacity
+        onPress={() => setOpen(true)}
+        activeOpacity={0.7}
+        style={[
+          styles.iconBtn,
+          {
+            backgroundColor: active ? colors.accent + "18" : colors.surface,
+            borderColor: active ? colors.accent : colors.border,
+          },
+        ]}
+      >
+        <Ionicons
+          name="swap-vertical-outline"
+          size={19}
+          color={active ? colors.accent : colors.textSecondary}
+        />
+      </TouchableOpacity>
+
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.overlay} onPress={() => setOpen(false)}>
           <View style={[styles.menu, { backgroundColor: colors.surface, shadowColor: "#000" }]}>
             <Text style={[styles.menuHeader, { color: colors.textSecondary, borderBottomColor: colors.border }]}>
-              タグで絞り込む
+              並び替え
             </Text>
-            <ScrollView bounces={false} style={{ maxHeight: 320 }}>
-              <TouchableOpacity
-                style={[styles.menuItem, !selectedTag && { backgroundColor: colors.accent + "18" }]}
-                onPress={() => { onSelect(null); setOpen(false); }}
-                activeOpacity={0.7}
-              >
-                <Text style={[styles.menuItemText, { color: !selectedTag ? colors.accent : colors.text }]}>
-                  すべて表示
-                </Text>
-                {!selectedTag && <Ionicons name="checkmark" size={16} color={colors.accent} />}
-              </TouchableOpacity>
-              {tags.map((tag) => {
-                const active = selectedTag === tag;
+            <ScrollView bounces={false}>
+              {options.map((opt) => {
+                const active = value === opt.key;
                 return (
                   <TouchableOpacity
-                    key={tag}
+                    key={opt.key}
                     style={[styles.menuItem, active && { backgroundColor: colors.accent + "18" }]}
-                    onPress={() => { onSelect(tag); setOpen(false); }}
+                    onPress={() => { onChange(opt.key); setOpen(false); }}
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.menuItemText, { color: active ? colors.accent : colors.text }]}>
-                      #{tag}
+                      {opt.label}
                     </Text>
                     {active && <Ionicons name="checkmark" size={16} color={colors.accent} />}
                   </TouchableOpacity>
@@ -84,7 +189,7 @@ export function TagFilterDropdown({ tags, selectedTag, onSelect }: Props) {
           </View>
         </Pressable>
       </Modal>
-    </View>
+    </>
   );
 }
 
@@ -115,6 +220,7 @@ export function TagChips({ tags, accentColor }: TagsProps) {
 }
 
 const styles = StyleSheet.create({
+  iconBtn: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   wrap: {
     flexDirection: "row",
     alignItems: "center",
