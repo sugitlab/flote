@@ -5,9 +5,6 @@ import Svg, {
   Rect,
   Text as SvgText,
   TSpan,
-  Defs,
-  LinearGradient,
-  Stop,
   G,
 } from "react-native-svg";
 import type { Transaction } from "@flote/types";
@@ -160,15 +157,6 @@ export default function ExpenseSankey({ transactions }: Props) {
   return (
     <View style={{ paddingHorizontal: H_PADDING, paddingVertical: 4 }}>
       <Svg width={SVG_WIDTH} height={SVG_HEIGHT}>
-        <Defs>
-          {links.map((link, i) => (
-            <LinearGradient key={i} id={`sg${i}`} x1="0" y1="0" x2="1" y2="0">
-              <Stop offset="0" stopColor={link.sourceNode.color} stopOpacity={0.45} />
-              <Stop offset="1" stopColor={link.color} stopOpacity={0.55} />
-            </LinearGradient>
-          ))}
-        </Defs>
-
         {links.map((l, i) => {
           const d = [
             `M ${LINK_X0} ${l.sourceY}`,
@@ -177,7 +165,7 @@ export default function ExpenseSankey({ transactions }: Props) {
             `C ${CX2} ${l.sourceY + l.srcH}, ${CX1} ${l.sourceY + l.srcH}, ${LINK_X0} ${l.sourceY + l.srcH}`,
             "Z",
           ].join(" ");
-          return <Path key={i} d={d} fill={`url(#sg${i})`} opacity={0.7} />;
+          return <Path key={i} d={d} fill={l.color} fillOpacity={0.35} />;
         })}
 
         {incomeNodes.map((node) => (
