@@ -97,9 +97,9 @@ export default function ExpenseList({
   }, [transactions, sortKey, sortDir]);
 
   const handleExportCsv = useCallback(async () => {
-    const header = [te.date, te.description, te.category, te.account, "type", te.amount].join(",");
+    const header = [te.date, te.amount, "type", te.description, te.category, te.account].join(",");
     const rows = sorted.map((tx) =>
-      [tx.date, `"${tx.description.replace(/"/g, '""')}"`, `"${tx.category.replace(/"/g, '""')}"`, `"${tx.account.replace(/"/g, '""')}"`, tx.type, tx.amount].join(",")
+      [tx.date, tx.amount, tx.type, `"${tx.description.replace(/"/g, '""')}"`, `"${tx.category.replace(/"/g, '""')}"`, `"${tx.account.replace(/"/g, '""')}"`].join(",")
     );
     const csv = "﻿" + [header, ...rows].join("\r\n");
     const filename = `flote-expenses${selectedMonth ? `-${selectedMonth}` : ""}.csv`;
