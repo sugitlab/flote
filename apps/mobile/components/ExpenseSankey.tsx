@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { useWindowDimensions } from "react-native";
+import { View, useWindowDimensions } from "react-native";
 import WebView from "react-native-webview";
 import type { Transaction } from "@flote/types";
 import { useTheme } from "../src/theme";
@@ -151,15 +151,18 @@ export default function ExpenseSankey({ transactions }: Props) {
   ), [transactions, width, colors, te]);
 
   return (
-    <WebView
-      source={{ html }}
-      style={{ width, height: SVG_HEIGHT + 8, backgroundColor: colors.background }}
-      scrollEnabled={false}
-      originWhitelist={["*"]}
-      javaScriptEnabled
-      domStorageEnabled
-      showsVerticalScrollIndicator={false}
-      showsHorizontalScrollIndicator={false}
-    />
+    <View style={{ width, height: SVG_HEIGHT + 8 }}>
+      <WebView
+        source={{ html }}
+        style={{ flex: 1, backgroundColor: colors.background }}
+        scrollEnabled={false}
+        originWhitelist={["*"]}
+        javaScriptEnabled
+        domStorageEnabled
+        mixedContentMode="always"
+        showsVerticalScrollIndicator={false}
+        showsHorizontalScrollIndicator={false}
+      />
+    </View>
   );
 }
