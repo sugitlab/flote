@@ -16,8 +16,8 @@ const CHART_H = 240;
 const H_PAD = 12;
 const LABEL_W = 88;
 const LABEL_GAP = 4;
-// slices per link for trapezoid approximation
-const SLICES = 12;
+// slices per link for trapezoid approximation (more = smoother)
+const SLICES = 32;
 
 type NodeInfo = {
   id: string;
@@ -143,9 +143,10 @@ export default function ExpenseSankey({ transactions }: Props) {
   const sliceW = flowW / SLICES;
   links.forEach((l, li) => {
     for (let s = 0; s < SLICES; s++) {
-      const t0 = s / SLICES;
-      const topY = l.sy0 + (l.ty0 - l.sy0) * t0;
-      const botY = l.sy1 + (l.ty1 - l.sy1) * t0;
+      // use midpoint of each slice for smooth centering
+      const t = (s + 0.5) / SLICES;
+      const topY = l.sy0 + (l.ty0 - l.sy0) * t;
+      const botY = l.sy1 + (l.ty1 - l.sy1) * t;
       ribbons.push(
         <View
           key={`${li}-${s}`}
@@ -156,7 +157,7 @@ export default function ExpenseSankey({ transactions }: Props) {
             top: topY,
             height: Math.max(1, botY - topY),
             backgroundColor: l.color,
-            opacity: 0.38,
+            opacity: 0.4,
           }}
         />
       );
@@ -197,30 +198,26 @@ export default function ExpenseSankey({ transactions }: Props) {
           }]} />
         ))}
 
-        {/* Income labels (left of nodes) */}
+        {/* Income labels: "¥amount  Label" right-aligned before node (desktop style) */}
         {incomeNodes.map(node => (
           <View key={"l-" + node.id} style={[styles.labelLeft, {
             top: node.y, height: node.h, width: LABEL_W - LABEL_GAP,
           }]}>
-            <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-              {trunc(node.label)}
-            </Text>
-            <Text style={[styles.amt, { color: colors.textSecondary }]} numberOfLines={1}>
-              {fmt(node.amount)}
+            <Text style={[styles.incomeLine, { color: colors.text }]} numberOfLines={1}>
+              <Text style={{ color: colors.textSecondary, fontSize: 8 }}>{fmt(node.amount)}  </Text>
+              <Text style={{ fontWeight: "500", fontSize: 9 }}>{trunc(node.label)}</Text>
             </Text>
           </View>
         ))}
 
-        {/* Expense labels (right of nodes) */}
+        {/* Expense labels: "Label  ¥amount" left-aligned after node (desktop style) */}
         {expenseNodes.map(node => (
           <View key={"l-" + node.id} style={[styles.labelRight, {
             top: node.y, height: node.h, width: LABEL_W - LABEL_GAP, right: 0,
           }]}>
-            <Text style={[styles.name, { color: colors.text }]} numberOfLines={1}>
-              {trunc(node.label)}
-            </Text>
-            <Text style={[styles.amt, { color: colors.textSecondary }]} numberOfLines={1}>
-              {fmt(node.amount)}
+            <Text style={[styles.expenseLine, { color: colors.text }]} numberOfLines={1}>
+              <Text style={{ fontWeight: "500", fontSize: 9 }}>{trunc(node.label)}  </Text>
+              <Text style={{ color: colors.textSecondary, fontSize: 8 }}>{fmt(node.amount)}</Text>
             </Text>
           </View>
         ))}
@@ -248,6 +245,6 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     paddingLeft: LABEL_GAP,
   },
-  name: { fontSize: 10, fontWeight: "500" },
-  amt: { fontSize: 8 },
+  incomeLine: { textAlign: "right" },
+  expenseLine: { textAlign: "left" },
 });
