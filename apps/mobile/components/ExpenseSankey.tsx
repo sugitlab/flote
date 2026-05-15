@@ -153,9 +153,13 @@ export default function ExpenseSankey({ transactions }: Props) {
   return (
     <WebView
       source={{ html }}
-      style={{ height: SVG_HEIGHT + 8, backgroundColor: colors.background }}
+      style={{ width, height: SVG_HEIGHT + 8, backgroundColor: colors.background }}
       scrollEnabled={false}
       originWhitelist={["*"]}
+      javaScriptEnabled
+      domStorageEnabled
+      showsVerticalScrollIndicator={false}
+      showsHorizontalScrollIndicator={false}
     />
   );
 }
