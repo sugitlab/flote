@@ -57,10 +57,7 @@ export default function ExpensePanel({ userId }: Props) {
     document.body.style.userSelect = "none";
   }, [listWidth]);
 
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(() => {
-    const now = new Date();
-    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  });
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const [showImport, setShowImport] = useState(false);

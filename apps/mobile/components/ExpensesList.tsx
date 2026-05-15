@@ -41,7 +41,7 @@ export default function ExpensesList({ userId }: Props) {
   const te = t.expenses;
   const { transactions, loading, fetchTransactions } = useExpenseStore();
 
-  const [selectedMonth, setSelectedMonth] = useState<string | null>(currentMonthStr());
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
 
   const doFetch = useCallback((month: string | null, uid: string) => {
     if (!month) {
