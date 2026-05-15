@@ -7,17 +7,12 @@ import {
   StyleSheet,
   RefreshControl,
   ActivityIndicator,
-  ScrollView,
 } from "react-native";
 import { useTheme } from "../src/theme";
 import { useExpenseStore } from "../src/store/expenseStore";
 import { useT } from "../src/hooks/useT";
 import type { Transaction } from "@flote/types";
-
-const CATEGORY_COLORS = [
-  "#60a5fa", "#f472b6", "#34d399", "#fbbf24",
-  "#a78bfa", "#fb923c", "#22d3ee", "#f87171",
-];
+import ExpenseSankey from "./ExpenseSankey";
 
 function formatAmount(n: number): string {
   return "¥" + n.toLocaleString("ja-JP");
@@ -32,136 +27,6 @@ function monthRange(month: string) {
   const [y, m] = month.split("-").map(Number);
   const lastDay = new Date(y, m, 0).getDate();
   return { from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, "0")}` };
-}
-
-// ── Chart ────────────────────────────────────────────────────────────────────
-
-type CategoryStat = { label: string; amount: number; color: string };
-
-function buildStats(transactions: Transaction[], type: "income" | "expense"): CategoryStat[] {
-  const map = new Map<string, number>();
-  for (const tx of transactions) {
-    if (tx.type !== type) continue;
-    const key = tx.category || (type === "income" ? "収入" : "支出");
-    map.set(key, (map.get(key) ?? 0) + tx.amount);
-  }
-  return Array.from(map.entries())
-    .sort((a, b) => b[1] - a[1])
-    .map(([label, amount], i) => ({ label, amount, color: CATEGORY_COLORS[i % CATEGORY_COLORS.length] }));
-}
-
-function Chart({
-  transactions,
-  incomeTotal,
-  expenseTotal,
-}: {
-  transactions: Transaction[];
-  incomeTotal: number;
-  expenseTotal: number;
-}) {
-  const { colors } = useTheme();
-  const t = useT();
-  const te = t.expenses;
-  const balance = incomeTotal - expenseTotal;
-
-  const expenseStats = buildStats(transactions, "expense");
-  const incomeStats = buildStats(transactions, "income");
-  const maxTotal = Math.max(incomeTotal, expenseTotal, 1);
-
-  return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.chartContent} showsVerticalScrollIndicator={false}>
-      {/* Summary row */}
-      <View style={[styles.summaryRow, { borderBottomColor: colors.border }]}>
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{te.income}</Text>
-          <Text style={[styles.summaryValue, { color: "#22c55e" }]}>{formatAmount(incomeTotal)}</Text>
-        </View>
-        <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{te.expense}</Text>
-          <Text style={[styles.summaryValue, { color: "#ef4444" }]}>{formatAmount(expenseTotal)}</Text>
-        </View>
-        <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{te.balance}</Text>
-          <Text style={[styles.summaryValue, { color: balance >= 0 ? "#22c55e" : "#ef4444" }]}>
-            {balance >= 0 ? "+" : ""}{formatAmount(balance)}
-          </Text>
-        </View>
-      </View>
-
-      {/* Income vs Expense overall bar */}
-      {(incomeTotal > 0 || expenseTotal > 0) && (
-        <View style={styles.overallBar}>
-          <View style={[styles.overallBarTrack, { backgroundColor: colors.surface }]}>
-            {incomeTotal > 0 && (
-              <View style={[styles.overallBarIncome, { flex: incomeTotal }]} />
-            )}
-            {expenseTotal > 0 && (
-              <View style={[styles.overallBarExpense, { flex: expenseTotal }]} />
-            )}
-            {Math.max(0, maxTotal - incomeTotal - expenseTotal) > 0 && (
-              <View style={{ flex: Math.max(0, maxTotal - incomeTotal - expenseTotal) }} />
-            )}
-          </View>
-          <View style={styles.overallBarLegend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: "#22c55e" }]} />
-              <Text style={[styles.legendText, { color: colors.textSecondary }]}>{te.income}</Text>
-            </View>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: "#ef4444" }]} />
-              <Text style={[styles.legendText, { color: colors.textSecondary }]}>{te.expense}</Text>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* Expense breakdown */}
-      {expenseStats.length > 0 && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{te.expense}</Text>
-          {expenseStats.map((stat) => {
-            const pct = expenseTotal > 0 ? stat.amount / expenseTotal : 0;
-            return (
-              <View key={stat.label} style={styles.barRow}>
-                <Text style={[styles.barLabel, { color: colors.text }]} numberOfLines={1}>{stat.label}</Text>
-                <View style={[styles.barTrack, { backgroundColor: colors.surface }]}>
-                  <View style={[styles.barFill, { flex: pct, backgroundColor: stat.color }]} />
-                  <View style={{ flex: 1 - pct }} />
-                </View>
-                <Text style={[styles.barAmount, { color: colors.textSecondary }]}>
-                  {formatAmount(stat.amount)}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
-
-      {/* Income breakdown */}
-      {incomeStats.length > 0 && (
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>{te.income}</Text>
-          {incomeStats.map((stat) => {
-            const pct = incomeTotal > 0 ? stat.amount / incomeTotal : 0;
-            return (
-              <View key={stat.label} style={styles.barRow}>
-                <Text style={[styles.barLabel, { color: colors.text }]} numberOfLines={1}>{stat.label}</Text>
-                <View style={[styles.barTrack, { backgroundColor: colors.surface }]}>
-                  <View style={[styles.barFill, { flex: pct, backgroundColor: stat.color }]} />
-                  <View style={{ flex: 1 - pct }} />
-                </View>
-                <Text style={[styles.barAmount, { color: colors.textSecondary }]}>
-                  {formatAmount(stat.amount)}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
-      )}
-    </ScrollView>
-  );
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -275,12 +140,30 @@ export default function ExpensesList({ userId }: Props) {
         </View>
       ) : (
         <View style={styles.body}>
-          {/* Top half: chart */}
+          {/* Top: summary + sankey */}
           <View style={[styles.chartPane, { borderBottomColor: colors.border }]}>
-            <Chart transactions={transactions} incomeTotal={incomeTotal} expenseTotal={expenseTotal} />
+            <View style={[styles.summaryRow, { borderBottomColor: colors.border }]}>
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{te.income}</Text>
+                <Text style={[styles.summaryValue, { color: "#22c55e" }]}>{formatAmount(incomeTotal)}</Text>
+              </View>
+              <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{te.expense}</Text>
+                <Text style={[styles.summaryValue, { color: "#ef4444" }]}>{formatAmount(expenseTotal)}</Text>
+              </View>
+              <View style={[styles.summaryDivider, { backgroundColor: colors.border }]} />
+              <View style={styles.summaryItem}>
+                <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{te.balance}</Text>
+                <Text style={[styles.summaryValue, { color: (incomeTotal - expenseTotal) >= 0 ? "#22c55e" : "#ef4444" }]}>
+                  {(incomeTotal - expenseTotal) >= 0 ? "+" : ""}{formatAmount(incomeTotal - expenseTotal)}
+                </Text>
+              </View>
+            </View>
+            <ExpenseSankey transactions={transactions} />
           </View>
 
-          {/* Bottom half: transaction list */}
+          {/* Bottom: transaction list */}
           <View style={styles.listPane}>
             <FlatList
               data={transactions}
@@ -327,13 +210,8 @@ const styles = StyleSheet.create({
 
   body: { flex: 1 },
 
-  // Chart pane (top half)
   chartPane: {
-    flex: 1,
     borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  chartContent: {
-    paddingBottom: 12,
   },
   summaryRow: {
     flexDirection: "row",
@@ -345,33 +223,6 @@ const styles = StyleSheet.create({
   summaryValue: { fontSize: 14, fontWeight: "700" },
   summaryDivider: { width: StyleSheet.hairlineWidth, marginVertical: 4 },
 
-  overallBar: { paddingHorizontal: 16, paddingTop: 12 },
-  overallBarTrack: {
-    flexDirection: "row",
-    height: 10,
-    borderRadius: 5,
-    overflow: "hidden",
-  },
-  overallBarIncome: { backgroundColor: "#22c55e" },
-  overallBarExpense: { backgroundColor: "#ef4444" },
-  overallBarLegend: {
-    flexDirection: "row",
-    gap: 16,
-    marginTop: 6,
-  },
-  legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
-  legendDot: { width: 8, height: 8, borderRadius: 4 },
-  legendText: { fontSize: 11 },
-
-  section: { paddingHorizontal: 16, paddingTop: 14 },
-  sectionTitle: { fontSize: 11, fontWeight: "600", marginBottom: 8, textTransform: "uppercase", letterSpacing: 0.5 },
-  barRow: { flexDirection: "row", alignItems: "center", marginBottom: 8, gap: 8 },
-  barLabel: { width: 72, fontSize: 12 },
-  barTrack: { flex: 1, height: 8, borderRadius: 4, flexDirection: "row", overflow: "hidden" },
-  barFill: { borderRadius: 4 },
-  barAmount: { width: 72, fontSize: 11, textAlign: "right" },
-
-  // List pane (bottom half)
   listPane: { flex: 1 },
   row: {
     flexDirection: "row",
