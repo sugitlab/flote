@@ -1,12 +1,5 @@
 import React from "react";
-import { View, useWindowDimensions } from "react-native";
-import Svg, {
-  Path,
-  Rect,
-  Text as SvgText,
-  TSpan,
-  G,
-} from "react-native-svg";
+import { View, Text, useWindowDimensions, StyleSheet } from "react-native";
 import type { Transaction } from "@flote/types";
 import { useTheme } from "../src/theme";
 import { useT } from "../src/hooks/useT";
@@ -16,40 +9,62 @@ const CATEGORY_COLORS = [
   "#a78bfa", "#fb923c", "#22d3ee", "#f87171",
 ];
 
-const NODE_WIDTH = 12;
+const NODE_W = 12;
 const PAD = 8;
-const LABEL_PAD = 6;
-const TOP_MARGIN = 20;
-const SVG_HEIGHT = 260;
-const H_PADDING = 16;
+const TOP_MARGIN = 18;
+const CHART_HEIGHT = 260;
+const H_PAD = 16;
+const LABEL_W = 90;
 
-type SankeyNode = {
+type NodeInfo = {
   id: string;
   label: string;
   amount: number;
-  x: number;
   y: number;
-  height: number;
+  h: number;
   color: string;
 };
 
-type SankeyLink = {
-  sourceNode: SankeyNode;
-  targetNode: SankeyNode;
-  amount: number;
+type LinkInfo = {
   color: string;
-  sourceY: number;
-  targetY: number;
-  srcH: number;
-  tgtH: number;
+  // source (left) top/bottom y
+  sy0: number;
+  sy1: number;
+  // target (right) top/bottom y
+  ty0: number;
+  ty1: number;
 };
 
 function formatAmount(n: number): string {
   return "¥" + n.toLocaleString("ja-JP");
 }
 
-function truncate(s: string, max = 9): string {
+function truncate(s: string, max = 8): string {
   return s.length > max ? s.slice(0, max - 1) + "…" : s;
+}
+
+function buildNodes(
+  entries: [string, number][],
+  maxTotal: number,
+  usableH: number,
+  colorOffset: number
+): NodeInfo[] {
+  const totalPad = PAD * Math.max(0, entries.length - 1);
+  const availH = usableH - totalPad;
+  let yOffset = TOP_MARGIN;
+  return entries.map(([label, amount], i) => {
+    const h = Math.max(6, Math.round((amount / maxTotal) * availH));
+    const node: NodeInfo = {
+      id: label,
+      label,
+      amount,
+      y: yOffset,
+      h,
+      color: CATEGORY_COLORS[(i + colorOffset) % CATEGORY_COLORS.length],
+    };
+    yOffset += h + PAD;
+    return node;
+  });
 }
 
 type Props = {
@@ -62,149 +77,205 @@ export default function ExpenseSankey({ transactions }: Props) {
   const te = t.expenses;
   const { width: screenWidth } = useWindowDimensions();
 
-  const SVG_WIDTH = screenWidth - H_PADDING * 2;
-  const LEFT_MARGIN = Math.round(SVG_WIDTH * 0.32);
-  const RIGHT_MARGIN = Math.round(SVG_WIDTH * 0.32);
-  const INCOME_NODE_X = LEFT_MARGIN;
-  const EXPENSE_NODE_X = SVG_WIDTH - RIGHT_MARGIN - NODE_WIDTH;
-  const LINK_X0 = INCOME_NODE_X + NODE_WIDTH;
-  const LINK_X1 = EXPENSE_NODE_X;
-  const CX1 = LINK_X0 + (LINK_X1 - LINK_X0) * 0.4;
-  const CX2 = LINK_X0 + (LINK_X1 - LINK_X0) * 0.6;
+  const totalW = screenWidth - H_PAD * 2;
+  // center flow area: between node columns
+  // layout: [LABEL_W][NODE_W][flowW][NODE_W][LABEL_W]
+  const flowW = totalW - LABEL_W * 2 - NODE_W * 2;
 
-  const incomeByCategory = new Map<string, number>();
-  const expenseByCategory = new Map<string, number>();
-
+  const incomeMap = new Map<string, number>();
+  const expenseMap = new Map<string, number>();
   for (const tx of transactions) {
     if (tx.type === "income") {
-      const key = tx.category || te.income;
-      incomeByCategory.set(key, (incomeByCategory.get(key) ?? 0) + tx.amount);
+      const k = tx.category || te.income;
+      incomeMap.set(k, (incomeMap.get(k) ?? 0) + tx.amount);
     } else {
-      const key = tx.category || te.expense;
-      expenseByCategory.set(key, (expenseByCategory.get(key) ?? 0) + tx.amount);
+      const k = tx.category || te.expense;
+      expenseMap.set(k, (expenseMap.get(k) ?? 0) + tx.amount);
     }
   }
 
-  const totalIncome = Array.from(incomeByCategory.values()).reduce((s, v) => s + v, 0);
-  const totalExpense = Array.from(expenseByCategory.values()).reduce((s, v) => s + v, 0);
+  const totalIncome = Array.from(incomeMap.values()).reduce((s, v) => s + v, 0);
+  const totalExpense = Array.from(expenseMap.values()).reduce((s, v) => s + v, 0);
   const maxTotal = Math.max(totalIncome, totalExpense, 1);
-  const usableHeight = SVG_HEIGHT - TOP_MARGIN - 16;
+  const usableH = CHART_HEIGHT - TOP_MARGIN - 8;
 
-  const incomeEntries = Array.from(incomeByCategory.entries());
-  const incomeNodes: SankeyNode[] = [];
-  {
-    const totalPad = PAD * Math.max(0, incomeEntries.length - 1);
-    const availH = usableHeight - totalPad;
-    let yOffset = TOP_MARGIN;
-    incomeEntries.forEach(([cat, amt], i) => {
-      const h = Math.max(6, Math.round((amt / maxTotal) * availH));
-      incomeNodes.push({
-        id: "inc-" + cat, label: cat, amount: amt,
-        x: INCOME_NODE_X, y: yOffset, height: h,
-        color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
-      });
-      yOffset += h + PAD;
-    });
-  }
+  const incomeNodes = buildNodes(
+    Array.from(incomeMap.entries()).sort((a, b) => b[1] - a[1]),
+    maxTotal, usableH, 0
+  );
+  const expenseNodes = buildNodes(
+    Array.from(expenseMap.entries()).sort((a, b) => b[1] - a[1]),
+    maxTotal, usableH, 4
+  );
 
-  const expenseEntries = Array.from(expenseByCategory.entries());
-  const expenseNodes: SankeyNode[] = [];
-  {
-    const totalPad = PAD * Math.max(0, expenseEntries.length - 1);
-    const availH = usableHeight - totalPad;
-    let yOffset = TOP_MARGIN;
-    expenseEntries.forEach(([cat, amt], i) => {
-      const h = Math.max(6, Math.round((amt / maxTotal) * availH));
-      expenseNodes.push({
-        id: "exp-" + cat, label: cat, amount: amt,
-        x: EXPENSE_NODE_X, y: yOffset, height: h,
-        color: CATEGORY_COLORS[(i + 4) % CATEGORY_COLORS.length],
-      });
-      yOffset += h + PAD;
-    });
-  }
+  // Build links: each expense node gets flows from income nodes proportionally
+  const links: LinkInfo[] = [];
+  const incomeUsed = new Map<string, number>(incomeNodes.map(n => [n.id, 0]));
+  const expenseUsed = new Map<string, number>(expenseNodes.map(n => [n.id, 0]));
 
-  const links: SankeyLink[] = [];
-  const incomeUsed = new Map<string, number>();
-  const expenseUsed = new Map<string, number>();
-  for (const n of incomeNodes) incomeUsed.set(n.id, 0);
-  for (const n of expenseNodes) expenseUsed.set(n.id, 0);
-
-  for (const tgtNode of expenseNodes) {
+  for (const tgt of expenseNodes) {
     if (totalIncome === 0) continue;
-    let remaining = tgtNode.amount;
-    for (const srcNode of incomeNodes) {
-      const portion = Math.round((srcNode.amount / totalIncome) * tgtNode.amount);
+    let remaining = tgt.amount;
+    for (const src of incomeNodes) {
+      const portion = Math.round((src.amount / totalIncome) * tgt.amount);
       const linkAmt = Math.min(portion, remaining);
       if (linkAmt <= 0) continue;
       remaining -= linkAmt;
-      const srcStrokeH = Math.max(1, Math.round((srcNode.amount / maxTotal) * (usableHeight - PAD * Math.max(0, incomeNodes.length - 1))));
-      const tgtStrokeH = Math.max(1, Math.round((tgtNode.amount / maxTotal) * (usableHeight - PAD * Math.max(0, expenseNodes.length - 1))));
-      const srcOffset = incomeUsed.get(srcNode.id) ?? 0;
-      const tgtOffset = expenseUsed.get(tgtNode.id) ?? 0;
-      const linkSrcH = Math.max(1, Math.round((linkAmt / srcNode.amount) * srcStrokeH));
-      const linkTgtH = Math.max(1, Math.round((linkAmt / tgtNode.amount) * tgtStrokeH));
+
+      const srcH_total = Math.max(1, Math.round((src.amount / maxTotal) * (usableH - PAD * Math.max(0, incomeNodes.length - 1))));
+      const tgtH_total = Math.max(1, Math.round((tgt.amount / maxTotal) * (usableH - PAD * Math.max(0, expenseNodes.length - 1))));
+      const srcOff = incomeUsed.get(src.id) ?? 0;
+      const tgtOff = expenseUsed.get(tgt.id) ?? 0;
+      const lsh = Math.max(1, Math.round((linkAmt / src.amount) * srcH_total));
+      const lth = Math.max(1, Math.round((linkAmt / tgt.amount) * tgtH_total));
+
       links.push({
-        sourceNode: srcNode, targetNode: tgtNode, amount: linkAmt, color: tgtNode.color,
-        sourceY: srcNode.y + srcOffset, targetY: tgtNode.y + tgtOffset,
-        srcH: linkSrcH, tgtH: linkTgtH,
+        color: tgt.color,
+        sy0: src.y + srcOff,
+        sy1: src.y + srcOff + lsh,
+        ty0: tgt.y + tgtOff,
+        ty1: tgt.y + tgtOff + lth,
       });
-      incomeUsed.set(srcNode.id, srcOffset + linkSrcH);
-      expenseUsed.set(tgtNode.id, tgtOffset + linkTgtH);
+      incomeUsed.set(src.id, srcOff + lsh);
+      expenseUsed.set(tgt.id, tgtOff + lth);
     }
   }
 
   return (
-    <View style={{ paddingHorizontal: H_PADDING, paddingVertical: 4 }}>
-      <Svg width={SVG_WIDTH} height={SVG_HEIGHT}>
+    <View style={[styles.root, { paddingHorizontal: H_PAD }]}>
+      {/* Column headers */}
+      <View style={[styles.headers, { paddingRight: LABEL_W }]}>
+        <Text style={[styles.headerLeft, { color: colors.textSecondary, width: LABEL_W + NODE_W }]}>
+          {te.income}
+        </Text>
+        <Text style={[styles.headerRight, { color: colors.textSecondary, width: LABEL_W + NODE_W }]}>
+          {te.expense}
+        </Text>
+      </View>
+
+      {/* Chart body */}
+      <View style={[styles.body, { height: CHART_HEIGHT }]}>
+
+        {/* Flow ribbons (drawn behind nodes) */}
         {links.map((l, i) => {
-          const d = [
-            `M ${LINK_X0} ${l.sourceY}`,
-            `C ${CX1} ${l.sourceY}, ${CX2} ${l.targetY}, ${LINK_X1} ${l.targetY}`,
-            `L ${LINK_X1} ${l.targetY + l.tgtH}`,
-            `C ${CX2} ${l.sourceY + l.srcH}, ${CX1} ${l.sourceY + l.srcH}, ${LINK_X0} ${l.sourceY + l.srcH}`,
-            "Z",
-          ].join(" ");
-          return <Path key={i} d={d} fill={l.color} fillOpacity={0.35} />;
+          // Each ribbon is a trapezoid from (sy0,sy1) on left to (ty0,ty1) on right.
+          // Approximate with: left-edge rect + center fill + right-edge rect
+          const minY = Math.min(l.sy0, l.ty0);
+          const maxY = Math.max(l.sy1, l.ty1);
+          const totalH = Math.max(1, maxY - minY);
+
+          // Center block spans the whole height with opacity
+          return (
+            <View
+              key={i}
+              style={[
+                styles.ribbon,
+                {
+                  left: LABEL_W + NODE_W,
+                  width: flowW,
+                  top: minY,
+                  height: totalH,
+                  backgroundColor: l.color,
+                  opacity: 0.2,
+                },
+              ]}
+            />
+          );
         })}
 
+        {/* Income nodes + labels (left side) */}
         {incomeNodes.map((node) => (
-          <G key={node.id}>
-            <Rect x={node.x} y={node.y} width={NODE_WIDTH} height={node.height} fill={node.color} rx={2} />
-            <SvgText
-              x={INCOME_NODE_X - LABEL_PAD}
-              y={node.y + node.height / 2}
-              textAnchor="end"
-              dominantBaseline="middle"
+          <React.Fragment key={node.id}>
+            {/* Node bar */}
+            <View
+              style={[
+                styles.node,
+                {
+                  left: LABEL_W,
+                  top: node.y,
+                  width: NODE_W,
+                  height: node.h,
+                  backgroundColor: node.color,
+                },
+              ]}
+            />
+            {/* Label to the left */}
+            <View
+              style={[
+                styles.labelLeft,
+                { top: node.y, height: node.h, width: LABEL_W - 4 },
+              ]}
             >
-              <TSpan fontSize={9} fill={colors.textSecondary}>{formatAmount(node.amount)}{"  "}</TSpan>
-              <TSpan fontSize={10} fontWeight="500" fill={colors.text}>{truncate(node.label)}</TSpan>
-            </SvgText>
-          </G>
+              <Text style={[styles.labelText, { color: colors.text }]} numberOfLines={1}>
+                {truncate(node.label)}
+              </Text>
+              <Text style={[styles.amountText, { color: colors.textSecondary }]} numberOfLines={1}>
+                {formatAmount(node.amount)}
+              </Text>
+            </View>
+          </React.Fragment>
         ))}
 
+        {/* Expense nodes + labels (right side) */}
         {expenseNodes.map((node) => (
-          <G key={node.id}>
-            <Rect x={node.x} y={node.y} width={NODE_WIDTH} height={node.height} fill={node.color} rx={2} />
-            <SvgText
-              x={EXPENSE_NODE_X + NODE_WIDTH + LABEL_PAD}
-              y={node.y + node.height / 2}
-              textAnchor="start"
-              dominantBaseline="middle"
+          <React.Fragment key={node.id}>
+            {/* Node bar */}
+            <View
+              style={[
+                styles.node,
+                {
+                  right: LABEL_W,
+                  top: node.y,
+                  width: NODE_W,
+                  height: node.h,
+                  backgroundColor: node.color,
+                },
+              ]}
+            />
+            {/* Label to the right */}
+            <View
+              style={[
+                styles.labelRight,
+                { top: node.y, height: node.h, width: LABEL_W - 4, right: 0 },
+              ]}
             >
-              <TSpan fontSize={10} fontWeight="500" fill={colors.text}>{truncate(node.label)}{"  "}</TSpan>
-              <TSpan fontSize={9} fill={colors.textSecondary}>{formatAmount(node.amount)}</TSpan>
-            </SvgText>
-          </G>
+              <Text style={[styles.labelText, { color: colors.text }]} numberOfLines={1}>
+                {truncate(node.label)}
+              </Text>
+              <Text style={[styles.amountText, { color: colors.textSecondary }]} numberOfLines={1}>
+                {formatAmount(node.amount)}
+              </Text>
+            </View>
+          </React.Fragment>
         ))}
-
-        <SvgText x={INCOME_NODE_X + NODE_WIDTH / 2} y={10} textAnchor="middle" fontSize={9} fontWeight="600" fill={colors.textSecondary}>
-          {te.income}
-        </SvgText>
-        <SvgText x={EXPENSE_NODE_X + NODE_WIDTH / 2} y={10} textAnchor="middle" fontSize={9} fontWeight="600" fill={colors.textSecondary}>
-          {te.expense}
-        </SvgText>
-      </Svg>
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  root: { paddingVertical: 4 },
+  headers: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  headerLeft: { fontSize: 9, fontWeight: "600", textAlign: "center" },
+  headerRight: { fontSize: 9, fontWeight: "600", textAlign: "center" },
+  body: { position: "relative" },
+  ribbon: { position: "absolute", borderRadius: 2 },
+  node: { position: "absolute", borderRadius: 2 },
+  labelLeft: {
+    position: "absolute",
+    left: 0,
+    justifyContent: "center",
+    paddingRight: 4,
+  },
+  labelRight: {
+    position: "absolute",
+    justifyContent: "center",
+    paddingLeft: 4 + 12, // 4px gap + NODE_W
+  },
+  labelText: { fontSize: 10, fontWeight: "500" },
+  amountText: { fontSize: 9 },
+});
