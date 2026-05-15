@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Text } from "react-native";
+import { Platform, Text } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { Ionicons } from "@expo/vector-icons";
@@ -32,7 +32,7 @@ export default function RootLayout() {
     NotoSansJP_700Bold,
   });
 
-  if (fontsLoaded) {
+  if (fontsLoaded && Platform.OS !== "ios") {
     // @ts-ignore
     Text.defaultProps = Text.defaultProps ?? {};
     // @ts-ignore
