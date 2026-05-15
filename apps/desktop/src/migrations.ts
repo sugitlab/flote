@@ -39,6 +39,28 @@ do $$ begin
   ) then
     create policy tasks_owner on tasks for all using (auth.uid() = user_id);
   end if;
+end $$;
+
+create table if not exists transactions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users on delete cascade not null,
+  date date not null,
+  amount integer not null,
+  type text not null check (type in ('income', 'expense')),
+  description text not null default '',
+  category text not null default '',
+  account text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+alter table transactions enable row level security;
+
+do $$ begin
+  if not exists (
+    select 1 from pg_policies where tablename = 'transactions' and policyname = 'transactions_owner'
+  ) then
+    create policy transactions_owner on transactions for all using (auth.uid() = user_id);
+  end if;
 end $$;`;
 
 export type SchemaStatus = "ok" | "not_initialized";

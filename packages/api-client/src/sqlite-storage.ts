@@ -1,7 +1,7 @@
 import Database from "@tauri-apps/plugin-sql";
 import { writeTextFile, exists, mkdir } from "@tauri-apps/plugin-fs";
 import { appDataDir, join } from "@tauri-apps/api/path";
-import type { Note, Task } from "@flote/types";
+import type { Note, Task, Transaction } from "@flote/types";
 
 // ── singleton DB connection ───────────────────────────────────────────────────
 
@@ -34,6 +34,18 @@ export async function initDb(): Promise<void> {
       due_date   TEXT,
       done       INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
+    )
+  `);
+  await db.execute(`
+    CREATE TABLE IF NOT EXISTS transactions (
+      id          TEXT PRIMARY KEY,
+      date        TEXT NOT NULL,
+      amount      INTEGER NOT NULL,
+      type        TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      category    TEXT NOT NULL DEFAULT '',
+      account     TEXT NOT NULL DEFAULT '',
+      updated_at  TEXT NOT NULL
     )
   `);
 }
@@ -94,6 +106,55 @@ export async function saveTask(task: Task): Promise<void> {
 export async function deleteTask(id: string): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM tasks WHERE id = $1", [id]);
+}
+
+// ── transactions ──────────────────────────────────────────────────────────────
+
+type TransactionRow = {
+  id: string;
+  date: string;
+  amount: number;
+  type: string;
+  description: string;
+  category: string;
+  account: string;
+  updated_at: string;
+};
+
+export async function getTransactions(from?: string, to?: string): Promise<Transaction[]> {
+  const db = await getDb();
+  let sql = "SELECT id, date, amount, type, description, category, account, updated_at FROM transactions";
+  const params: string[] = [];
+  if (from && to) {
+    sql += " WHERE date >= $1 AND date <= $2";
+    params.push(from, to);
+  } else if (from) {
+    sql += " WHERE date >= $1";
+    params.push(from);
+  } else if (to) {
+    sql += " WHERE date <= $1";
+    params.push(to);
+  }
+  sql += " ORDER BY date DESC, updated_at DESC";
+  const rows = await db.select<TransactionRow[]>(sql, params);
+  return rows.map((r) => ({
+    ...r,
+    type: r.type as Transaction["type"],
+  }));
+}
+
+export async function saveTransaction(t: Transaction): Promise<void> {
+  const db = await getDb();
+  await db.execute(
+    `INSERT OR REPLACE INTO transactions (id, date, amount, type, description, category, account, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [t.id, t.date, t.amount, t.type, t.description, t.category, t.account, t.updated_at]
+  );
+}
+
+export async function deleteTransaction(id: string): Promise<void> {
+  const db = await getDb();
+  await db.execute("DELETE FROM transactions WHERE id = $1", [id]);
 }
 
 // ── export ────────────────────────────────────────────────────────────────────

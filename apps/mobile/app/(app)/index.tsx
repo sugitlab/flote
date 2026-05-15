@@ -18,6 +18,7 @@ import { supabase } from "../../src/lib/supabase";
 import { useT } from "../../src/hooks/useT";
 import NotesList from "../../components/NotesList";
 import TasksList from "../../components/TasksList";
+import ExpensesList from "../../components/ExpensesList";
 import SettingsPage from "../../components/SettingsPage";
 import FloteLogo from "../../components/FloteLogo";
 import type { Note, Task } from "@flote/types";
@@ -107,14 +108,14 @@ export default function HomeScreen() {
     // Auth state change will trigger redirect via _layout.tsx
   }, []);
 
-  const showAddButton = activeTab < 2;
+  const showAddButton = activeTab < 2; // notes(0) and tasks(1) only
 
   return (
     <>
       <Stack.Screen
         options={{
           headerShown: true,
-          title: [t.nav.notes, t.nav.tasks, t.nav.settings][activeTab],
+          title: [t.nav.notes, t.nav.tasks, t.nav.expenses, t.nav.settings][activeTab],
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.text,
           headerShadowVisible: false,
@@ -139,7 +140,7 @@ export default function HomeScreen() {
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         {/* Tab bar */}
         <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
-          {([t.nav.notes, t.nav.tasks, t.nav.settings] as string[]).map((label, i) => (
+          {([t.nav.notes, t.nav.tasks, t.nav.expenses, t.nav.settings] as string[]).map((label, i) => (
             <TouchableOpacity
               key={label}
               style={[
@@ -179,6 +180,9 @@ export default function HomeScreen() {
           </View>
           <View style={{ width: SCREEN_WIDTH }}>
             <TasksList userId={userId} />
+          </View>
+          <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
+            <ExpensesList userId={userId} />
           </View>
           <View style={{ width: SCREEN_WIDTH }}>
             <SettingsPage onSignOut={handleSignOut} />

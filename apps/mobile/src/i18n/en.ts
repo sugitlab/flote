@@ -20,7 +20,23 @@ export const en = {
   nav: {
     notes: "Notes",
     tasks: "Tasks",
+    expenses: "Expenses",
     settings: "Settings",
+  },
+  expenses: {
+    readonlyNotice: "Read-only — Add, edit, or delete transactions in the Desktop app",
+    noData: "No transactions",
+    income: "Income",
+    expense: "Expense",
+    balance: "Balance",
+    allPeriod: "All time",
+    monthLabel: (y: number, m: number) => {
+      const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      return `${months[m - 1]} ${y}`;
+    },
+    description: "Description",
+    category: "Category",
+    account: "Account",
   },
   notes: {
     untitled: "Untitled Note",

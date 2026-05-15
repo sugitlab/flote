@@ -1,0 +1,284 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.toolbarTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.monthNavBtn {
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.monthNavBtn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.monthNavBtn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.monthLabel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+  min-width: 80px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.allPeriodBtn {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.allPeriodBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.toolbarSpacer {
+  flex: 1;
+}
+
+.iconBtn {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.iconBtn:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.newBtn {
+  color: var(--accent);
+}
+
+.newBtn:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+
+.listWrap {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.emptyMsg {
+  padding: 16px 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-sidebar);
+  padding: 5px 8px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.thSortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.thSortable:hover {
+  color: var(--text-primary);
+}
+
+.thRight {
+  text-align: right;
+}
+
+.sortArrow {
+  font-size: 9px;
+  color: var(--accent);
+}
+
+.row {
+  border-bottom: 1px solid var(--border);
+  transition: background 0.1s;
+}
+
+.row:hover {
+  background: var(--bg-hover);
+}
+
+.row:hover .deleteCell {
+  opacity: 1;
+}
+
+.rowSelected {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.rowSelected:hover {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.checkbox {
+  margin-right: 5px;
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.selectCount {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex-shrink: 0;
+}
+
+.deleteBtn2 {
+  color: var(--danger, #ef4444);
+}
+
+.deleteBtn2:hover {
+  background: var(--danger-bg, rgba(239,68,68,0.1));
+  color: var(--danger, #ef4444);
+}
+
+.td {
+  padding: 5px 8px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+.tdAmount {
+  padding: 5px 8px;
+  font-weight: 600;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.amountIncome {
+  color: #22c55e;
+}
+
+.amountExpense {
+  color: #ef4444;
+}
+
+.deleteCell {
+  opacity: 0;
+  transition: opacity 0.15s;
+  width: 28px;
+}
+
+.deleteBtn {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.deleteBtn:hover {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.footerItem {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.footerLabel {
+  color: var(--text-muted);
+}
+
+.footerIncome {
+  font-weight: 600;
+  color: #22c55e;
+}
+
+.footerExpense {
+  font-weight: 600;
+  color: #ef4444;
+}
+
+.footerBalance {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.footerBalanceNeg {
+  font-weight: 600;
+  color: #ef4444;
+}
