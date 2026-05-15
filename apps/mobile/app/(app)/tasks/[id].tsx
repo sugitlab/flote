@@ -15,7 +15,7 @@ import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import Markdown from "react-native-markdown-display";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../../src/theme";
-import { makeMarkdownStyles, markdownRules } from "../../../src/markdownStyles";
+import { makeMarkdownStyles, makeMarkdownRules } from "../../../src/markdownStyles";
 import { scheduleTaskReminder, cancelTaskReminder } from "../../../src/lib/notifications";
 import { useSettingsStore } from "../../../src/store/settingsStore";
 import { useTaskStore } from "../../../src/store/taskStore";
@@ -157,6 +157,7 @@ export default function TaskDetailScreen() {
   };
 
   const markdownStyles = makeMarkdownStyles(colors);
+  const markdownRules = makeMarkdownRules(colors);
 
   return (
     <>

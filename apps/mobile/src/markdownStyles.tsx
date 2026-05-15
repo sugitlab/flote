@@ -152,50 +152,108 @@ export function makeMarkdownStyles(colors: ThemeColors) {
 // Bullet symbols per nesting level
 const BULLET_CHARS = ["•", "◦", "▸"];
 
-export const markdownRules = {
-  fence: (node: any) => {
-    const lang = node.sourceInfo?.trim() || undefined;
-    return <CodeBlock key={node.key} code={node.content} language={lang} />;
-  },
+const TAG_RE = /#([\w぀-龯一-鿿゠-ヿ]+)/g;
 
-  code_block: (node: any) => {
-    return <CodeBlock key={node.key} code={node.content} />;
-  },
+export function makeMarkdownRules(colors: ThemeColors) {
+  return {
+    fence: (node: any) => {
+      const lang = node.sourceInfo?.trim() || undefined;
+      return <CodeBlock key={node.key} code={node.content} language={lang} />;
+    },
 
-  list_item: (
-    node: any,
-    children: any,
-    parent: any,
-    styles: any,
-    inheritedStyles: any = {}
-  ) => {
-    const isBullet =
-      Array.isArray(parent) &&
-      parent.some((p: any) => p.type === "bullet_list");
+    code_block: (node: any) => {
+      return <CodeBlock key={node.key} code={node.content} />;
+    },
 
-    if (isBullet) {
-      const depth = Array.isArray(parent)
-        ? parent.filter((p: any) => p.type === "bullet_list").length
-        : 1;
-      const bullet = BULLET_CHARS[(depth - 1) % BULLET_CHARS.length];
+    list_item: (
+      node: any,
+      children: any,
+      parent: any,
+      styles: any,
+      inheritedStyles: any = {}
+    ) => {
+      const isBullet =
+        Array.isArray(parent) &&
+        parent.some((p: any) => p.type === "bullet_list");
+
+      if (isBullet) {
+        const depth = Array.isArray(parent)
+          ? parent.filter((p: any) => p.type === "bullet_list").length
+          : 1;
+        const bullet = BULLET_CHARS[(depth - 1) % BULLET_CHARS.length];
+        return (
+          <View key={node.key} style={styles._VIEW_SAFE_list_item}>
+            <Text style={[inheritedStyles, styles._VIEW_SAFE_bullet_list_icon]}>
+              {bullet}
+            </Text>
+            <View style={styles._VIEW_SAFE_bullet_list_content}>{children}</View>
+          </View>
+        );
+      }
+
       return (
         <View key={node.key} style={styles._VIEW_SAFE_list_item}>
-          <Text style={[inheritedStyles, styles._VIEW_SAFE_bullet_list_icon]}>
-            {bullet}
+          <Text style={[inheritedStyles, styles._VIEW_SAFE_ordered_list_icon]}>
+            {node.index + 1}
+            {node.markup}
           </Text>
-          <View style={styles._VIEW_SAFE_bullet_list_content}>{children}</View>
+          <View style={styles._VIEW_SAFE_ordered_list_content}>{children}</View>
         </View>
       );
-    }
+    },
 
-    return (
-      <View key={node.key} style={styles._VIEW_SAFE_list_item}>
-        <Text style={[inheritedStyles, styles._VIEW_SAFE_ordered_list_icon]}>
-          {node.index + 1}
-          {node.markup}
-        </Text>
-        <View style={styles._VIEW_SAFE_ordered_list_content}>{children}</View>
-      </View>
-    );
-  },
-};
+    text: (node: any, _children: any, _parent: any, _styles: any, inheritedStyles: any = {}) => {
+      const content: string = node.content;
+      TAG_RE.lastIndex = 0;
+
+      const parts: React.ReactNode[] = [];
+      let lastIndex = 0;
+      let match: RegExpExecArray | null;
+      let i = 0;
+
+      while ((match = TAG_RE.exec(content)) !== null) {
+        if (match.index > lastIndex) {
+          parts.push(
+            <Text key={`t${i++}`} style={inheritedStyles}>
+              {content.slice(lastIndex, match.index)}
+            </Text>
+          );
+        }
+        parts.push(
+          <Text
+            key={`tag${i++}`}
+            style={[
+              inheritedStyles,
+              {
+                color: colors.accent,
+                fontWeight: "600" as const,
+                backgroundColor: colors.accent + "22",
+              },
+            ]}
+          >
+            {match[0]}
+          </Text>
+        );
+        lastIndex = match.index + match[0].length;
+      }
+
+      if (parts.length === 0) {
+        return (
+          <Text key={node.key} style={inheritedStyles}>
+            {content}
+          </Text>
+        );
+      }
+
+      if (lastIndex < content.length) {
+        parts.push(
+          <Text key={`t${i++}`} style={inheritedStyles}>
+            {content.slice(lastIndex)}
+          </Text>
+        );
+      }
+
+      return <Text key={node.key}>{parts}</Text>;
+    },
+  };
+}

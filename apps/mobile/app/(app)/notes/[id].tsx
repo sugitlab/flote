@@ -14,7 +14,7 @@ import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import Markdown from "react-native-markdown-display";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../../../src/theme";
-import { makeMarkdownStyles, markdownRules } from "../../../src/markdownStyles";
+import { makeMarkdownStyles, makeMarkdownRules } from "../../../src/markdownStyles";
 import { useNoteStore } from "../../../src/store/noteStore";
 import { useTaskStore } from "../../../src/store/taskStore";
 import { supabase } from "../../../src/lib/supabase";
@@ -116,6 +116,7 @@ export default function NoteDetailScreen() {
   };
 
   const markdownStyles = makeMarkdownStyles(colors);
+  const markdownRules = makeMarkdownRules(colors);
 
   return (
     <>
