@@ -12,10 +12,10 @@ const CATEGORY_COLORS = [
 
 const NODE_W = 14;
 const PAD = 10;
-const LABEL_PAD = 8;
+const LABEL_PAD = 6;
 const TOP_MARGIN = 24;
-const SVG_HEIGHT = 300;
-const H_PAD = 16;
+const SVG_HEIGHT = 280;
+const H_PAD = 4;
 
 function fmt(n: number): string {
   return "¥" + n.toLocaleString("ja-JP");
@@ -40,8 +40,8 @@ function buildSankeyHTML(
   incomeLabel: string,
   expenseLabel: string,
 ): string {
-  const LEFT_MARGIN = Math.round(svgWidth * 0.32);
-  const RIGHT_MARGIN = Math.round(svgWidth * 0.32);
+  const LEFT_MARGIN = Math.round(svgWidth * 0.25);
+  const RIGHT_MARGIN = Math.round(svgWidth * 0.25);
   const INCOME_NODE_X = LEFT_MARGIN;
   const EXPENSE_NODE_X = svgWidth - RIGHT_MARGIN - NODE_W;
   const LINK_X0 = INCOME_NODE_X + NODE_W;
