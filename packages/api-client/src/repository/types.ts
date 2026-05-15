@@ -1,5 +1,4 @@
-import type { Note } from "@flote/types";
-import type { Task } from "@flote/types";
+import type { Note, Task, Transaction } from "@flote/types";
 
 export interface NoteRepository {
   getNotes(userId: string): Promise<Note[]>;
@@ -12,4 +11,10 @@ export interface TaskRepository {
   saveTask(task: Task, userId: string): Promise<Task>;
   deleteTask(id: string): Promise<void>;
   toggleDone(id: string, done: boolean): Promise<void>;
+}
+
+export interface TransactionRepository {
+  getTransactions(userId: string, from?: string, to?: string): Promise<Transaction[]>;
+  saveTransaction(t: Transaction, userId: string): Promise<Transaction>;
+  deleteTransaction(id: string): Promise<void>;
 }

@@ -81,9 +81,18 @@
   display: flex;
   flex-direction: column;
   background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
   flex-shrink: 0;
   overflow: hidden;
   min-width: 0;
+}
+
+.expensesPane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 /* Drag-to-resize handle between sidebar and editor */

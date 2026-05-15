@@ -9,6 +9,7 @@ import {
   getSupabase,
   createNoteRepository,
   createTaskRepository,
+  createTransactionRepository,
   initDb,
 } from "@flote/api-client";
 import { getConfig, setConfig } from "./config";
@@ -23,6 +24,7 @@ import { useTheme } from "./hooks/useTheme";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { useNoteStore } from "./store/noteStore";
 import { useTaskStore } from "./store/taskStore";
+import { useExpenseStore } from "./store/expenseStore";
 import { useUIStore } from "./store/uiStore";
 import Auth from "./components/Auth";
 import Editor from "./components/Editor";
@@ -34,6 +36,7 @@ import ConfirmDialog from "./components/ConfirmDialog";
 import ResizeHandles from "./components/ResizeHandles";
 import ToastContainer from "./components/Toast";
 import FloteLogo from "./components/FloteLogo";
+import ExpensePanel from "./components/ExpensePanel";
 import styles from "./App.module.css";
 
 // Initialize Supabase client from env vars (fast path for developer builds)
@@ -98,6 +101,8 @@ function MainApp({
     setActiveTask,
   } = useTaskStore();
 
+  const { fetchTransactions } = useExpenseStore();
+
   const [pinned, setPinned] = useState(false);
   const pinnedRef = useRef(false);
   pinnedRef.current = pinned;
@@ -124,8 +129,12 @@ function MainApp({
 
   const SIDEBAR_MIN = 150;
   const SIDEBAR_MAX = 500;
-  const [sidebarWidth, setSidebarWidth] = useState<number>(() => {
-    const saved = localStorage.getItem("sidebarWidth");
+  const [notesSidebarWidth, setNotesSidebarWidth] = useState<number>(() => {
+    const saved = localStorage.getItem("notesSidebarWidth");
+    return saved ? Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Number(saved))) : 200;
+  });
+  const [tasksSidebarWidth, setTasksSidebarWidth] = useState<number>(() => {
+    const saved = localStorage.getItem("tasksSidebarWidth");
     return saved ? Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, Number(saved))) : 200;
   });
   const isDragging = useRef(false);
@@ -134,21 +143,24 @@ function MainApp({
 
   const handleDividerMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
+    const isNotes = activeTab === "notes";
+    const storageKey = isNotes ? "notesSidebarWidth" : "tasksSidebarWidth";
+    const currentWidth = isNotes ? notesSidebarWidth : tasksSidebarWidth;
+    const setWidth = isNotes ? setNotesSidebarWidth : setTasksSidebarWidth;
+
     isDragging.current = true;
     dragStartX.current = e.clientX;
-    dragStartWidth.current = sidebarWidth;
+    dragStartWidth.current = currentWidth;
 
     const onMove = (ev: MouseEvent) => {
       if (!isDragging.current) return;
-      const delta = ev.clientX - dragStartX.current;
-      const next = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, dragStartWidth.current + delta));
-      setSidebarWidth(next);
+      const next = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, dragStartWidth.current + ev.clientX - dragStartX.current));
+      setWidth(next);
     };
     const onUp = (ev: MouseEvent) => {
       isDragging.current = false;
-      const delta = ev.clientX - dragStartX.current;
-      const next = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, dragStartWidth.current + delta));
-      localStorage.setItem("sidebarWidth", String(next));
+      const next = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, dragStartWidth.current + ev.clientX - dragStartX.current));
+      localStorage.setItem(storageKey, String(next));
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       document.body.style.cursor = "";
@@ -158,7 +170,7 @@ function MainApp({
     document.addEventListener("mouseup", onUp);
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
-  }, [sidebarWidth]);
+  }, [activeTab, notesSidebarWidth, tasksSidebarWidth]);
 
   const [isEditing, setIsEditing] = useState(false);
   const [activeNoteTag, setActiveNoteTag] = useState<string | null>(null);
@@ -185,7 +197,8 @@ function MainApp({
   useEffect(() => {
     fetchNotes(userId);
     fetchTasks(userId);
-  }, [userId, storageMode, fetchNotes, fetchTasks]);
+    fetchTransactions(userId);
+  }, [userId, storageMode, fetchNotes, fetchTasks, fetchTransactions]);
 
   // Receive notes saved from the Quick Capture window
   useEffect(() => {
@@ -214,7 +227,9 @@ function MainApp({
       setVimMode(c.vimMode);
       if (c.sidebarToggleShortcut) setSidebarToggleShortcut(c.sidebarToggleShortcut);
       if (c.sidebarWidth) {
-        setSidebarWidth(Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, c.sidebarWidth)));
+        const w = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, c.sidebarWidth));
+        if (!localStorage.getItem("notesSidebarWidth")) setNotesSidebarWidth(w);
+        if (!localStorage.getItem("tasksSidebarWidth")) setTasksSidebarWidth(w);
       }
     });
   }, []);
@@ -423,6 +438,10 @@ function MainApp({
     setActiveTab("tasks");
   }, [setActiveTab]);
 
+  const handleShowExpenses = useCallback(() => {
+    setActiveTab("expenses");
+  }, [setActiveTab]);
+
   const handleDeleteNote = useCallback(
     (id: string) => {
       setConfirmDelete({ type: "note", id });
@@ -581,74 +600,88 @@ function MainApp({
         </div>
       </div>
 
+      {/* Full-width tab bar */}
+      <div className={styles.tabs}>
+        <button
+          className={`${styles.tab} ${activeTab === "notes" ? styles.tabActive : ""}`}
+          onClick={handleShowNotes}
+        >
+          {t.tabs.notes} <span className={styles.tabKbd}>⌘1</span>
+        </button>
+        <button
+          className={`${styles.tab} ${activeTab === "tasks" ? styles.tabActive : ""}`}
+          onClick={handleShowTasks}
+        >
+          {t.tabs.tasks} <span className={styles.tabKbd}>⌘2</span>
+        </button>
+        <button
+          className={`${styles.tab} ${activeTab === "expenses" ? styles.tabActive : ""}`}
+          onClick={handleShowExpenses}
+        >
+          {t.tabs.expenses} <span className={styles.tabKbd}>⌘3</span>
+        </button>
+        {activeTab !== "expenses" && (
+          <button
+            className={styles.sidebarCollapseBtn}
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? t.sidebar.expand : t.sidebar.collapse}
+          >
+            {sidebarCollapsed ? "›" : "‹"}
+          </button>
+        )}
+      </div>
+
       {/* Main area */}
       <div className={styles.main}>
-        {/* Sidebar */}
-        {!sidebarCollapsed && (
-          <div className={styles.sidebar} style={{ width: sidebarWidth, borderRight: "1px solid var(--border)" }}>
-            <div className={styles.tabs}>
-              <button
-                className={`${styles.tab} ${activeTab === "notes" ? styles.tabActive : ""}`}
-                onClick={handleShowNotes}
-              >
-                {t.tabs.notes} <span className={styles.tabKbd}>⌘1</span>
-              </button>
-              <button
-                className={`${styles.tab} ${activeTab === "tasks" ? styles.tabActive : ""}`}
-                onClick={handleShowTasks}
-              >
-                {t.tabs.tasks} <span className={styles.tabKbd}>⌘2</span>
-              </button>
-              <button
-                className={styles.sidebarCollapseBtn}
-                onClick={toggleSidebar}
-                title={t.sidebar.collapse}
-              >
-                ‹
-              </button>
-            </div>
-
-            <div className={styles.sidebarList}>
-              {activeTab === "notes" && (
-                <NoteList
-                  notes={notes}
-                  activeNoteId={activeNoteId}
-                  activeTag={activeNoteTag}
-                  onSelect={(id) => { setIsEditing(false); setActiveNote(id); }}
-                  onDelete={handleDeleteNote}
-                  onDeleteMultiple={handleDeleteNotes}
-                  onNew={handleCreateNote}
-                  onTagFilter={setActiveNoteTag}
-                />
-              )}
-
-              {activeTab === "tasks" && (
-                <TaskList
-                  tasks={tasks}
-                  activeTaskId={activeTaskId}
-                  activeTag={activeTaskTag}
-                  onToggleDone={(id) => toggleDone(id, userId)}
-                  onDelete={handleDeleteTask}
-                  onDeleteMultiple={handleDeleteTasks}
-                  onAddTask={handleCreateTask}
-                  onSelectTask={handleSelectTask}
-                  onTagFilter={setActiveTaskTag}
-                />
-              )}
-            </div>
+        {/* Expenses: full width */}
+        {activeTab === "expenses" && (
+          <div className={styles.expensesPane}>
+            <ExpensePanel userId={userId} />
           </div>
         )}
 
-        {/* Drag-to-resize divider */}
-        {!sidebarCollapsed && (
-          <div
-            className={styles.resizeDivider}
-            onMouseDown={handleDividerMouseDown}
-          />
-        )}
+        {/* Notes / Tasks: sidebar + editor */}
+        {activeTab !== "expenses" && (
+          <>
+            {!sidebarCollapsed && (
+              <div className={styles.sidebar} style={{ width: activeTab === "notes" ? notesSidebarWidth : tasksSidebarWidth }}>
+                <div className={styles.sidebarList}>
+                  {activeTab === "notes" && (
+                    <NoteList
+                      notes={notes}
+                      activeNoteId={activeNoteId}
+                      activeTag={activeNoteTag}
+                      onSelect={(id) => { setIsEditing(false); setActiveNote(id); }}
+                      onDelete={handleDeleteNote}
+                      onDeleteMultiple={handleDeleteNotes}
+                      onNew={handleCreateNote}
+                      onTagFilter={setActiveNoteTag}
+                    />
+                  )}
+                  {activeTab === "tasks" && (
+                    <TaskList
+                      tasks={tasks}
+                      activeTaskId={activeTaskId}
+                      activeTag={activeTaskTag}
+                      onToggleDone={(id) => toggleDone(id, userId)}
+                      onDelete={handleDeleteTask}
+                      onDeleteMultiple={handleDeleteTasks}
+                      onAddTask={handleCreateTask}
+                      onSelectTask={handleSelectTask}
+                      onTagFilter={setActiveTaskTag}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
 
-        {/* Editor area */}
-        <div className={styles.editorArea}>
+            {/* Drag-to-resize divider */}
+            {!sidebarCollapsed && (
+              <div className={styles.resizeDivider} onMouseDown={handleDividerMouseDown} />
+            )}
+
+            {/* Editor area */}
+            <div className={styles.editorArea}>
           {/* Reopen button shown when sidebar is collapsed */}
           {sidebarCollapsed && (
             <button
@@ -782,7 +815,9 @@ function MainApp({
                 : t.editor.taskPlaceholder}
             </div>
           )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Statusbar */}
@@ -886,6 +921,7 @@ function App() {
 
   const initNoteStore = useNoteStore((s) => s.initStore);
   const initTaskStore = useTaskStore((s) => s.initStore);
+  const initExpenseStore = useExpenseStore((s) => s.initStore);
 
   useTheme();
 
@@ -936,8 +972,10 @@ function App() {
 
       const noteRepo = createNoteRepository(mode);
       const taskRepo = createTaskRepository(mode);
+      const transactionRepo = createTransactionRepository(mode);
       initNoteStore(noteRepo);
       initTaskStore(taskRepo);
+      initExpenseStore(transactionRepo);
 
       setLoading(false);
     });
@@ -959,9 +997,10 @@ function App() {
     await setConfig({ storageMode: mode });
     initNoteStore(createNoteRepository(mode));
     initTaskStore(createTaskRepository(mode));
+    initExpenseStore(createTransactionRepository(mode));
     setStorageMode(mode);
     if (mode === "selfhost") setSchemaStatus("unchecked");
-  }, [initNoteStore, initTaskStore]);
+  }, [initNoteStore, initTaskStore, initExpenseStore]);
 
   const handleUseLocal = useCallback(() => handleStorageModeChange("local"), [handleStorageModeChange]);
 

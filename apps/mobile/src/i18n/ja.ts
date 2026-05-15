@@ -17,7 +17,20 @@ export const ja = {
   nav: {
     notes: "ノート",
     tasks: "タスク",
+    expenses: "収支",
     settings: "設定",
+  },
+  expenses: {
+    readonlyNotice: "閲覧専用 — データの編集・登録・削除はDesktop版で行ってください",
+    noData: "取引データがありません",
+    income: "収入",
+    expense: "支出",
+    balance: "収支差額",
+    allPeriod: "全期間",
+    monthLabel: (y: number, m: number) => `${y}年${m}月`,
+    description: "説明",
+    category: "カテゴリ",
+    account: "口座・カード",
   },
   notes: {
     untitled: "無題のノート",
