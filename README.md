@@ -5,6 +5,8 @@
 ![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
+<img alt="flote-icon" src="docs/flote-icons.png" width="600" />
+
 ## 特徴
 
 - **グローバルショートカット** — どのアプリにいても `Cmd+Shift+N` で即表示／非表示
