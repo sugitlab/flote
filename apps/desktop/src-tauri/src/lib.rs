@@ -363,10 +363,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_autostart::init(
-            #[cfg(target_os = "macos")]
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            #[cfg(not(target_os = "macos"))]
-            tauri_plugin_autostart::WindowsLauncher::CurrentUserRun,
             None,
         ))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
