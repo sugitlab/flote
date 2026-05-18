@@ -363,7 +363,10 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_autostart::init(
+            #[cfg(target_os = "macos")]
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            #[cfg(not(target_os = "macos"))]
+            tauri_plugin_autostart::WindowsLauncher::CurrentUserRun,
             None,
         ))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
@@ -390,7 +393,7 @@ pub fn run() {
 
             TrayIconBuilder::with_id("main-tray")
                 .icon(tauri::include_image!("icons/tray.png"))
-                .icon_as_template(true)
+                .icon_as_template(cfg!(target_os = "macos"))
                 .menu(&menu)
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {

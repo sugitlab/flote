@@ -104,6 +104,7 @@ function GeneralTab() {
   const [hideOnBlur, setHideOnBlur] = useState(false);
   const [launchAtLogin, setLaunchAtLogin] = useState(false);
   const [hideDockIcon, setHideDockIcon] = useState(false);
+  const isMacos = navigator.userAgent.includes("Mac");
 
   useEffect(() => {
     getConfig().then((c) => {
@@ -220,12 +221,14 @@ function GeneralTab() {
         </div>
       </div>
 
-      <div className={styles.field}>
-        <div className={styles.switchRow}>
-          <span className={styles.switchLabel}>{t.settings.general.hideDockIcon}</span>
-          <Toggle checked={hideDockIcon} onChange={handleHideDockIcon} />
+      {isMacos && (
+        <div className={styles.field}>
+          <div className={styles.switchRow}>
+            <span className={styles.switchLabel}>{t.settings.general.hideDockIcon}</span>
+            <Toggle checked={hideDockIcon} onChange={handleHideDockIcon} />
+          </div>
         </div>
-      </div>
+      )}
 
       <h3 className={styles.sectionTitle}>{t.settings.general.editor}</h3>
 

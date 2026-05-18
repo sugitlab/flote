@@ -959,7 +959,9 @@ function App() {
 
       setStorageMode(mode);
 
-      invoke("set_dock_visible", { visible: !config.hideDockIcon });
+      if (navigator.userAgent.includes("Mac")) {
+        invoke("set_dock_visible", { visible: !config.hideDockIcon });
+      }
 
       if (config.globalShortcut) {
         invoke("update_global_shortcut", { shortcut: config.globalShortcut }).catch(() => {});
