@@ -37,18 +37,30 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build Windows (x64)
-        uses: tauri-apps/tauri-action@v0
+        working-directory: apps/desktop
+        run: pnpm tauri build --target x86_64-pc-windows-msvc
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Rename MSI (remove locale suffix)
+        shell: pwsh
+        run: |
+          $msiDir = "apps/desktop/src-tauri/target/x86_64-pc-windows-msvc/release/bundle/msi"
+          $msi = Get-ChildItem -Path $msiDir -Filter "*.msi" | Select-Object -First 1
+          $newName = $msi.Name -replace "_en-US", ""
+          Rename-Item $msi.FullName (Join-Path $msiDir $newName)
+          echo "MSI_PATH=$msiDir/$newName" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Upload MSI to release
+        uses: softprops/action-gh-release@v2
         with:
-          projectPath: apps/desktop
-          tauriScript: pnpm tauri
-          args: --target x86_64-pc-windows-msvc
-          tagName: ${{ github.ref_name }}
-          releaseName: "Flote ${{ github.ref_name }}"
-          releaseBody: |
+          tag_name: ${{ github.ref_name }}
+          name: "Flote ${{ github.ref_name }}"
+          body: |
             Windows ビルドテスト用リリース
-          releaseDraft: true
+          draft: true
           prerelease: true
+          files: ${{ env.MSI_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
