@@ -74,7 +74,7 @@ export default function TaskList({
   const t = useT();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectMode = selectedIds.size > 0;
-  const [sortOrder, setSortOrder] = useState<SortOrder>("updated");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("due");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const sortBtnRef = useRef<HTMLButtonElement>(null);
   const [tagDropdownOpen, setTagDropdownOpen] = useState(false);

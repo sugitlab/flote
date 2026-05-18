@@ -69,7 +69,7 @@ export default function TasksList({ userId }: Props) {
 
   const [search, setSearch] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [sortOrder, setSortOrder] = useState<"updated" | "due">("updated");
+  const [sortOrder, setSortOrder] = useState<"updated" | "due">("due");
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
