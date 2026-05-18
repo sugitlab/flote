@@ -182,18 +182,15 @@ html, body, #root {
   background: color-mix(in srgb, var(--bg-input) 40%, transparent);
 }
 
-/* Hashtag syntax highlighting in preview */
+/* Hashtag chip in preview */
 .preview-content .preview-hashtag {
-  display: inline;
+  display: inline-block;
+  padding: 1px 9px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.82em;
   font-weight: 600;
-}
-
-.preview-content .preview-hashtag-hash {
-  color: var(--accent);
-  opacity: 0.6;
-  font-weight: 700;
-}
-
-.preview-content .preview-hashtag-name {
-  color: var(--accent);
+  line-height: 1.8;
+  vertical-align: middle;
 }

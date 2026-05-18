@@ -78,7 +78,7 @@ const hashtagExtension: MarkedExtension = {
         if (m) return { type: "hashtag", raw: m[0], tag: m[1] };
       },
       renderer(token: Tokens.Generic) {
-        return `<span class="preview-hashtag"><span class="preview-hashtag-hash">#</span><span class="preview-hashtag-name">${token.tag}</span></span>`;
+        return `<span class="preview-hashtag">#${token.tag}</span>`;
       },
     },
   ],

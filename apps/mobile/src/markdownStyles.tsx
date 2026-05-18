@@ -238,9 +238,14 @@ export function makeMarkdownRules(colors: ThemeColors) {
             style={[
               inheritedStyles,
               {
-                color: colors.accent,
+                color: "#fff",
                 fontWeight: "600" as const,
-                backgroundColor: colors.accent + "22",
+                backgroundColor: colors.accent,
+                borderRadius: 999,
+                paddingHorizontal: 7,
+                paddingVertical: 1,
+                overflow: "hidden" as const,
+                fontSize: 13,
               },
             ]}
           >
