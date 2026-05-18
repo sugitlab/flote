@@ -200,6 +200,12 @@ function MainApp({
     fetchTransactions(userId);
   }, [userId, storageMode, fetchNotes, fetchTasks, fetchTransactions]);
 
+  const handleSync = useCallback(() => {
+    fetchNotes(userId);
+    fetchTasks(userId);
+    fetchTransactions(userId);
+  }, [userId, fetchNotes, fetchTasks, fetchTransactions]);
+
   // Receive notes saved from the Quick Capture window
   useEffect(() => {
     const unlisten = listen<{ text: string }>("quick-note", (event) => {
@@ -871,6 +877,8 @@ function MainApp({
             setActiveNoteTag(tag);
             setSidebarCollapsed(false);
           }}
+          onSync={handleSync}
+          canSync={storageMode !== "local"}
         />
       )}
 

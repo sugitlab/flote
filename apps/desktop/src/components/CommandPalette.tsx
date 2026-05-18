@@ -43,6 +43,8 @@ type Props = {
   onShowNotes: () => void;
   onShowTasks: () => void;
   onFilterByTag?: (tag: string) => void;
+  onSync?: () => void;
+  canSync?: boolean;
 };
 
 export default function CommandPalette({
@@ -56,6 +58,8 @@ export default function CommandPalette({
   onShowNotes,
   onShowTasks,
   onFilterByTag,
+  onSync,
+  canSync,
 }: Props) {
   const t = useT();
   const setOpen = useUIStore((s) => s.setCommandPaletteOpen);
@@ -122,8 +126,18 @@ export default function CommandPalette({
         kbd: "⌘⇧L",
         action: onCycleTheme,
       },
+      ...(canSync && onSync
+        ? [
+            {
+              id: "sync",
+              label: t.palette.commands.sync,
+              keywords: ["sync", "同期", "refresh", "reload", "cloud"],
+              action: onSync,
+            },
+          ]
+        : []),
     ],
-    [t, onShowNotes, onShowTasks, onNewNote, onNewTask, setSettingsOpen, onCycleTheme]
+    [t, onShowNotes, onShowTasks, onNewNote, onNewTask, setSettingsOpen, onCycleTheme, onSync, canSync]
   );
 
   const isTagSearch = query.startsWith("#");

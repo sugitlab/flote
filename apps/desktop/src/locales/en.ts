@@ -106,6 +106,7 @@ export const en: typeof ja = {
       newTask: "New Task",
       settings: "Open Settings",
       toggleTheme: "Toggle Theme",
+      sync: "Sync with Cloud",
     },
     footer: {
       navigate: "Navigate",

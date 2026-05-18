@@ -104,6 +104,7 @@ export const ja = {
       newTask: "新規タスクを追加",
       settings: "設定を開く",
       toggleTheme: "テーマを切り替え",
+      sync: "クラウドと同期",
     },
     footer: {
       navigate: "移動",
