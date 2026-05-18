@@ -202,9 +202,22 @@ export function makeMarkdownRules(colors: ThemeColors) {
       );
     },
 
-    text: (node: any, _children: any, _parent: any, _styles: any, inheritedStyles: any = {}) => {
-      const content: string = node.content;
+    text: (node: any, _children: any, parent: any, _styles: any, inheritedStyles: any = {}) => {
+      let content: string = node.content;
       TAG_RE.lastIndex = 0;
+
+      // Task list checkbox detection
+      const inListItem = Array.isArray(parent) && parent.some((p: any) => p.type === "list_item");
+      let checkboxEl: React.ReactNode = null;
+      if (inListItem) {
+        if (content.startsWith("[ ] ")) {
+          checkboxEl = <Text key="cb" style={inheritedStyles}>{"☐ "}</Text>;
+          content = content.slice(4);
+        } else if (/^\[x\] /i.test(content)) {
+          checkboxEl = <Text key="cb" style={[inheritedStyles, { color: colors.accent }]}>{"☑ "}</Text>;
+          content = content.slice(4);
+        }
+      }
 
       const parts: React.ReactNode[] = [];
       let lastIndex = 0;
@@ -238,9 +251,17 @@ export function makeMarkdownRules(colors: ThemeColors) {
       }
 
       if (parts.length === 0) {
+        if (!checkboxEl) {
+          return (
+            <Text key={node.key} style={inheritedStyles}>
+              {content}
+            </Text>
+          );
+        }
         return (
-          <Text key={node.key} style={inheritedStyles}>
-            {content}
+          <Text key={node.key}>
+            {checkboxEl}
+            <Text style={inheritedStyles}>{content}</Text>
           </Text>
         );
       }
@@ -253,7 +274,12 @@ export function makeMarkdownRules(colors: ThemeColors) {
         );
       }
 
-      return <Text key={node.key}>{parts}</Text>;
+      return (
+        <Text key={node.key}>
+          {checkboxEl}
+          {parts}
+        </Text>
+      );
     },
   };
 }
