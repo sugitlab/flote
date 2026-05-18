@@ -96,6 +96,10 @@
   color: var(--text-primary);
 }
 
+.csvBtn {
+  padding: 4px 5px;
+}
+
 .newBtn {
   color: var(--accent);
 }

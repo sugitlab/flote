@@ -142,6 +142,9 @@ export default function ExpenseList({
           </>
         ) : (
           <>
+            <button className={`${styles.iconBtn} ${styles.newBtn}`} onClick={onNew}>
+              {te.newTransaction}
+            </button>
             <button className={styles.monthNavBtn} onClick={onPrevMonth}>‹</button>
             <span className={styles.monthLabel}>{monthLabel}</span>
             <button
@@ -155,14 +158,17 @@ export default function ExpenseList({
               </button>
             )}
             <span className={styles.toolbarSpacer} />
-            <button className={styles.iconBtn} onClick={handleExportCsv} title={te.exportCsv} disabled={transactions.length === 0}>
-              ↓ {te.exportCsv}
+            <button className={`${styles.iconBtn} ${styles.csvBtn}`} onClick={handleExportCsv} title={te.exportCsv} disabled={transactions.length === 0}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 2v7M4 6.5l3 3 3-3"/>
+                <path d="M2 12h10"/>
+              </svg>
             </button>
-            <button className={styles.iconBtn} onClick={onImport} title={te.importTitle}>
-              ↑ {te.importCsv}
-            </button>
-            <button className={`${styles.iconBtn} ${styles.newBtn}`} onClick={onNew}>
-              {te.newTransaction}
+            <button className={`${styles.iconBtn} ${styles.csvBtn}`} onClick={onImport} title={te.importTitle}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7 9V2M4 4.5l3-3 3 3"/>
+                <path d="M2 12h10"/>
+              </svg>
             </button>
           </>
         )}
