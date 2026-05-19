@@ -5,7 +5,9 @@ import { supabase } from "../lib/supabase";
 type TaskStore = {
   tasks: Task[];
   loading: boolean;
+  bodyLoadedIds: Set<string>;
   fetchTasks: (userId: string) => Promise<void>;
+  ensureBodyMd: (id: string) => Promise<void>;
   saveTask: (task: Task, userId: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   toggleDone: (id: string, userId: string) => Promise<void>;
@@ -22,23 +24,56 @@ function toTask(row: Record<string, unknown>): Task {
   };
 }
 
+const BODY_FETCH_LIMIT = 100;
+
 export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
   loading: false,
+  bodyLoadedIds: new Set<string>(),
 
   fetchTasks: async (userId: string) => {
     set({ loading: true });
     try {
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .eq("user_id", userId)
-        .order("updated_at", { ascending: false });
-      if (error) throw error;
-      set({ tasks: (data ?? []).map(toTask) });
+      const [fullRes, minimalRes] = await Promise.all([
+        supabase
+          .from("tasks")
+          .select("id, title, body_md, due_date, done, updated_at")
+          .eq("user_id", userId)
+          .order("updated_at", { ascending: false })
+          .limit(BODY_FETCH_LIMIT),
+        supabase
+          .from("tasks")
+          .select("id, title, due_date, done, updated_at")
+          .eq("user_id", userId)
+          .order("updated_at", { ascending: false })
+          .range(BODY_FETCH_LIMIT, 1_000_000),
+      ]);
+      if (fullRes.error) throw fullRes.error;
+      if (minimalRes.error) throw minimalRes.error;
+      const full = (fullRes.data ?? []).map(toTask);
+      const minimal = (minimalRes.data ?? []).map((r) => toTask({ ...r, body_md: "" }));
+      const tasks = [...full, ...minimal];
+      const loaded = new Set(full.map((t) => t.id));
+      set({ tasks, bodyLoadedIds: loaded });
     } finally {
       set({ loading: false });
     }
+  },
+
+  ensureBodyMd: async (id: string) => {
+    const { bodyLoadedIds, tasks } = get();
+    if (bodyLoadedIds.has(id)) return;
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("id, title, body_md, due_date, done, updated_at")
+      .eq("id", id)
+      .single();
+    if (error || !data) return;
+    const full = toTask(data);
+    set({
+      tasks: tasks.map((t) => (t.id === id ? full : t)),
+      bodyLoadedIds: new Set([...bodyLoadedIds, id]),
+    });
   },
 
   saveTask: async (task: Task, userId: string) => {

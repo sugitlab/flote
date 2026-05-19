@@ -5,9 +5,11 @@ import type { NoteRepository } from "@flote/api-client";
 type NoteStore = {
   notes: Note[];
   activeNoteId: string | null;
+  bodyLoadedIds: Set<string>;
   repo: NoteRepository | null;
   initStore: (repo: NoteRepository) => void;
   fetchNotes: (userId?: string) => Promise<void>;
+  ensureBodyMd: (id: string, userId?: string) => Promise<void>;
   saveNote: (note: Note, userId?: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   deleteNotesBatch: (ids: string[]) => Promise<void>;
@@ -21,6 +23,7 @@ type NoteStore = {
 export const useNoteStore = create<NoteStore>((set, get) => ({
   notes: [],
   activeNoteId: null,
+  bodyLoadedIds: new Set<string>(),
   repo: null,
 
   initStore: (repo: NoteRepository) => {
@@ -31,7 +34,21 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     const { repo } = get();
     if (!repo) return;
     const notes = await repo.getNotes(userId ?? "");
-    set({ notes });
+    // Top 100 come back with body_md; mark them as loaded
+    const loaded = new Set(notes.slice(0, 100).map((n) => n.id));
+    set({ notes, bodyLoadedIds: loaded });
+  },
+
+  ensureBodyMd: async (id: string, userId?: string) => {
+    const { repo, bodyLoadedIds, notes } = get();
+    if (!repo || bodyLoadedIds.has(id)) return;
+    const full = await repo.getNoteById(id);
+    if (!full) return;
+    set({
+      notes: notes.map((n) => (n.id === id ? full : n)),
+      bodyLoadedIds: new Set([...bodyLoadedIds, id]),
+    });
+    void userId; // unused for cloud repo (already has userId in row), kept for API symmetry
   },
 
   saveNote: async (note: Note, userId?: string) => {
@@ -80,9 +97,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     });
 
     try {
-      for (const id of ids) {
-        await repo.deleteNote(id);
-      }
+      await repo.deleteNotesBatch(ids);
     } catch (e) {
       console.error("[noteStore] deleteNotesBatch failed:", e);
       set({ notes: prev });

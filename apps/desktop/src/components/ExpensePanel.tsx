@@ -65,7 +65,10 @@ export default function ExpensePanel({ userId }: Props) {
 
   const fetchForMonth = useCallback((month: string | null) => {
     if (!month) {
-      fetchTransactions(userId);
+      const now = new Date();
+      const past = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+      const from = `${past.getFullYear()}-${String(past.getMonth() + 1).padStart(2, "0")}-01`;
+      fetchTransactions(userId, from);
     } else {
       const [y, m] = month.split("-").map(Number);
       const from = `${month}-01`;
@@ -99,8 +102,8 @@ export default function ExpensePanel({ userId }: Props) {
 
   const handleClearMonth = useCallback(() => {
     setSelectedMonth(null);
-    fetchTransactions(userId);
-  }, [userId, fetchTransactions]);
+    fetchForMonth(null);
+  }, [fetchForMonth]);
 
   useEffect(() => {
     fetchForMonth(selectedMonth);

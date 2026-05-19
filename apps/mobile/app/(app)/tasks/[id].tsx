@@ -33,6 +33,7 @@ export default function TaskDetailScreen() {
   const tasks = useTaskStore((s) => s.tasks);
   const saveTask = useTaskStore((s) => s.saveTask);
   const deleteTask = useTaskStore((s) => s.deleteTask);
+  const ensureBodyMd = useTaskStore((s) => s.ensureBodyMd);
   const saveNote = useNoteStore((s) => s.saveNote);
   const reminderHour = useSettingsStore((s) => s.reminderHour);
   const [editing, setEditing] = useState(edit === "1");
@@ -51,11 +52,15 @@ export default function TaskDetailScreen() {
   }, []);
 
   useEffect(() => {
+    if (id) ensureBodyMd(id);
+  }, [id]);
+
+  useEffect(() => {
     if (task) {
       taskRef.current = task;
       if (!editing) setContent(task.body_md);
     }
-  }, [task?.id]);
+  }, [task?.id, task?.body_md]);
 
   const debouncedSave = useCallback(
     (text: string) => {

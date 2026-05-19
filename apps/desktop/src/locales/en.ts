@@ -139,6 +139,7 @@ export const en: typeof ja = {
       vimMode: "Vim Keybindings",
       search: "Search",
       searchFullText: "Search note body in Command Palette",
+      searchFullTextHint: "Full-text search covers the latest 100 notes and tasks only",
       hideCompleted: "Exclude completed tasks from search",
     },
     shortcuts: {

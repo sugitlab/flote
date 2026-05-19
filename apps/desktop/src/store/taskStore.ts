@@ -5,9 +5,11 @@ import type { TaskRepository } from "@flote/api-client";
 type TaskStore = {
   tasks: Task[];
   activeTaskId: string | null;
+  bodyLoadedIds: Set<string>;
   repo: TaskRepository | null;
   initStore: (repo: TaskRepository) => void;
   fetchTasks: (userId?: string) => Promise<void>;
+  ensureBodyMd: (id: string, userId?: string) => Promise<void>;
   saveTask: (task: Task, userId?: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   deleteTasksBatch: (ids: string[]) => Promise<void>;
@@ -22,6 +24,7 @@ type TaskStore = {
 export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
   activeTaskId: null,
+  bodyLoadedIds: new Set<string>(),
   repo: null,
 
   initStore: (repo: TaskRepository) => {
@@ -32,7 +35,20 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     const { repo } = get();
     if (!repo) return;
     const tasks = await repo.getTasks(userId ?? "");
-    set({ tasks });
+    const loaded = new Set(tasks.slice(0, 100).map((t) => t.id));
+    set({ tasks, bodyLoadedIds: loaded });
+  },
+
+  ensureBodyMd: async (id: string, userId?: string) => {
+    const { repo, bodyLoadedIds, tasks } = get();
+    if (!repo || bodyLoadedIds.has(id)) return;
+    const full = await repo.getTaskById(id);
+    if (!full) return;
+    set({
+      tasks: tasks.map((t) => (t.id === id ? full : t)),
+      bodyLoadedIds: new Set([...bodyLoadedIds, id]),
+    });
+    void userId;
   },
 
   saveTask: async (task: Task, userId?: string) => {
@@ -81,9 +97,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     });
 
     try {
-      for (const id of ids) {
-        await repo.deleteTask(id);
-      }
+      await repo.deleteTasksBatch(ids);
     } catch (e) {
       console.error("[taskStore] deleteTasksBatch failed:", e);
       set({ tasks: prev });

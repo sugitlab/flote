@@ -290,6 +290,7 @@ function GeneralTab() {
           <span className={styles.switchLabel}>{t.settings.general.searchFullText}</span>
           <Toggle checked={searchFullText} onChange={handleSearchFullText} />
         </div>
+        <div className={styles.fieldHint}>{t.settings.general.searchFullTextHint}</div>
       </div>
 
       <div className={styles.field}>

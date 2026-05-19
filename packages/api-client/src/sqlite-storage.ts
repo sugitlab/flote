@@ -70,6 +70,15 @@ export async function saveNote(note: Note): Promise<void> {
   );
 }
 
+export async function getNoteById(id: string): Promise<Note | null> {
+  const db = await getDb();
+  const rows = await db.select<NoteRow[]>(
+    "SELECT id, title, body_md, updated_at FROM notes WHERE id = $1",
+    [id]
+  );
+  return rows.length > 0 ? rows[0] : null;
+}
+
 export async function deleteNote(id: string): Promise<void> {
   const db = await getDb();
   await db.execute("DELETE FROM notes WHERE id = $1", [id]);
@@ -101,6 +110,17 @@ export async function saveTask(task: Task): Promise<void> {
      VALUES ($1, $2, $3, $4, $5, $6)`,
     [task.id, task.title, task.body_md, task.due_date, task.done ? 1 : 0, task.updated_at]
   );
+}
+
+export async function getTaskById(id: string): Promise<Task | null> {
+  const db = await getDb();
+  const rows = await db.select<TaskRow[]>(
+    "SELECT id, title, body_md, due_date, done, updated_at FROM tasks WHERE id = $1",
+    [id]
+  );
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return { ...r, done: r.done === 1 };
 }
 
 export async function deleteTask(id: string): Promise<void> {

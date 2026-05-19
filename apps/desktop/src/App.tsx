@@ -89,6 +89,7 @@ function MainApp({
     deleteNote,
     deleteNotesBatch,
     setActiveNote,
+    ensureBodyMd: ensureNoteBodyMd,
   } = useNoteStore();
   const {
     tasks,
@@ -99,6 +100,7 @@ function MainApp({
     deleteTasksBatch,
     toggleDone,
     setActiveTask,
+    ensureBodyMd: ensureTaskBodyMd,
   } = useTaskStore();
 
   const { fetchTransactions } = useExpenseStore();
@@ -195,15 +197,19 @@ function MainApp({
   useBadge();
 
   useEffect(() => {
-    fetchNotes(userId);
-    fetchTasks(userId);
-    fetchTransactions(userId);
-  }, [userId, storageMode, fetchNotes, fetchTasks, fetchTransactions]);
+    Promise.all([
+      fetchNotes(userId),
+      fetchTasks(userId),
+      fetchTransactions(userId),
+    ]).catch(console.error);
+  }, [userId, storageMode]); // store functions are stable Zustand references
 
   const handleSync = useCallback(() => {
-    fetchNotes(userId);
-    fetchTasks(userId);
-    fetchTransactions(userId);
+    Promise.all([
+      fetchNotes(userId),
+      fetchTasks(userId),
+      fetchTransactions(userId),
+    ]).catch(console.error);
   }, [userId, fetchNotes, fetchTasks, fetchTransactions]);
 
   // Receive notes saved from the Quick Capture window
@@ -220,7 +226,7 @@ function MainApp({
       addToast("success", t.toasts.quickNoteSaved);
     });
     return () => { unlisten.then((fn) => fn()); };
-  }, [userId, saveNote, addToast]);
+  }, [userId]); // saveNote and addToast are stable Zustand references
 
   const [sidebarToggleShortcut, setSidebarToggleShortcut] = useState("CmdOrCtrl+B");
 
@@ -388,31 +394,32 @@ function MainApp({
     setIsEditing(false);
     if (activeTab === "notes") {
       const idx = notes.findIndex((n) => n.id === activeNoteId);
-      if (idx > 0) setActiveNote(notes[idx - 1].id);
+      if (idx > 0) { setActiveNote(notes[idx - 1].id); ensureNoteBodyMd(notes[idx - 1].id, userId ?? undefined); }
     } else if (activeTab === "tasks") {
       const idx = tasks.findIndex((t) => t.id === activeTaskId);
-      if (idx > 0) setActiveTask(tasks[idx - 1].id);
+      if (idx > 0) { setActiveTask(tasks[idx - 1].id); ensureTaskBodyMd(tasks[idx - 1].id, userId ?? undefined); }
     }
-  }, [activeTab, notes, activeNoteId, setActiveNote, tasks, activeTaskId, setActiveTask]);
+  }, [activeTab, notes, activeNoteId, setActiveNote, tasks, activeTaskId, setActiveTask, ensureNoteBodyMd, ensureTaskBodyMd, userId]);
 
   const handleNextItem = useCallback(() => {
     setIsEditing(false);
     if (activeTab === "notes") {
       const idx = notes.findIndex((n) => n.id === activeNoteId);
-      if (idx < notes.length - 1) setActiveNote(notes[idx + 1].id);
+      if (idx < notes.length - 1) { setActiveNote(notes[idx + 1].id); ensureNoteBodyMd(notes[idx + 1].id, userId ?? undefined); }
     } else if (activeTab === "tasks") {
       const idx = tasks.findIndex((t) => t.id === activeTaskId);
-      if (idx < tasks.length - 1) setActiveTask(tasks[idx + 1].id);
+      if (idx < tasks.length - 1) { setActiveTask(tasks[idx + 1].id); ensureTaskBodyMd(tasks[idx + 1].id, userId ?? undefined); }
     }
-  }, [activeTab, notes, activeNoteId, setActiveNote, tasks, activeTaskId, setActiveTask]);
+  }, [activeTab, notes, activeNoteId, setActiveNote, tasks, activeTaskId, setActiveTask, ensureNoteBodyMd, ensureTaskBodyMd, userId]);
 
   const handleSelectNote = useCallback(
     (id: string) => {
       setIsEditing(false);
       setActiveNote(id);
       setActiveTab("notes");
+      ensureNoteBodyMd(id, userId ?? undefined);
     },
-    [setActiveNote, setActiveTab]
+    [setActiveNote, setActiveTab, ensureNoteBodyMd, userId]
   );
 
   const handleSelectTask = useCallback(
@@ -420,8 +427,9 @@ function MainApp({
       setIsEditing(false);
       setActiveTask(id);
       setActiveTab("tasks");
+      ensureTaskBodyMd(id, userId ?? undefined);
     },
-    [setActiveTask, setActiveTab]
+    [setActiveTask, setActiveTab, ensureTaskBodyMd, userId]
   );
 
   const handleStorageModeChange = useCallback(

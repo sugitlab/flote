@@ -30,6 +30,7 @@ export default function NoteDetailScreen() {
   const notes = useNoteStore((s) => s.notes);
   const saveNote = useNoteStore((s) => s.saveNote);
   const deleteNote = useNoteStore((s) => s.deleteNote);
+  const ensureBodyMd = useNoteStore((s) => s.ensureBodyMd);
   const saveTask = useTaskStore((s) => s.saveTask);
   const [editing, setEditing] = useState(edit === "1");
   const [content, setContent] = useState("");
@@ -46,11 +47,15 @@ export default function NoteDetailScreen() {
   }, []);
 
   useEffect(() => {
+    if (id) ensureBodyMd(id);
+  }, [id]);
+
+  useEffect(() => {
     if (note) {
       noteRef.current = note;
       if (!editing) setContent(note.body_md);
     }
-  }, [note?.id]);
+  }, [note?.id, note?.body_md]);
 
   const debouncedSave = useCallback(
     (text: string) => {

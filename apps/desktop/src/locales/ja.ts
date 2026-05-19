@@ -137,6 +137,7 @@ export const ja = {
       vimMode: "Vim キーバインド",
       search: "検索",
       searchFullText: "コマンドパレットで本文も検索する",
+      searchFullTextHint: "ノート・タスクそれぞれ最新100件のみが全文検索の対象です",
       hideCompleted: "完了済みタスクを検索から除外する",
     },
     shortcuts: {

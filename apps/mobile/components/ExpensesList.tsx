@@ -45,7 +45,10 @@ export default function ExpensesList({ userId }: Props) {
 
   const doFetch = useCallback((month: string | null, uid: string) => {
     if (!month) {
-      fetchTransactions(uid);
+      const now = new Date();
+      const past = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+      const from = `${past.getFullYear()}-${String(past.getMonth() + 1).padStart(2, "0")}-01`;
+      fetchTransactions(uid, from);
     } else {
       const { from, to } = monthRange(month);
       fetchTransactions(uid, from, to);
