@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { appDataDir } from "@tauri-apps/api/path";
 import { getVersion } from "@tauri-apps/api/app";
@@ -462,7 +462,92 @@ function StorageTab({
         )}
       </div>
 
+      <NoteImportSection />
+
       <div className={styles.storageFootnote}>{t.settings.storage.footnote}</div>
+    </>
+  );
+}
+
+/* ─── Note import ─── */
+
+function extractTitleFromBody(body: string, filename: string): string {
+  const heading = body.match(/^#{1,6}\s+(.+)$/m);
+  if (heading) return heading[1].trim();
+  const firstLine = body.split("\n").find((l) => l.trim());
+  if (firstLine) return firstLine.trim().slice(0, 80);
+  return filename.replace(/\.md$/i, "");
+}
+
+function parseMarkdownNote(text: string, filename: string): { title: string; body_md: string } {
+  if (text.startsWith("---")) {
+    const end = text.indexOf("\n---", 3);
+    if (end !== -1) {
+      const frontmatter = text.slice(3, end);
+      const afterFrontmatter = text.slice(end + 4).replace(/^\n/, "");
+      const titleMatch = frontmatter.match(/^title:\s*(.+)$/m);
+      const title = titleMatch
+        ? titleMatch[1].replace(/^["']|["']$/g, "").trim()
+        : extractTitleFromBody(afterFrontmatter, filename);
+      return { title, body_md: afterFrontmatter };
+    }
+  }
+  return { title: extractTitleFromBody(text, filename), body_md: text };
+}
+
+function NoteImportSection() {
+  const t = useT();
+  const saveNote = useNoteStore((s) => s.saveNote);
+  const addToast = useUIStore((s) => s.addToast);
+  const { session } = useAuth();
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFiles = async (files: FileList) => {
+    setImporting(true);
+    let count = 0;
+    try {
+      const userId = session?.user.id ?? "";
+      for (const file of Array.from(files)) {
+        const text = await file.text();
+        const { title, body_md } = parseMarkdownNote(text, file.name);
+        await saveNote(
+          { id: crypto.randomUUID(), title, body_md, updated_at: new Date().toISOString() },
+          userId
+        );
+        count++;
+      }
+      addToast("success", t.settings.storage.importNoteDone(count));
+    } catch {
+      addToast("error", t.settings.storage.importNoteError);
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  return (
+    <>
+      <h3 className={styles.sectionTitle}>{t.settings.storage.importNote}</h3>
+      <div className={styles.field}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".md"
+          multiple
+          style={{ display: "none" }}
+          onChange={(e) => { if (e.target.files?.length) handleFiles(e.target.files); }}
+        />
+        <button
+          className={styles.useModeBtn}
+          onClick={() => fileInputRef.current?.click()}
+          disabled={importing}
+          style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+        >
+          {importing ? t.settings.storage.importingNote : t.settings.storage.importNote}
+        </button>
+        <div className={styles.fieldHint}>{t.settings.storage.importNoteHint}</div>
+      </div>
     </>
   );
 }
