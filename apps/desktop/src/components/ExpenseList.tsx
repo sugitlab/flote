@@ -42,6 +42,7 @@ export default function ExpenseList({
   const t = useT();
   const te = t.expense;
   const addToast = useUIStore((s) => s.addToast);
+  const setSuppressHideOnBlur = useUIStore((s) => s.setSuppressHideOnBlur);
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectMode = selectedIds.size > 0;
@@ -104,6 +105,7 @@ export default function ExpenseList({
     const csv = "﻿" + [header, ...rows].join("\r\n");
     const filename = `flote-expenses${selectedMonth ? `-${selectedMonth}` : ""}.csv`;
     try {
+      setSuppressHideOnBlur(true);
       const dataDir = await appDataDir();
       const exportsDir = await join(dataDir, "exports");
       if (!(await exists(exportsDir))) {
@@ -114,6 +116,7 @@ export default function ExpenseList({
       await revealItemInDir(filePath);
       addToast("success", filename);
     } catch (err) {
+      setSuppressHideOnBlur(false);
       addToast("error", String(err));
     }
   }, [sorted, selectedMonth, te, addToast]);

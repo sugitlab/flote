@@ -499,6 +499,7 @@ function ImportTab({ currentMode }: { currentMode: StorageMode }) {
   const t = useT();
   const saveNote = useNoteStore((s) => s.saveNote);
   const addToast = useUIStore((s) => s.addToast);
+  const setSuppressHideOnBlur = useUIStore((s) => s.setSuppressHideOnBlur);
   const { session } = useAuth();
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -546,7 +547,7 @@ function ImportTab({ currentMode }: { currentMode: StorageMode }) {
         />
         <button
           className={styles.useModeBtn}
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => { setSuppressHideOnBlur(true); fileInputRef.current?.click(); }}
           disabled={importing}
           style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
         >
@@ -572,6 +573,7 @@ function LocalPane({
   const notes = useNoteStore((s) => s.notes);
   const tasks = useTaskStore((s) => s.tasks);
   const addToast = useUIStore((s) => s.addToast);
+  const setSuppressHideOnBlur = useUIStore((s) => s.setSuppressHideOnBlur);
   const [dataDir, setDataDir] = useState("");
   const [exporting, setExporting] = useState(false);
 
@@ -580,12 +582,14 @@ function LocalPane({
   }, []);
 
   const handleExport = async () => {
+    setSuppressHideOnBlur(true);
     setExporting(true);
     try {
       const exportDir = await exportToMarkdown(notes, tasks);
       addToast("success", t.settings.storage.exportDone);
       invoke("open_path", { path: exportDir }).catch(() => {});
     } catch {
+      setSuppressHideOnBlur(false);
       addToast("error", t.settings.storage.exportError);
     } finally {
       setExporting(false);

@@ -250,7 +250,12 @@ function MainApp({
   useEffect(() => {
     const win = getCurrentWindow();
     const unlisten = win.onFocusChanged(async ({ payload: focused }) => {
-      if (!focused && !pinnedRef.current) {
+      if (focused) {
+        // Reset suppress flag whenever window regains focus (file picker closed, Finder dismissed, etc.)
+        useUIStore.getState().setSuppressHideOnBlur(false);
+        return;
+      }
+      if (!pinnedRef.current && !useUIStore.getState().suppressHideOnBlur) {
         const config = await getConfig();
         if (config.hideOnBlur) {
           await win.hide();

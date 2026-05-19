@@ -43,6 +43,8 @@ type UIStore = {
   removeToast: (id: string) => void;
   setSearchFullText: (v: boolean) => void;
   setHideCompletedInSearch: (v: boolean) => void;
+  suppressHideOnBlur: boolean;
+  setSuppressHideOnBlur: (v: boolean) => void;
 };
 
 export const useUIStore = create<UIStore>((set, get) => ({
@@ -68,6 +70,8 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setTheme: (theme) => set({ theme }),
   setEditorThemeDark: (editorThemeDark) => set({ editorThemeDark }),
   setEditorThemeLight: (editorThemeLight) => set({ editorThemeLight }),
+  suppressHideOnBlur: false,
+  setSuppressHideOnBlur: (v) => set({ suppressHideOnBlur: v }),
   setSearchFullText: (v) => set({ searchFullText: v }),
   setHideCompletedInSearch: (v) => set({ hideCompletedInSearch: v }),
 
