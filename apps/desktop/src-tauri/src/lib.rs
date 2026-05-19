@@ -353,11 +353,17 @@ fn relay_quick_note(app: tauri::AppHandle, text: String) -> Result<(), String> {
     Ok(())
 }
 
+#[tauri::command]
+fn write_text_file(path: String, content: String) -> Result<(), String> {
+    std::fs::write(&path, content.as_bytes()).map_err(|e| e.to_string())
+}
+
 // ── entry point ───────────────────────────────────────────────────────────────
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_sql::Builder::default().build())
         .plugin(tauri_plugin_fs::init())
@@ -379,6 +385,7 @@ pub fn run() {
             update_global_shortcut,
             update_capture_shortcut,
             open_path,
+            write_text_file,
             hide_capture_window,
             relay_quick_note,
         ])

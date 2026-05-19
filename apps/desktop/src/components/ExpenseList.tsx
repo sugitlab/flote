@@ -1,8 +1,7 @@
 import { useState, useMemo, useCallback } from "react";
 import type { Transaction } from "@flote/types";
-import { writeTextFile, exists, mkdir } from "@tauri-apps/plugin-fs";
-import { appDataDir, join } from "@tauri-apps/api/path";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { invoke } from "@tauri-apps/api/core";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { useT } from "../hooks/useT";
 import { useUIStore } from "../store/uiStore";
 import styles from "./ExpenseList.module.css";
@@ -106,15 +105,15 @@ export default function ExpenseList({
     const filename = `flote-expenses${selectedMonth ? `-${selectedMonth}` : ""}.csv`;
     try {
       setSuppressHideOnBlur(true);
-      const dataDir = await appDataDir();
-      const exportsDir = await join(dataDir, "exports");
-      if (!(await exists(exportsDir))) {
-        await mkdir(exportsDir, { recursive: true });
+      const dir = await openDialog({ directory: true, multiple: false, title: "エクスポート先を選択" });
+      if (!dir) {
+        setSuppressHideOnBlur(false);
+        return;
       }
-      const filePath = await join(exportsDir, filename);
-      await writeTextFile(filePath, csv);
-      await revealItemInDir(filePath);
+      const filePath = `${dir}/${filename}`;
+      await invoke("write_text_file", { path: filePath, content: csv });
       addToast("success", filename);
+      invoke("open_path", { path: filePath }).catch(() => {});
     } catch (err) {
       setSuppressHideOnBlur(false);
       addToast("error", String(err));
