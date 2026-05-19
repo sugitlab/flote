@@ -21,7 +21,7 @@ import { useAuth } from "../hooks/useAuth";
 import FloteLogo from "./FloteLogo";
 import styles from "./Settings.module.css";
 
-type SettingsTab = "general" | "shortcuts" | "howto" | "storage" | "about";
+type SettingsTab = "general" | "shortcuts" | "howto" | "storage" | "import" | "about";
 
 type Props = {
   currentMode: StorageMode;
@@ -48,6 +48,7 @@ export default function Settings({
               ["shortcuts", t.settings.nav.shortcuts],
               ["howto", t.settings.nav.howto],
               ["storage", t.settings.nav.storage],
+              ["import", t.settings.nav.import],
               ["about", t.settings.nav.about],
             ] as const
           ).map(([key, label]) => (
@@ -74,6 +75,7 @@ export default function Settings({
               onStorageModeChange={onStorageModeChange}
             />
           )}
+          {tab === "import" && <ImportTab currentMode={currentMode} />}
           {tab === "about" && <AboutTab />}
         </div>
       </div>
@@ -462,8 +464,6 @@ function StorageTab({
         )}
       </div>
 
-      <NoteImportSection />
-
       <div className={styles.storageFootnote}>{t.settings.storage.footnote}</div>
     </>
   );
@@ -495,13 +495,19 @@ function parseMarkdownNote(text: string, filename: string): { title: string; bod
   return { title: extractTitleFromBody(text, filename), body_md: text };
 }
 
-function NoteImportSection() {
+function ImportTab({ currentMode }: { currentMode: StorageMode }) {
   const t = useT();
   const saveNote = useNoteStore((s) => s.saveNote);
   const addToast = useUIStore((s) => s.addToast);
   const { session } = useAuth();
   const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const modeLabel = {
+    local: t.settings.nav.storage + " → " + t.settings.storage.local,
+    supabase: t.settings.nav.storage + " → " + t.settings.storage.cloud,
+    selfhost: t.settings.nav.storage + " → " + t.settings.storage.selfhost,
+  }[currentMode];
 
   const handleFiles = async (files: FileList) => {
     setImporting(true);
@@ -547,6 +553,7 @@ function NoteImportSection() {
           {importing ? t.settings.storage.importingNote : t.settings.storage.importNote}
         </button>
         <div className={styles.fieldHint}>{t.settings.storage.importNoteHint}</div>
+        <div className={styles.fieldHint}>{t.settings.storage.importNoteDestination(modeLabel)}</div>
       </div>
     </>
   );
