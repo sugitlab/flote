@@ -108,7 +108,7 @@ export const ja = {
     themeDark: "ダーク",
     accentColor: "アクセントカラー",
     accentColors: {
-      blueberry: "パープル",
+      blueberry: "ブルーベリー",
       cherry: "チェリー",
       kiwi: "キウイ",
       orange: "オレンジ",

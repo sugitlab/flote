@@ -27,7 +27,8 @@
       "expo-router",
       "expo-notifications",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      "./plugins/withAlternateIcons"
     ],
     "scheme": "flote",
     "experiments": {

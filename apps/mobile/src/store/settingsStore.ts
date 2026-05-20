@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
+import { changeIcon, resetIcon } from "react-native-change-icon";
 import {
   DARK_CODE_THEME_OPTIONS,
   LIGHT_CODE_THEME_OPTIONS,
@@ -12,6 +14,37 @@ export type AccentColor = "blueberry" | "cherry" | "kiwi" | "orange";
 
 export type { DarkCodeTheme, LightCodeTheme };
 export { DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS };
+
+const IOS_ICON_MAP: Record<AccentColor, string | null> = {
+  blueberry: null,
+  cherry: "AppIconCherry",
+  kiwi: "AppIconKiwi",
+  orange: "AppIconOrange",
+};
+
+const ANDROID_ICON_MAP: Record<AccentColor, string> = {
+  blueberry: "Default",
+  cherry: "Cherry",
+  kiwi: "Kiwi",
+  orange: "Orange",
+};
+
+async function applyAppIcon(color: AccentColor): Promise<void> {
+  try {
+    if (Platform.OS === "ios") {
+      const name = IOS_ICON_MAP[color];
+      if (name === null) {
+        await resetIcon();
+      } else {
+        await changeIcon(name);
+      }
+    } else if (Platform.OS === "android") {
+      await changeIcon(ANDROID_ICON_MAP[color]);
+    }
+  } catch {
+    // icon switching not critical; silently ignore
+  }
+}
 
 const REMINDER_HOUR_KEY = "flote_reminder_hour";
 const SEARCH_FULL_TEXT_KEY = "flote_search_full_text";
@@ -102,6 +135,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   setAccentColor: async (color) => {
     set({ accentColor: color });
     await SecureStore.setItemAsync(ACCENT_COLOR_KEY, color);
+    applyAppIcon(color).catch(() => {});
   },
 
   loadSettings: async () => {

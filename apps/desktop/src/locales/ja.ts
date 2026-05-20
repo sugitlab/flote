@@ -151,7 +151,7 @@ export const ja = {
       editor: "エディタ",
       accentColor: "アクセントカラー",
       accentColors: {
-        blueberry: "パープル",
+        blueberry: "ブルーベリー",
         cherry: "チェリー",
         kiwi: "キウイ",
         orange: "オレンジ",
