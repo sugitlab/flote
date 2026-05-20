@@ -79,6 +79,9 @@ export const en: typeof ja = {
     sort: "Sort",
     sortByUpdated: "By update date",
     sortByTitle: "By title",
+    pin: "Pin",
+    unpin: "Unpin",
+    pinnedGroup: "Pinned",
   },
   taskList: {
     newTask: "+ New Task",
@@ -93,7 +96,10 @@ export const en: typeof ja = {
     sort: "Sort",
     sortByUpdated: "By update date",
     sortByDue: "By due date",
+    pin: "Pin",
+    unpin: "Unpin",
     groups: {
+      pinned: "Pinned",
       overdue: "Overdue",
       today: "Today",
       upcoming: "Upcoming",

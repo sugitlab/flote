@@ -14,6 +14,7 @@ export type Task = {
   body_md: string;
   due_date: string | null;
   status: TaskStatus;
+  pinned: boolean;
   updated_at: string;
 };
 

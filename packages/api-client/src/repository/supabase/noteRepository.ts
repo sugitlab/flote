@@ -7,6 +7,7 @@ function toNote(row: Record<string, unknown>): Note {
     id: String(row.id ?? ""),
     title: String(row.title ?? ""),
     body_md: String(row.body_md ?? ""),
+    pinned: row.pinned === true || row.pinned === 1,
     updated_at: String(row.updated_at ?? new Date().toISOString()),
   };
 }
@@ -19,14 +20,16 @@ export class SupabaseNoteRepository implements NoteRepository {
     const [fullRes, minimalRes] = await Promise.all([
       supabase
         .from("notes")
-        .select("id, title, body_md, updated_at")
+        .select("id, title, body_md, pinned, updated_at")
         .eq("user_id", userId)
+        .order("pinned", { ascending: false })
         .order("updated_at", { ascending: false })
         .limit(BODY_FETCH_LIMIT),
       supabase
         .from("notes")
-        .select("id, title, updated_at")
+        .select("id, title, pinned, updated_at")
         .eq("user_id", userId)
+        .order("pinned", { ascending: false })
         .order("updated_at", { ascending: false })
         .range(BODY_FETCH_LIMIT, 1_000_000),
     ]);
@@ -41,7 +44,7 @@ export class SupabaseNoteRepository implements NoteRepository {
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from("notes")
-      .select("id, title, body_md, updated_at")
+      .select("id, title, body_md, pinned, updated_at")
       .eq("id", id)
       .single();
     if (error) return null;
@@ -56,6 +59,7 @@ export class SupabaseNoteRepository implements NoteRepository {
         id: note.id,
         title: note.title,
         body_md: note.body_md,
+        pinned: note.pinned,
         updated_at: note.updated_at,
         user_id: userId,
       })

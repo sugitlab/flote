@@ -519,7 +519,7 @@ function ImportTab({ currentMode }: { currentMode: StorageMode }) {
         const text = await file.text();
         const { title, body_md } = parseMarkdownNote(text, file.name);
         await saveNote(
-          { id: crypto.randomUUID(), title, body_md, updated_at: new Date().toISOString() },
+          { id: crypto.randomUUID(), title, body_md, pinned: false, updated_at: new Date().toISOString() },
           userId
         );
         count++;

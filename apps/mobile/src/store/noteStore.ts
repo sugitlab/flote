@@ -19,6 +19,7 @@ function toNote(row: Record<string, unknown>): Note {
     id: row.id as string,
     title: (row.title as string) ?? "",
     body_md: (row.body_md as string) ?? "",
+    pinned: row.pinned === true || row.pinned === 1,
     updated_at: row.updated_at as string,
   };
 }

@@ -39,16 +39,18 @@ function todayStr(): string {
 
 type Section = { title: string; data: Task[] };
 
-function groupTasks(tasks: Task[], groups: { overdue: string; today: string; upcoming: string; done: string }): Section[] {
+function groupTasks(tasks: Task[], groups: { pinned?: string; overdue: string; today: string; upcoming: string; done: string }): Section[] {
   const today = todayStr();
-  const overdue: Task[] = [], todayTasks: Task[] = [], upcoming: Task[] = [], done: Task[] = [];
+  const pinned: Task[] = [], overdue: Task[] = [], todayTasks: Task[] = [], upcoming: Task[] = [], done: Task[] = [];
   for (const t of tasks) {
-    if (t.status === "Done") done.push(t);
+    if (t.pinned && t.status !== "Done") pinned.push(t);
+    else if (t.status === "Done") done.push(t);
     else if (t.due_date && t.due_date < today) overdue.push(t);
     else if (t.due_date === today) todayTasks.push(t);
     else upcoming.push(t);
   }
   const sections: Section[] = [];
+  if (pinned.length) sections.push({ title: groups.pinned ?? "ピン留め", data: pinned });
   if (overdue.length) sections.push({ title: groups.overdue, data: overdue });
   if (todayTasks.length) sections.push({ title: groups.today, data: todayTasks });
   if (upcoming.length) sections.push({ title: groups.upcoming, data: upcoming });
@@ -74,6 +76,7 @@ export default function TasksList({ userId }: Props) {
   const loading = useTaskStore((s) => s.loading);
   const fetchTasks = useTaskStore((s) => s.fetchTasks);
   const updateStatus = useTaskStore((s) => s.updateStatus);
+  const saveTask = useTaskStore((s) => s.saveTask);
   const deleteTask = useTaskStore((s) => s.deleteTask);
   const hideCompletedTasks = useSettingsStore((s) => s.hideCompletedTasks);
   const searchFullText = useSettingsStore((s) => s.searchFullText);
@@ -123,6 +126,23 @@ export default function TasksList({ userId }: Props) {
     if (!userId || !task) return;
     updateStatus(id, task.status === "Done" ? "Todo" : "Done", userId);
   }, [userId, updateStatus]);
+
+  const handleLongPress = useCallback((item: Task) => {
+    Alert.alert(item.title || t.tasks.untitled, undefined, [
+      {
+        text: item.pinned ? "📌 ピンを外す" : "📌 ピン留め",
+        onPress: () => {
+          if (userId) saveTask({ ...item, pinned: !item.pinned }, userId);
+        },
+      },
+      {
+        text: t.common.delete,
+        style: "destructive",
+        onPress: () => deleteTask(item.id),
+      },
+      { text: t.common.cancel, style: "cancel" },
+    ]);
+  }, [userId, saveTask, deleteTask, t]);
   const enterSelectMode = useCallback((id: string) => { setSelectMode(true); setSelectedIds(new Set([id])); }, []);
   const exitSelectMode = useCallback(() => { setSelectMode(false); setSelectedIds(new Set()); }, []);
   const toggleSelect = useCallback((id: string) => {
@@ -191,11 +211,12 @@ export default function TasksList({ userId }: Props) {
         <TouchableOpacity
           style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}
           onPress={() => router.push(`/(app)/tasks/${item.id}` as never)}
-          onLongPress={() => enterSelectMode(item.id)}
+          onLongPress={() => handleLongPress(item)}
           delayLongPress={400}
           activeOpacity={0.7}
         >
           <View style={styles.itemHeader}>
+            {item.pinned && <Text style={styles.pinEmoji}>📌</Text>}
             <Text style={[styles.itemTitle, { color: item.status === "Done" ? colors.textSecondary : colors.text }, item.status === "Done" && styles.doneTitle]} numberOfLines={1}>
               {item.title || t.tasks.untitled}
             </Text>
@@ -206,7 +227,7 @@ export default function TasksList({ userId }: Props) {
         </TouchableOpacity>
       </View>
     );
-  }, [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, enterSelectMode, handleToggle, t]);
+  }, [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, enterSelectMode, handleToggle, handleLongPress, t]);
 
   const renderSectionHeader = useCallback(({ section }: { section: Section }) => (
     <Text style={[styles.sectionTitle, {
@@ -306,6 +327,7 @@ const styles = StyleSheet.create({
   checkbox: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: "center", justifyContent: "center", marginRight: 10, marginTop: 14 },
   selectCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: "center", justifyContent: "center", marginRight: 12, flexShrink: 0 },
   checkmarkText: { color: "#fff", fontSize: 13, fontWeight: "bold" },
+  pinEmoji: { fontSize: 12, marginRight: 4 },
   item: { flex: 1, padding: 14, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
   itemHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   itemTitle: { fontSize: 16, fontWeight: "600", flex: 1, marginRight: 8 },

@@ -8,8 +8,12 @@ create table if not exists notes (
   user_id uuid references auth.users on delete cascade not null,
   title text not null default '',
   body_md text not null default '',
+  pinned boolean not null default false,
   updated_at timestamptz not null default now()
 );
+
+-- Migration for existing installations
+alter table notes add column if not exists pinned boolean default false;
 
 alter table notes enable row level security;
 
@@ -35,6 +39,7 @@ create table if not exists tasks (
 -- Migration for existing installations
 alter table tasks add column if not exists status text default 'Todo';
 update tasks set status = 'Done' where done = true and (status is null or status = 'Todo');
+alter table tasks add column if not exists pinned boolean default false;
 
 alter table tasks enable row level security;
 

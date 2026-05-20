@@ -78,6 +78,7 @@ function toNote(row: Record<string, unknown>): Note {
     id: String(row.id ?? ""),
     title: String(row.title ?? ""),
     body_md: String(row.body_md ?? ""),
+    pinned: row.pinned === true || row.pinned === 1,
     updated_at: String(row.updated_at ?? new Date().toISOString()),
   };
 }

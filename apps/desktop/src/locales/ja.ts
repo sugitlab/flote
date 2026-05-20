@@ -77,6 +77,9 @@ export const ja = {
     sort: "並び替え",
     sortByUpdated: "更新日時順",
     sortByTitle: "タイトル順",
+    pin: "ピン留め",
+    unpin: "ピンを外す",
+    pinnedGroup: "ピン留め",
   },
   taskList: {
     newTask: "+ 新しいタスク",
@@ -91,7 +94,10 @@ export const ja = {
     sort: "並び替え",
     sortByUpdated: "更新日時順",
     sortByDue: "期日が近い順",
+    pin: "ピン留め",
+    unpin: "ピンを外す",
     groups: {
+      pinned: "ピン留め",
       overdue: "期限切れ",
       today: "今日",
       upcoming: "今後",

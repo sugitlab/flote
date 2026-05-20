@@ -14,6 +14,7 @@ type TaskStore = {
   deleteTask: (id: string) => Promise<void>;
   deleteTasksBatch: (ids: string[]) => Promise<void>;
   updateStatus: (id: string, status: TaskStatus, userId?: string) => Promise<void>;
+  togglePin: (id: string, userId?: string) => Promise<void>;
   setActiveTask: (id: string | null) => void;
   applyRemoteChange: (
     eventType: "INSERT" | "UPDATE" | "DELETE",
@@ -113,6 +114,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       updated_at: new Date().toISOString(),
     };
     await get().saveTask(updated, userId);
+  },
+
+  togglePin: async (id: string, userId?: string) => {
+    const task = get().tasks.find((t) => t.id === id);
+    if (!task) return;
+    await get().saveTask({ ...task, pinned: !task.pinned }, userId);
   },
 
   setActiveTask: (id: string | null) => set({ activeTaskId: id }),

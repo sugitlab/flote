@@ -23,6 +23,7 @@ export async function initDb(): Promise<void> {
       id       TEXT PRIMARY KEY,
       title    TEXT NOT NULL DEFAULT '',
       body_md  TEXT NOT NULL DEFAULT '',
+      pinned   INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
     )
   `);
@@ -33,6 +34,7 @@ export async function initDb(): Promise<void> {
       body_md    TEXT NOT NULL DEFAULT '',
       due_date   TEXT,
       status     TEXT NOT NULL DEFAULT 'Todo',
+      pinned     INTEGER NOT NULL DEFAULT 0,
       updated_at TEXT NOT NULL
     )
   `);
@@ -43,6 +45,13 @@ export async function initDb(): Promise<void> {
   try {
     await db.execute(`UPDATE tasks SET status = 'Done' WHERE done = 1 AND (status IS NULL OR status = 'Todo')`);
   } catch { /* done column may not exist on fresh install — OK */ }
+  // Migration: add pinned column
+  try {
+    await db.execute(`ALTER TABLE notes ADD COLUMN pinned INTEGER DEFAULT 0`);
+  } catch { /* already exists */ }
+  try {
+    await db.execute(`ALTER TABLE tasks ADD COLUMN pinned INTEGER DEFAULT 0`);
+  } catch { /* already exists */ }
   await db.execute(`
     CREATE TABLE IF NOT EXISTS transactions (
       id          TEXT PRIMARY KEY,
@@ -59,31 +68,34 @@ export async function initDb(): Promise<void> {
 
 // ── notes ─────────────────────────────────────────────────────────────────────
 
-type NoteRow = { id: string; title: string; body_md: string; updated_at: string };
+type NoteRow = { id: string; title: string; body_md: string; pinned: number; updated_at: string };
 
 export async function getNotes(): Promise<Note[]> {
   const db = await getDb();
-  return db.select<NoteRow[]>(
-    "SELECT id, title, body_md, updated_at FROM notes ORDER BY updated_at DESC"
+  const rows = await db.select<NoteRow[]>(
+    "SELECT id, title, body_md, COALESCE(pinned, 0) AS pinned, updated_at FROM notes ORDER BY pinned DESC, updated_at DESC"
   );
+  return rows.map((r) => ({ ...r, pinned: r.pinned === 1 }));
 }
 
 export async function saveNote(note: Note): Promise<void> {
   const db = await getDb();
   await db.execute(
-    `INSERT OR REPLACE INTO notes (id, title, body_md, updated_at)
-     VALUES ($1, $2, $3, $4)`,
-    [note.id, note.title, note.body_md, note.updated_at]
+    `INSERT OR REPLACE INTO notes (id, title, body_md, pinned, updated_at)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [note.id, note.title, note.body_md, note.pinned ? 1 : 0, note.updated_at]
   );
 }
 
 export async function getNoteById(id: string): Promise<Note | null> {
   const db = await getDb();
   const rows = await db.select<NoteRow[]>(
-    "SELECT id, title, body_md, updated_at FROM notes WHERE id = $1",
+    "SELECT id, title, body_md, COALESCE(pinned, 0) AS pinned, updated_at FROM notes WHERE id = $1",
     [id]
   );
-  return rows.length > 0 ? rows[0] : null;
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return { ...r, pinned: r.pinned === 1 };
 }
 
 export async function deleteNote(id: string): Promise<void> {
@@ -99,6 +111,7 @@ type TaskRow = {
   body_md: string;
   due_date: string | null;
   status: string;
+  pinned: number;
   updated_at: string;
 };
 
@@ -109,6 +122,7 @@ function rowToTask(r: TaskRow): Task {
     body_md: r.body_md,
     due_date: r.due_date,
     status: (r.status ?? "Todo") as TaskStatus,
+    pinned: r.pinned === 1,
     updated_at: r.updated_at,
   };
 }
@@ -116,7 +130,7 @@ function rowToTask(r: TaskRow): Task {
 export async function getTasks(): Promise<Task[]> {
   const db = await getDb();
   const rows = await db.select<TaskRow[]>(
-    "SELECT id, title, body_md, due_date, COALESCE(status, 'Todo') AS status, updated_at FROM tasks ORDER BY updated_at DESC"
+    "SELECT id, title, body_md, due_date, COALESCE(status, 'Todo') AS status, COALESCE(pinned, 0) AS pinned, updated_at FROM tasks ORDER BY pinned DESC, updated_at DESC"
   );
   return rows.map(rowToTask);
 }
@@ -124,16 +138,16 @@ export async function getTasks(): Promise<Task[]> {
 export async function saveTask(task: Task): Promise<void> {
   const db = await getDb();
   await db.execute(
-    `INSERT OR REPLACE INTO tasks (id, title, body_md, due_date, status, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [task.id, task.title, task.body_md, task.due_date, task.status, task.updated_at]
+    `INSERT OR REPLACE INTO tasks (id, title, body_md, due_date, status, pinned, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    [task.id, task.title, task.body_md, task.due_date, task.status, task.pinned ? 1 : 0, task.updated_at]
   );
 }
 
 export async function getTaskById(id: string): Promise<Task | null> {
   const db = await getDb();
   const rows = await db.select<TaskRow[]>(
-    "SELECT id, title, body_md, due_date, COALESCE(status, 'Todo') AS status, updated_at FROM tasks WHERE id = $1",
+    "SELECT id, title, body_md, due_date, COALESCE(status, 'Todo') AS status, COALESCE(pinned, 0) AS pinned, updated_at FROM tasks WHERE id = $1",
     [id]
   );
   if (rows.length === 0) return null;

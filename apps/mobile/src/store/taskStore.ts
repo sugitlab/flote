@@ -23,6 +23,7 @@ function toTask(row: Record<string, unknown>): Task {
     body_md: (row.body_md as string) ?? "",
     due_date: row.due_date as string | null,
     status,
+    pinned: row.pinned === true || row.pinned === 1,
     updated_at: row.updated_at as string,
   };
 }

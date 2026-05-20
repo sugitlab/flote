@@ -11,6 +11,7 @@ type NoteStore = {
   fetchNotes: (userId?: string) => Promise<void>;
   ensureBodyMd: (id: string, userId?: string) => Promise<void>;
   saveNote: (note: Note, userId?: string) => Promise<void>;
+  togglePin: (id: string, userId?: string) => Promise<void>;
   deleteNote: (id: string) => Promise<void>;
   deleteNotesBatch: (ids: string[]) => Promise<void>;
   setActiveNote: (id: string | null) => void;
@@ -67,6 +68,12 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
       console.error("[noteStore] saveNote failed:", e);
       set({ notes: prev });
     }
+  },
+
+  togglePin: async (id: string, userId?: string) => {
+    const note = get().notes.find((n) => n.id === id);
+    if (!note) return;
+    await get().saveNote({ ...note, pinned: !note.pinned }, userId);
   },
 
   deleteNote: async (id: string) => {

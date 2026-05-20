@@ -16,6 +16,7 @@ type Props = {
   onDeleteMultiple: (ids: string[]) => void;
   onNew: () => void;
   onTagFilter?: (tag: string | null) => void;
+  onTogglePin: (id: string) => void;
 };
 
 export default function NoteList({
@@ -27,6 +28,7 @@ export default function NoteList({
   onDeleteMultiple,
   onNew,
   onTagFilter,
+  onTogglePin,
 }: Props) {
   const t = useT();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -56,9 +58,15 @@ export default function NoteList({
       ? notes.filter((n) => extractTags(n.body_md).includes(activeTag))
       : [...notes];
     if (sortOrder === "title") {
-      arr.sort((a, b) => (a.title ?? "").localeCompare(b.title ?? "", "ja"));
+      arr.sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        return (a.title ?? "").localeCompare(b.title ?? "", "ja");
+      });
     } else {
-      arr.sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
+      arr.sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
+      });
     }
     return arr;
   }, [notes, activeTag, sortOrder]);
@@ -248,22 +256,30 @@ export default function NoteList({
                 {isSelected && "✓"}
               </span>
             ) : (
-              idx < 9 && <span className={styles.indexBadge}>{idx + 1}</span>
+              note.pinned
+                ? <span className={styles.pinIcon}>📌</span>
+                : idx < 9 && <span className={styles.indexBadge}>{idx + 1}</span>
             )}
             <div className={styles.itemContent}>
               <div className={styles.itemTitle}>{note.title || t.defaults.untitledNote}</div>
               <div className={styles.itemDate}>{relativeDate(note.updated_at, t.date)}</div>
             </div>
             {!selectMode && (
-              <button
-                className={styles.deleteBtn}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(note.id);
-                }}
-              >
-                ✕
-              </button>
+              <>
+                <button
+                  className={styles.pinBtn}
+                  title={note.pinned ? t.noteList.unpin : t.noteList.pin}
+                  onClick={(e) => { e.stopPropagation(); onTogglePin(note.id); }}
+                >
+                  {note.pinned ? "📌" : "⊞"}
+                </button>
+                <button
+                  className={styles.deleteBtn}
+                  onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
+                >
+                  ✕
+                </button>
+              </>
             )}
           </div>
         );

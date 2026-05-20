@@ -91,6 +91,7 @@ function toTask(row: Record<string, unknown>): Task {
     body_md: String(row.body_md ?? ""),
     due_date: row.due_date != null ? String(row.due_date) : null,
     status,
+    pinned: row.pinned === true || row.pinned === 1,
     updated_at: String(row.updated_at ?? new Date().toISOString()),
   };
 }

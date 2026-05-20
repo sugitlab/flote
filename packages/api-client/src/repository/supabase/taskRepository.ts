@@ -12,6 +12,7 @@ function toTask(row: Record<string, unknown>): Task {
     body_md: String(row.body_md ?? ""),
     due_date: row.due_date != null ? String(row.due_date) : null,
     status,
+    pinned: row.pinned === true || row.pinned === 1,
     updated_at: String(row.updated_at ?? new Date().toISOString()),
   };
 }
@@ -26,12 +27,14 @@ export class SupabaseTaskRepository implements TaskRepository {
         .from("tasks")
         .select("*")
         .eq("user_id", userId)
+        .order("pinned", { ascending: false })
         .order("updated_at", { ascending: false })
         .limit(BODY_FETCH_LIMIT),
       supabase
         .from("tasks")
-        .select("id, title, due_date, done, updated_at")
+        .select("id, title, due_date, done, pinned, updated_at")
         .eq("user_id", userId)
+        .order("pinned", { ascending: false })
         .order("updated_at", { ascending: false })
         .range(BODY_FETCH_LIMIT, 1_000_000),
     ]);
@@ -63,6 +66,7 @@ export class SupabaseTaskRepository implements TaskRepository {
       due_date: task.due_date,
       status: task.status,
       done: task.status === "Done",
+      pinned: task.pinned,
       updated_at: task.updated_at,
       user_id: userId,
     };
@@ -81,6 +85,7 @@ export class SupabaseTaskRepository implements TaskRepository {
           body_md: task.body_md,
           due_date: task.due_date,
           done: task.status === "Done",
+          pinned: task.pinned,
           updated_at: task.updated_at,
           user_id: userId,
         })

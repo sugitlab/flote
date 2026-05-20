@@ -97,6 +97,7 @@ export default function TaskDetailScreen() {
             id: generateId(),
             title: task.title,
             body_md: task.body_md,
+            pinned: false,
             updated_at: new Date().toISOString(),
           };
           await saveNote(newNote, userId);

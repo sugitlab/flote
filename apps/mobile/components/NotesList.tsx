@@ -43,6 +43,7 @@ export default function NotesList({ userId }: Props) {
   const notes = useNoteStore((s) => s.notes);
   const loading = useNoteStore((s) => s.loading);
   const fetchNotes = useNoteStore((s) => s.fetchNotes);
+  const saveNote = useNoteStore((s) => s.saveNote);
   const deleteNote = useNoteStore((s) => s.deleteNote);
   const searchFullText = useSettingsStore((s) => s.searchFullText);
   const [search, setSearch] = useState("");
@@ -68,14 +69,37 @@ export default function NotesList({ userId }: Props) {
     }
     const arr = [...result];
     if (sortOrder === "title") {
-      arr.sort((a, b) => extractTitle(a, t.notes.untitled).localeCompare(extractTitle(b, t.notes.untitled), "ja"));
+      arr.sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        return extractTitle(a, t.notes.untitled).localeCompare(extractTitle(b, t.notes.untitled), "ja");
+      });
     } else {
-      arr.sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
+      arr.sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        return (b.updated_at ?? "").localeCompare(a.updated_at ?? "");
+      });
     }
     return arr;
   }, [notes, search, searchFullText, selectedTag, sortOrder, t]);
 
   const handleRefresh = useCallback(() => { if (userId) fetchNotes(userId); }, [userId]);
+
+  const handleLongPress = useCallback((item: Note) => {
+    Alert.alert(item.title || t.notes.untitled, undefined, [
+      {
+        text: item.pinned ? "📌 ピンを外す" : "📌 ピン留め",
+        onPress: () => {
+          if (userId) saveNote({ ...item, pinned: !item.pinned }, userId);
+        },
+      },
+      {
+        text: t.common.delete,
+        style: "destructive",
+        onPress: () => deleteNote(item.id),
+      },
+      { text: t.common.cancel, style: "cancel" },
+    ]);
+  }, [userId, saveNote, deleteNote, t]);
 
   const enterSelectMode = useCallback((id: string) => { setSelectMode(true); setSelectedIds(new Set([id])); }, []);
   const exitSelectMode = useCallback(() => { setSelectMode(false); setSelectedIds(new Set()); }, []);
@@ -128,11 +152,12 @@ export default function NotesList({ userId }: Props) {
       <TouchableOpacity
         style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={() => router.push(`/(app)/notes/${item.id}` as never)}
-        onLongPress={() => enterSelectMode(item.id)}
+        onLongPress={() => handleLongPress(item)}
         delayLongPress={400}
         activeOpacity={0.7}
       >
         <View style={styles.itemRow}>
+          {item.pinned && <Text style={styles.pinEmoji}>📌</Text>}
           <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{title}</Text>
           <Text style={[styles.itemDate, { color: colors.textSecondary }]}>{relativeDate(item.updated_at, t.date)}</Text>
         </View>
@@ -140,7 +165,7 @@ export default function NotesList({ userId }: Props) {
         <TagChips tags={itemTags} accentColor={colors.accent} />
       </TouchableOpacity>
     );
-  }, [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, enterSelectMode, t]);
+  }, [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, handleLongPress, t]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -229,6 +254,7 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: "row", alignItems: "center" },
   checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: "center", justifyContent: "center", marginRight: 12, flexShrink: 0 },
   checkmark: { color: "#fff", fontSize: 13, fontWeight: "bold" },
+  pinEmoji: { fontSize: 12, marginRight: 4 },
   itemTitle: { fontSize: 16, fontWeight: "600", flex: 1, marginRight: 8 },
   itemDate: { fontSize: 12, flexShrink: 0 },
   itemSnippet: { fontSize: 13, marginTop: 4, lineHeight: 18 },

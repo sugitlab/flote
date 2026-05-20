@@ -94,6 +94,7 @@ export default function NoteDetailScreen() {
             body_md: note.body_md,
             due_date: null,
             status: "Todo",
+            pinned: false,
             updated_at: new Date().toISOString(),
           };
           await saveTask(newTask, userId);

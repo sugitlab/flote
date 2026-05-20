@@ -16,6 +16,7 @@ type TaskListProps = {
   onAddTask: () => void;
   onSelectTask: (id: string) => void;
   onTagFilter?: (tag: string | null) => void;
+  onTogglePin: (id: string) => void;
 };
 
 function todayStr(): string {
@@ -47,16 +48,19 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
 
 type Group = { label: string; tasks: Task[]; danger?: boolean };
 
-export function groupTasks(tasks: Task[], labels?: { overdue: string; today: string; upcoming: string; done: string }): Group[] {
+export function groupTasks(tasks: Task[], labels?: { pinned?: string; overdue: string; today: string; upcoming: string; done: string }): Group[] {
   const l = labels ?? { overdue: "期限切れ", today: "今日", upcoming: "今後", done: "完了済み" };
   const today = todayStr();
+  const pinned: Task[] = [];
   const overdue: Task[] = [];
   const todayTasks: Task[] = [];
   const upcoming: Task[] = [];
   const done: Task[] = [];
 
   for (const t of tasks) {
-    if (isDone(t)) {
+    if (t.pinned && !isDone(t)) {
+      pinned.push(t);
+    } else if (isDone(t)) {
       done.push(t);
     } else if (t.due_date && t.due_date < today) {
       overdue.push(t);
@@ -68,6 +72,7 @@ export function groupTasks(tasks: Task[], labels?: { overdue: string; today: str
   }
 
   const groups: Group[] = [];
+  if (pinned.length) groups.push({ label: l.pinned ?? "ピン留め", tasks: pinned });
   if (overdue.length) groups.push({ label: l.overdue, tasks: overdue, danger: true });
   if (todayTasks.length) groups.push({ label: l.today, tasks: todayTasks });
   if (upcoming.length) groups.push({ label: l.upcoming, tasks: upcoming });
@@ -85,6 +90,7 @@ export default function TaskList({
   onAddTask,
   onSelectTask,
   onTagFilter,
+  onTogglePin,
 }: TaskListProps) {
   const t = useT();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -283,15 +289,21 @@ export default function TaskList({
         </div>
 
         {!selectMode && (
-          <button
-            className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--danger)] ml-1 text-xs shrink-0"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(task.id);
-            }}
-          >
-            ✕
-          </button>
+          <>
+            <button
+              title={task.pinned ? t.taskList.unpin : t.taskList.pin}
+              className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--accent)] ml-1 text-xs shrink-0"
+              onClick={(e) => { e.stopPropagation(); onTogglePin(task.id); }}
+            >
+              {task.pinned ? "📌" : "⊞"}
+            </button>
+            <button
+              className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--danger)] ml-1 text-xs shrink-0"
+              onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+            >
+              ✕
+            </button>
+          </>
         )}
       </div>
     );

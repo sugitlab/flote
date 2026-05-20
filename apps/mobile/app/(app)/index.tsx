@@ -77,6 +77,7 @@ export default function HomeScreen() {
         id: generateId(),
         title: "",
         body_md: "",
+        pinned: false,
         updated_at: now,
       };
       try {
@@ -93,6 +94,7 @@ export default function HomeScreen() {
         body_md: "",
         due_date: null,
         status: "Todo",
+        pinned: false,
         updated_at: now,
       };
       try {

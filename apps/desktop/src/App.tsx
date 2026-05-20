@@ -100,6 +100,7 @@ function MainApp({
     saveNote,
     deleteNote,
     deleteNotesBatch,
+    togglePin: toggleNotePin,
     setActiveNote,
     ensureBodyMd: ensureNoteBodyMd,
   } = useNoteStore();
@@ -111,6 +112,7 @@ function MainApp({
     deleteTask,
     deleteTasksBatch,
     updateStatus,
+    togglePin: toggleTaskPin,
     setActiveTask,
     ensureBodyMd: ensureTaskBodyMd,
   } = useTaskStore();
@@ -243,6 +245,7 @@ function MainApp({
         id: crypto.randomUUID(),
         title: extractTitle(text, t.defaults.untitledNote) || text.slice(0, 60),
         body_md: text,
+        pinned: false,
         updated_at: new Date().toISOString(),
       };
       saveNote(note, userId);
@@ -351,6 +354,7 @@ function MainApp({
       id: crypto.randomUUID(),
       title: t.defaults.untitledNote,
       body_md: "",
+      pinned: false,
       updated_at: new Date().toISOString(),
     };
     setActiveNote(note.id);
@@ -367,6 +371,7 @@ function MainApp({
       body_md: "",
       due_date: null,
       status: "Todo",
+      pinned: false,
       updated_at: new Date().toISOString(),
     };
     setActiveTask(task.id);
@@ -380,10 +385,12 @@ function MainApp({
     (value: string) => {
       if (activeTab === "notes") {
         if (!activeNoteId) return;
+        const prev = notes.find((n) => n.id === activeNoteId);
         const note: Note = {
           id: activeNoteId,
           title: extractTitle(value),
           body_md: value,
+          pinned: prev?.pinned ?? false,
           updated_at: new Date().toISOString(),
         };
         saveNote(note, userId);
@@ -568,6 +575,7 @@ function MainApp({
           body_md: note.body_md,
           due_date: null,
           status: "Todo",
+          pinned: false,
           updated_at: new Date().toISOString(),
         };
         saveTask(task, userId);
@@ -585,6 +593,7 @@ function MainApp({
           id: crypto.randomUUID(),
           title: task.title,
           body_md: task.body_md,
+          pinned: false,
           updated_at: new Date().toISOString(),
         };
         saveNote(note, userId);
@@ -699,6 +708,7 @@ function MainApp({
                       onDeleteMultiple={handleDeleteNotes}
                       onNew={handleCreateNote}
                       onTagFilter={setActiveNoteTag}
+                      onTogglePin={(id) => toggleNotePin(id, userId)}
                     />
                   )}
                   {activeTab === "tasks" && (
@@ -712,6 +722,7 @@ function MainApp({
                       onAddTask={handleCreateTask}
                       onSelectTask={handleSelectTask}
                       onTagFilter={setActiveTaskTag}
+                      onTogglePin={(id) => toggleTaskPin(id, userId)}
                     />
                   )}
                 </div>

@@ -2,6 +2,7 @@ export type Note = {
   id: string;
   title: string;
   body_md: string;
+  pinned: boolean;
   updated_at: string;
 };
 
