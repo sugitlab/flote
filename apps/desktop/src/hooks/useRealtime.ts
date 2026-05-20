@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { getSupabase } from "@flote/api-client";
 import { useNoteStore } from "../store/noteStore";
 import { useTaskStore } from "../store/taskStore";
-import type { Note, Task, StorageMode } from "@flote/types";
+import type { Note, Task, TaskStatus, StorageMode } from "@flote/types";
 
 function toNote(row: Record<string, unknown>): Note {
   return {
@@ -14,12 +14,15 @@ function toNote(row: Record<string, unknown>): Note {
 }
 
 function toTask(row: Record<string, unknown>): Task {
+  const status =
+    (row.status as TaskStatus | undefined) ??
+    (row.done ? "Done" : "Todo");
   return {
     id: row.id as string,
     title: row.title as string,
     body_md: (row.body_md as string) ?? "",
     due_date: row.due_date as string | null,
-    done: row.done as boolean,
+    status,
     updated_at: row.updated_at as string,
   };
 }

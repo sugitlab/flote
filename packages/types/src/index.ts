@@ -1,5 +1,5 @@
 export type { Note, NoteInsert, NoteUpdate } from "./note";
-export type { Task, TaskInsert, TaskUpdate } from "./task";
+export type { Task, TaskInsert, TaskUpdate, TaskStatus } from "./task";
 export type { Transaction, TransactionInsert, TransactionType } from "./expense";
 
 export type StorageMode = "local" | "supabase" | "selfhost";

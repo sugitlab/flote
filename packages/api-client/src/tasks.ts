@@ -1,4 +1,4 @@
-import type { Task, TaskInsert, TaskUpdate } from "@flote/types";
+import type { Task, TaskInsert, TaskUpdate, TaskStatus } from "@flote/types";
 import { getSupabase } from "./supabase";
 
 export async function listTasks(userId: string): Promise<Task[]> {
@@ -20,7 +20,8 @@ export async function createTask(task: TaskInsert, userId: string): Promise<Task
       title: task.title,
       body_md: task.body_md,
       due_date: task.due_date,
-      done: task.done,
+      status: task.status,
+      done: task.status === "Done",
       user_id: userId,
     })
     .select()
@@ -35,7 +36,10 @@ export async function updateTask(id: string, task: TaskUpdate): Promise<Task> {
   if (task.title !== undefined) patch.title = task.title;
   if (task.body_md !== undefined) patch.body_md = task.body_md;
   if (task.due_date !== undefined) patch.due_date = task.due_date;
-  if (task.done !== undefined) patch.done = task.done;
+  if (task.status !== undefined) {
+    patch.status = task.status;
+    patch.done = task.status === "Done";
+  }
   patch.updated_at = new Date().toISOString();
   const { data, error } = await supabase
     .from("tasks")
@@ -56,7 +60,8 @@ export async function saveTask(task: Task, userId: string): Promise<Task> {
       title: task.title,
       body_md: task.body_md,
       due_date: task.due_date,
-      done: task.done,
+      status: task.status,
+      done: task.status === "Done",
       updated_at: task.updated_at,
       user_id: userId,
     })
@@ -73,16 +78,19 @@ export async function deleteTask(id: string): Promise<void> {
 }
 
 export async function toggleTask(id: string, done: boolean): Promise<Task> {
-  return updateTask(id, { done });
+  return updateTask(id, { status: done ? "Done" : "Todo" });
 }
 
 function toTask(row: Record<string, unknown>): Task {
+  const status =
+    (row.status as TaskStatus | undefined) ??
+    (row.done ? "Done" : "Todo");
   return {
     id: String(row.id ?? ""),
     title: String(row.title ?? ""),
     body_md: String(row.body_md ?? ""),
     due_date: row.due_date != null ? String(row.due_date) : null,
-    done: Boolean(row.done),
+    status,
     updated_at: String(row.updated_at ?? new Date().toISOString()),
   };
 }

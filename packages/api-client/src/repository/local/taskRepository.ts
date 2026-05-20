@@ -25,10 +25,4 @@ export class LocalTaskRepository implements TaskRepository {
       await deleteTask(id);
     }
   }
-
-  async toggleDone(id: string, done: boolean): Promise<void> {
-    const task = await getTaskById(id);
-    if (!task) return;
-    await saveTask({ ...task, done, updated_at: new Date().toISOString() });
-  }
 }

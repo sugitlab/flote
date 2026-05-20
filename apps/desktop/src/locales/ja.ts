@@ -23,6 +23,16 @@ export const ja = {
     setDueDate: "期日を設定",
     dueLabel: (d: string) => `期限: ${d}`,
     overdueBadge: (n: number) => `${n} 期限切れ`,
+    statuses: {
+      Todo: "未着手",
+      InProgress: "進行中",
+      Waiting: "待機中",
+      Reviewing: "レビュー中",
+      NoPlan: "予定なし",
+      HalfwaySpot: "途中",
+      LastEffort: "追い込み",
+      Done: "完了",
+    },
   },
   cloud: {
     notConfiguredTitle: "クラウド未設定",

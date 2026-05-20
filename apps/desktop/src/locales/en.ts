@@ -25,6 +25,16 @@ export const en: typeof ja = {
     setDueDate: "Set due date",
     dueLabel: (d: string) => `Due: ${d}`,
     overdueBadge: (n: number) => `${n} overdue`,
+    statuses: {
+      Todo: "Todo",
+      InProgress: "In Progress",
+      Waiting: "Waiting",
+      Reviewing: "Reviewing",
+      NoPlan: "No Plan",
+      HalfwaySpot: "Halfway",
+      LastEffort: "Last Effort",
+      Done: "Done",
+    },
   },
   cloud: {
     notConfiguredTitle: "Cloud not configured",

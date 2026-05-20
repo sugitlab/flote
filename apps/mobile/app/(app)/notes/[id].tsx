@@ -93,7 +93,7 @@ export default function NoteDetailScreen() {
             title: note.title || content.split("\n").find((l) => l.trim())?.replace(/^#{1,6}\s+/, "").trim() || t.tasks.untitled,
             body_md: note.body_md,
             due_date: null,
-            done: false,
+            status: "Todo",
             updated_at: new Date().toISOString(),
           };
           await saveTask(newTask, userId);

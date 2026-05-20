@@ -92,7 +92,7 @@ export default function HomeScreen() {
         title: t.tasks.newTaskTitle,
         body_md: "",
         due_date: null,
-        done: false,
+        status: "Todo",
         updated_at: now,
       };
       try {

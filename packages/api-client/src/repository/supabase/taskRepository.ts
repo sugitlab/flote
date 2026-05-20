@@ -1,14 +1,17 @@
-import type { Task } from "@flote/types";
+import type { Task, TaskStatus } from "@flote/types";
 import type { TaskRepository } from "../types";
 import { getSupabase } from "../../supabase";
 
 function toTask(row: Record<string, unknown>): Task {
+  const status =
+    (row.status as TaskStatus | undefined) ??
+    (row.done ? "Done" : "Todo");
   return {
     id: String(row.id ?? ""),
     title: String(row.title ?? ""),
     body_md: String(row.body_md ?? ""),
     due_date: row.due_date != null ? String(row.due_date) : null,
-    done: Boolean(row.done),
+    status,
     updated_at: String(row.updated_at ?? new Date().toISOString()),
   };
 }
@@ -21,13 +24,13 @@ export class SupabaseTaskRepository implements TaskRepository {
     const [fullRes, minimalRes] = await Promise.all([
       supabase
         .from("tasks")
-        .select("id, title, body_md, due_date, done, updated_at")
+        .select("id, title, body_md, due_date, status, done, updated_at")
         .eq("user_id", userId)
         .order("updated_at", { ascending: false })
         .limit(BODY_FETCH_LIMIT),
       supabase
         .from("tasks")
-        .select("id, title, due_date, done, updated_at")
+        .select("id, title, due_date, status, done, updated_at")
         .eq("user_id", userId)
         .order("updated_at", { ascending: false })
         .range(BODY_FETCH_LIMIT, 1_000_000),
@@ -43,7 +46,7 @@ export class SupabaseTaskRepository implements TaskRepository {
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from("tasks")
-      .select("id, title, body_md, due_date, done, updated_at")
+      .select("id, title, body_md, due_date, status, done, updated_at")
       .eq("id", id)
       .single();
     if (error) return null;
@@ -59,7 +62,8 @@ export class SupabaseTaskRepository implements TaskRepository {
         title: task.title,
         body_md: task.body_md,
         due_date: task.due_date,
-        done: task.done,
+        status: task.status,
+        done: task.status === "Done",
         updated_at: task.updated_at,
         user_id: userId,
       })
@@ -79,15 +83,6 @@ export class SupabaseTaskRepository implements TaskRepository {
     if (ids.length === 0) return;
     const supabase = getSupabase();
     const { error } = await supabase.from("tasks").delete().in("id", ids);
-    if (error) throw error;
-  }
-
-  async toggleDone(id: string, done: boolean): Promise<void> {
-    const supabase = getSupabase();
-    const { error } = await supabase
-      .from("tasks")
-      .update({ done, updated_at: new Date().toISOString() })
-      .eq("id", id);
     if (error) throw error;
   }
 }

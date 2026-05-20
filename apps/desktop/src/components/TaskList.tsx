@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from "react";
-import type { Task } from "@flote/types";
+import type { Task, TaskStatus } from "@flote/types";
 import { extractTags, allTagsFromTasks } from "../utils/tags";
 import { relativeDate } from "../utils/date";
 import { useT } from "../hooks/useT";
@@ -10,7 +10,7 @@ type TaskListProps = {
   tasks: Task[];
   activeTaskId: string | null;
   activeTag?: string | null;
-  onToggleDone: (id: string) => void;
+  onUpdateStatus: (id: string, status: TaskStatus) => void;
   onDelete: (id: string) => void;
   onDeleteMultiple: (ids: string[]) => void;
   onAddTask: () => void;
@@ -24,10 +24,25 @@ function todayStr(): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+function isDone(task: Task): boolean {
+  return task.status === "Done";
+}
+
 function isOverdue(task: Task): boolean {
-  if (task.done || !task.due_date) return false;
+  if (isDone(task) || !task.due_date) return false;
   return task.due_date < todayStr();
 }
+
+const STATUS_COLORS: Record<TaskStatus, string> = {
+  Todo: "#6b7280",
+  InProgress: "#3b82f6",
+  Waiting: "#f59e0b",
+  Reviewing: "#8b5cf6",
+  NoPlan: "#9ca3af",
+  HalfwaySpot: "#06b6d4",
+  LastEffort: "#ef4444",
+  Done: "#22c55e",
+};
 
 
 type Group = { label: string; tasks: Task[]; danger?: boolean };
@@ -41,7 +56,7 @@ export function groupTasks(tasks: Task[], labels?: { overdue: string; today: str
   const done: Task[] = [];
 
   for (const t of tasks) {
-    if (t.done) {
+    if (isDone(t)) {
       done.push(t);
     } else if (t.due_date && t.due_date < today) {
       overdue.push(t);
@@ -64,7 +79,7 @@ export default function TaskList({
   tasks,
   activeTaskId,
   activeTag,
-  onToggleDone,
+  onUpdateStatus,
   onDelete,
   onDeleteMultiple,
   onAddTask,
@@ -130,7 +145,8 @@ export default function TaskList({
       arr.sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
     } else {
       arr.sort((a, b) => {
-        if (a.done !== b.done) return a.done ? 1 : -1;
+        const aDone = isDone(a), bDone = isDone(b);
+        if (aDone !== bDone) return aDone ? 1 : -1;
         if (!a.due_date && !b.due_date) return 0;
         if (!a.due_date) return 1;
         if (!b.due_date) return -1;
@@ -216,14 +232,14 @@ export default function TaskList({
                 {globalIdx + 1}
               </span>
             )}
-            <input
-              type="checkbox"
-              checked={task.done}
-              onChange={(e) => {
+            <button
+              title={task.status}
+              onClick={(e) => {
                 e.stopPropagation();
-                onToggleDone(task.id);
+                onUpdateStatus(task.id, isDone(task) ? "Todo" : "Done");
               }}
-              className="mr-2 accent-blue-500 shrink-0"
+              className="shrink-0 mr-1.5 w-[10px] h-[10px] rounded-full border-none p-0 cursor-pointer transition-opacity hover:opacity-70"
+              style={{ backgroundColor: STATUS_COLORS[task.status] }}
             />
           </>
         )}
@@ -232,14 +248,14 @@ export default function TaskList({
           <span
             className={[
               "flex-1 min-w-0 truncate",
-              task.done ? "line-through text-[var(--text-muted)]" : "",
-              !task.done && overdue ? "text-[var(--danger)]" : "",
-              !task.done && !overdue ? "text-[var(--text-primary)]" : "",
+              isDone(task) ? "line-through text-[var(--text-muted)]" : "",
+              !isDone(task) && overdue ? "text-[var(--danger)]" : "",
+              !isDone(task) && !overdue ? "text-[var(--text-primary)]" : "",
             ].join(" ")}
           >
             {task.title}
           </span>
-          {task.due_date && !task.done && (
+          {task.due_date && !isDone(task) && (
             <span className={`text-[10px] shrink-0 whitespace-nowrap ${overdue ? "text-[var(--danger)]" : "text-[var(--text-muted)]"}`}>
               {relativeDate(task.due_date!, t.date)}
             </span>

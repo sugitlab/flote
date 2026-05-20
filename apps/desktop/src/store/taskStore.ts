@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Task } from "@flote/types";
+import type { Task, TaskStatus } from "@flote/types";
 import type { TaskRepository } from "@flote/api-client";
 
 type TaskStore = {
@@ -13,7 +13,7 @@ type TaskStore = {
   saveTask: (task: Task, userId?: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   deleteTasksBatch: (ids: string[]) => Promise<void>;
-  toggleDone: (id: string, userId?: string) => Promise<void>;
+  updateStatus: (id: string, status: TaskStatus, userId?: string) => Promise<void>;
   setActiveTask: (id: string | null) => void;
   applyRemoteChange: (
     eventType: "INSERT" | "UPDATE" | "DELETE",
@@ -104,12 +104,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  toggleDone: async (id: string, userId?: string) => {
+  updateStatus: async (id: string, status: TaskStatus, userId?: string) => {
     const task = get().tasks.find((t) => t.id === id);
     if (!task) return;
     const updated: Task = {
       ...task,
-      done: !task.done,
+      status,
       updated_at: new Date().toISOString(),
     };
     await get().saveTask(updated, userId);
@@ -127,7 +127,6 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         break;
       case "UPDATE": {
         const local = tasks.find((t) => t.id === task.id);
-        // Skip if local version is already newer or equal (own echo / stale update)
         if (local && local.updated_at >= task.updated_at) break;
         set({ tasks: tasks.map((t) => (t.id === task.id ? task : t)) });
         break;

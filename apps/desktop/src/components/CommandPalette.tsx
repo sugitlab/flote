@@ -203,7 +203,7 @@ export default function CommandPalette({
     }
 
     const matchedTasks = tasks.filter((task) => {
-      if (hideCompletedInSearch && task.done) return false;
+      if (hideCompletedInSearch && task.status === "Done") return false;
       if (!q) return true;
       if (task.title.toLowerCase().includes(q)) return true;
       if (searchFullText && task.body_md.toLowerCase().includes(q)) return true;
@@ -218,7 +218,7 @@ export default function CommandPalette({
       result.push({
         type: "task",
         id: task.id,
-        label: `${task.done ? "✓ " : ""}${task.title}`,
+        label: `${task.status === "Done" ? "✓ " : ""}${task.title}`,
         meta: inBody ? bodySnippet(task.body_md, query) : (task.due_date ?? undefined),
         action: () => onSelectTask(task.id),
       });

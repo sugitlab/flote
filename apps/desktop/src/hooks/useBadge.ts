@@ -3,9 +3,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { useTaskStore } from "../store/taskStore";
 import { useT } from "./useT";
 
-function countOverdueTasks(tasks: { due_date: string | null; done: boolean }[]): number {
+function countOverdueTasks(tasks: { due_date: string | null; status: string }[]): number {
   const today = new Date().toISOString().slice(0, 10);
-  return tasks.filter((t) => !t.done && t.due_date && t.due_date <= today).length;
+  return tasks.filter((t) => t.status !== "Done" && t.due_date && t.due_date <= today).length;
 }
 
 export function useBadge() {

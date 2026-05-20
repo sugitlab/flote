@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import type { Note, Task, StorageMode } from "@flote/types";
+import type { Note, Task, TaskStatus, StorageMode } from "@flote/types";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -62,9 +62,20 @@ function countWords(text: string): number {
   return cjk + words;
 }
 
+const STATUS_COLORS: Record<TaskStatus, string> = {
+  Todo: "#6b7280",
+  InProgress: "#3b82f6",
+  Waiting: "#f59e0b",
+  Reviewing: "#8b5cf6",
+  NoPlan: "#9ca3af",
+  HalfwaySpot: "#06b6d4",
+  LastEffort: "#ef4444",
+  Done: "#22c55e",
+};
+
 function countOverdue(tasks: Task[]): number {
   const today = new Date().toISOString().slice(0, 10);
-  return tasks.filter((t) => !t.done && t.due_date && t.due_date <= today)
+  return tasks.filter((t) => t.status !== "Done" && t.due_date && t.due_date <= today)
     .length;
 }
 
@@ -98,7 +109,7 @@ function MainApp({
     saveTask,
     deleteTask,
     deleteTasksBatch,
-    toggleDone,
+    updateStatus,
     setActiveTask,
     ensureBodyMd: ensureTaskBodyMd,
   } = useTaskStore();
@@ -179,6 +190,7 @@ function MainApp({
   const [activeTaskTag, setActiveTaskTag] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ type: "note" | "task"; id: string } | null>(null);
   const [confirmConvert, setConfirmConvert] = useState<{ type: "note" | "task"; id: string } | null>(null);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
 
   const { cycleTheme } = useTheme();
 
@@ -195,6 +207,16 @@ function MainApp({
 
   useRealtime(userId, storageMode);
   useBadge();
+
+  useEffect(() => {
+    if (!statusDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      const el = document.querySelector("[data-status-dropdown]");
+      if (el && !el.contains(e.target as Node)) setStatusDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [statusDropdownOpen]);
 
   useEffect(() => {
     Promise.all([
@@ -297,6 +319,7 @@ function MainApp({
   useEffect(() => {
     const prevId = prevTaskIdRef.current;
     prevTaskIdRef.current = activeTaskId;
+    setStatusDropdownOpen(false);
     if (!prevId || prevId === activeTaskId) return;
     const prev = tasksRef.current.find((t) => t.id === prevId);
     if (prev && prev.body_md.trim() === "" && (prev.title === "新しいタスク" || prev.title === "New Task")) deleteTaskRef.current(prevId);
@@ -342,7 +365,7 @@ function MainApp({
       title: t.defaults.newTask,
       body_md: "",
       due_date: null,
-      done: false,
+      status: "Todo",
       updated_at: new Date().toISOString(),
     };
     setActiveTask(task.id);
@@ -543,7 +566,7 @@ function MainApp({
           title: note.title || extractTitle(note.body_md),
           body_md: note.body_md,
           due_date: null,
-          done: false,
+          status: "Todo",
           updated_at: new Date().toISOString(),
         };
         saveTask(task, userId);
@@ -682,7 +705,7 @@ function MainApp({
                       tasks={tasks}
                       activeTaskId={activeTaskId}
                       activeTag={activeTaskTag}
-                      onToggleDone={(id) => toggleDone(id, userId)}
+                      onUpdateStatus={(id, status) => updateStatus(id, status, userId)}
                       onDelete={handleDeleteTask}
                       onDeleteMultiple={handleDeleteTasks}
                       onAddTask={handleCreateTask}
@@ -759,23 +782,42 @@ function MainApp({
           ) : activeTab === "tasks" && selectedTask ? (
             <div className={styles.taskDetail}>
               <div className={styles.taskDetailHeader}>
-                <button
-                  className={styles.taskDetailStatusBtn}
-                  onClick={() => toggleDone(selectedTask.id, userId)}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedTask.done}
-                    readOnly
-                    className={styles.taskDetailCheckbox}
-                  />
-                  <span
-                    className={styles.taskDetailStatus}
-                    style={{ color: selectedTask.done ? "var(--accent)" : "#f59e0b" }}
+                <div className={styles.statusPickerWrap} data-status-dropdown="">
+                  <button
+                    className={styles.taskDetailStatusBtn}
+                    onClick={() => setStatusDropdownOpen((v) => !v)}
                   >
-                    {selectedTask.done ? t.taskStatus.done : t.taskStatus.notDone}
-                  </span>
-                </button>
+                    <span
+                      className={styles.statusDot}
+                      style={{ backgroundColor: STATUS_COLORS[selectedTask.status] }}
+                    />
+                    <span
+                      className={styles.taskDetailStatus}
+                      style={{ color: STATUS_COLORS[selectedTask.status] }}
+                    >
+                      {t.taskStatus.statuses[selectedTask.status]}
+                    </span>
+                    <span className={styles.statusChevron}>▾</span>
+                  </button>
+                  {statusDropdownOpen && (
+                    <div className={styles.statusDropdown}>
+                      {(Object.keys(STATUS_COLORS) as TaskStatus[]).map((s) => (
+                        <button
+                          key={s}
+                          className={`${styles.statusDropdownItem} ${selectedTask.status === s ? styles.statusDropdownItemActive : ""}`}
+                          onClick={() => {
+                            updateStatus(selectedTask.id, s, userId);
+                            setStatusDropdownOpen(false);
+                          }}
+                        >
+                          <span className={styles.statusDot} style={{ backgroundColor: STATUS_COLORS[s] }} />
+                          {t.taskStatus.statuses[s]}
+                          {selectedTask.status === s && <span className={styles.statusCheck}>✓</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className={styles.datePickerWrap}>
                   <span className={styles.taskDetailDateInput}>
                     {selectedTask.due_date || t.taskStatus.setDueDate}
@@ -850,7 +892,7 @@ function MainApp({
           )}
           {activeTab === "tasks" && selectedTask && (
             <>
-              <span>{selectedTask.done ? t.taskStatus.done : t.taskStatus.notDone}</span>
+              <span>{t.taskStatus.statuses[selectedTask.status]}</span>
               {selectedTask.due_date && (
                 <span>{t.taskStatus.dueLabel(selectedTask.due_date)}</span>
               )}

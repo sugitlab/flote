@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Task } from "@flote/types";
+import type { Task, TaskStatus } from "@flote/types";
 import { supabase } from "../lib/supabase";
 
 type TaskStore = {
@@ -10,16 +10,19 @@ type TaskStore = {
   ensureBodyMd: (id: string) => Promise<void>;
   saveTask: (task: Task, userId: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
-  toggleDone: (id: string, userId: string) => Promise<void>;
+  updateStatus: (id: string, status: TaskStatus, userId: string) => Promise<void>;
 };
 
 function toTask(row: Record<string, unknown>): Task {
+  const status =
+    (row.status as TaskStatus | undefined) ??
+    (row.done ? "Done" : "Todo");
   return {
     id: row.id as string,
     title: row.title as string,
     body_md: (row.body_md as string) ?? "",
     due_date: row.due_date as string | null,
-    done: row.done as boolean,
+    status,
     updated_at: row.updated_at as string,
   };
 }
@@ -37,13 +40,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       const [fullRes, minimalRes] = await Promise.all([
         supabase
           .from("tasks")
-          .select("id, title, body_md, due_date, done, updated_at")
+          .select("id, title, body_md, due_date, status, done, updated_at")
           .eq("user_id", userId)
           .order("updated_at", { ascending: false })
           .limit(BODY_FETCH_LIMIT),
         supabase
           .from("tasks")
-          .select("id, title, due_date, done, updated_at")
+          .select("id, title, due_date, status, done, updated_at")
           .eq("user_id", userId)
           .order("updated_at", { ascending: false })
           .range(BODY_FETCH_LIMIT, 1_000_000),
@@ -65,7 +68,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     if (bodyLoadedIds.has(id)) return;
     const { data, error } = await supabase
       .from("tasks")
-      .select("id, title, body_md, due_date, done, updated_at")
+      .select("id, title, body_md, due_date, status, done, updated_at")
       .eq("id", id)
       .single();
     if (error || !data) return;
@@ -90,7 +93,8 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         title: task.title,
         body_md: task.body_md,
         due_date: task.due_date,
-        done: task.done,
+        status: task.status,
+        done: task.status === "Done",
         updated_at: task.updated_at,
         user_id: userId,
       });
@@ -114,12 +118,12 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     }
   },
 
-  toggleDone: async (id: string, userId: string) => {
+  updateStatus: async (id: string, status: TaskStatus, userId: string) => {
     const task = get().tasks.find((t) => t.id === id);
     if (!task) return;
     const updated: Task = {
       ...task,
-      done: !task.done,
+      status,
       updated_at: new Date().toISOString(),
     };
     await get().saveTask(updated, userId);

@@ -1,9 +1,19 @@
+export type TaskStatus =
+  | "Todo"
+  | "InProgress"
+  | "Waiting"
+  | "Reviewing"
+  | "NoPlan"
+  | "HalfwaySpot"
+  | "LastEffort"
+  | "Done";
+
 export type Task = {
   id: string;
   title: string;
   body_md: string;
   due_date: string | null;
-  done: boolean;
+  status: TaskStatus;
   updated_at: string;
 };
 

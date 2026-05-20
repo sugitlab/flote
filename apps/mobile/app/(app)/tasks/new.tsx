@@ -63,7 +63,7 @@ export default function NewTaskScreen() {
       title: title.trim(),
       body_md: `# ${title.trim()}`,
       due_date: dueDate ? dueDate.toISOString().split("T")[0] : null,
-      done: false,
+      status: "Todo",
       updated_at: now,
     };
     try {

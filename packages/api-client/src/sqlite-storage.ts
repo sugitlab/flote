@@ -1,7 +1,7 @@
 import Database from "@tauri-apps/plugin-sql";
 import { writeTextFile, exists, mkdir } from "@tauri-apps/plugin-fs";
 import { appDataDir, join } from "@tauri-apps/api/path";
-import type { Note, Task, Transaction } from "@flote/types";
+import type { Note, Task, TaskStatus, Transaction } from "@flote/types";
 
 // ── singleton DB connection ───────────────────────────────────────────────────
 
@@ -32,10 +32,17 @@ export async function initDb(): Promise<void> {
       title      TEXT NOT NULL DEFAULT '',
       body_md    TEXT NOT NULL DEFAULT '',
       due_date   TEXT,
-      done       INTEGER NOT NULL DEFAULT 0,
+      status     TEXT NOT NULL DEFAULT 'Todo',
       updated_at TEXT NOT NULL
     )
   `);
+  // Migration: add status column to existing DBs that only have done column
+  try {
+    await db.execute(`ALTER TABLE tasks ADD COLUMN status TEXT NOT NULL DEFAULT 'Todo'`);
+    await db.execute(`UPDATE tasks SET status = 'Done' WHERE done = 1 AND status = 'Todo'`);
+  } catch {
+    // Column already exists or table was just created with status — no-op
+  }
   await db.execute(`
     CREATE TABLE IF NOT EXISTS transactions (
       id          TEXT PRIMARY KEY,
@@ -91,36 +98,46 @@ type TaskRow = {
   title: string;
   body_md: string;
   due_date: string | null;
-  done: number;
+  status: string;
   updated_at: string;
 };
+
+function rowToTask(r: TaskRow): Task {
+  return {
+    id: r.id,
+    title: r.title,
+    body_md: r.body_md,
+    due_date: r.due_date,
+    status: (r.status ?? "Todo") as TaskStatus,
+    updated_at: r.updated_at,
+  };
+}
 
 export async function getTasks(): Promise<Task[]> {
   const db = await getDb();
   const rows = await db.select<TaskRow[]>(
-    "SELECT id, title, body_md, due_date, done, updated_at FROM tasks ORDER BY updated_at DESC"
+    "SELECT id, title, body_md, due_date, status, updated_at FROM tasks ORDER BY updated_at DESC"
   );
-  return rows.map((r) => ({ ...r, done: r.done === 1 }));
+  return rows.map(rowToTask);
 }
 
 export async function saveTask(task: Task): Promise<void> {
   const db = await getDb();
   await db.execute(
-    `INSERT OR REPLACE INTO tasks (id, title, body_md, due_date, done, updated_at)
+    `INSERT OR REPLACE INTO tasks (id, title, body_md, due_date, status, updated_at)
      VALUES ($1, $2, $3, $4, $5, $6)`,
-    [task.id, task.title, task.body_md, task.due_date, task.done ? 1 : 0, task.updated_at]
+    [task.id, task.title, task.body_md, task.due_date, task.status, task.updated_at]
   );
 }
 
 export async function getTaskById(id: string): Promise<Task | null> {
   const db = await getDb();
   const rows = await db.select<TaskRow[]>(
-    "SELECT id, title, body_md, due_date, done, updated_at FROM tasks WHERE id = $1",
+    "SELECT id, title, body_md, due_date, status, updated_at FROM tasks WHERE id = $1",
     [id]
   );
   if (rows.length === 0) return null;
-  const r = rows[0];
-  return { ...r, done: r.done === 1 };
+  return rowToTask(rows[0]);
 }
 
 export async function deleteTask(id: string): Promise<void> {
@@ -207,7 +224,7 @@ function taskFrontmatter(task: Task): string {
     "---",
     `id: "${task.id}"`,
     `title: ${JSON.stringify(task.title)}`,
-    `done: ${task.done}`,
+    `status: "${task.status}"`,
   ];
   if (task.due_date) lines.push(`due_date: "${task.due_date}"`);
   lines.push(`updated_at: "${task.updated_at}"`, "---", "");

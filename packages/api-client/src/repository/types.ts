@@ -14,7 +14,6 @@ export interface TaskRepository {
   saveTask(task: Task, userId: string): Promise<Task>;
   deleteTask(id: string): Promise<void>;
   deleteTasksBatch(ids: string[]): Promise<void>;
-  toggleDone(id: string, done: boolean): Promise<void>;
 }
 
 export interface TransactionRepository {

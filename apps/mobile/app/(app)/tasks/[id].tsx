@@ -23,7 +23,7 @@ import { useNoteStore } from "../../../src/store/noteStore";
 import { supabase } from "../../../src/lib/supabase";
 import { generateId } from "../../../src/utils";
 import { useT } from "../../../src/hooks/useT";
-import type { Task, Note } from "@flote/types";
+import type { Task, Note, TaskStatus } from "@flote/types";
 
 export default function TaskDetailScreen() {
   const { id, edit } = useLocalSearchParams<{ id: string; edit?: string }>();
@@ -124,15 +124,27 @@ export default function TaskDetailScreen() {
     ]);
   };
 
-  const handleToggleDone = () => {
+  const STATUS_ORDER: TaskStatus[] = ["Todo", "InProgress", "Waiting", "Reviewing", "NoPlan", "HalfwaySpot", "LastEffort", "Done"];
+
+  const handleStatusPicker = () => {
     if (!userId || !taskRef.current) return;
-    const updated: Task = {
-      ...taskRef.current,
-      done: !taskRef.current.done,
-      updated_at: new Date().toISOString(),
-    };
-    taskRef.current = updated;
-    saveTask(updated, userId);
+    const current = taskRef.current.status;
+    Alert.alert(
+      t.tasks.markDone,
+      undefined,
+      [
+        ...STATUS_ORDER.map((s) => ({
+          text: (s === current ? "✓ " : "") + (t.tasks.statuses?.[s] ?? s),
+          onPress: () => {
+            if (!userId || !taskRef.current) return;
+            const updated: Task = { ...taskRef.current, status: s, updated_at: new Date().toISOString() };
+            taskRef.current = updated;
+            saveTask(updated, userId);
+          },
+        })),
+        { text: t.common.cancel, style: "cancel" },
+      ]
+    );
   };
 
   const handleDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -209,27 +221,27 @@ export default function TaskDetailScreen() {
           <View style={[styles.metaBar, { borderBottomColor: colors.border }]}>
             <TouchableOpacity
               style={styles.metaChip}
-              onPress={handleToggleDone}
+              onPress={handleStatusPicker}
               activeOpacity={0.6}
             >
               <View
                 style={[
                   styles.checkbox,
                   {
-                    borderColor: task.done ? colors.accent : colors.textSecondary,
-                    backgroundColor: task.done ? colors.accent : "transparent",
+                    borderColor: task.status === "Done" ? colors.accent : colors.textSecondary,
+                    backgroundColor: task.status === "Done" ? colors.accent : "transparent",
                   },
                 ]}
               >
-                {task.done && <Text style={styles.checkmark}>✓</Text>}
+                {task.status === "Done" && <Text style={styles.checkmark}>✓</Text>}
               </View>
               <Text
                 style={[
                   styles.metaStatus,
-                  { color: task.done ? colors.accent : "#ff9500" },
+                  { color: task.status === "Done" ? colors.accent : "#ff9500" },
                 ]}
               >
-                {task.done ? t.tasks.markDone : t.tasks.markNotDone}
+                {t.tasks.statuses?.[task.status] ?? task.status}
               </Text>
             </TouchableOpacity>
 

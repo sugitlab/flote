@@ -32,7 +32,7 @@ function groupTasks(tasks: Task[], groups: { overdue: string; today: string; upc
   const today = todayStr();
   const overdue: Task[] = [], todayTasks: Task[] = [], upcoming: Task[] = [], done: Task[] = [];
   for (const t of tasks) {
-    if (t.done) done.push(t);
+    if (t.status === "Done") done.push(t);
     else if (t.due_date && t.due_date < today) overdue.push(t);
     else if (t.due_date === today) todayTasks.push(t);
     else upcoming.push(t);
@@ -62,7 +62,7 @@ export default function TasksList({ userId }: Props) {
   const tasks = useTaskStore((s) => s.tasks);
   const loading = useTaskStore((s) => s.loading);
   const fetchTasks = useTaskStore((s) => s.fetchTasks);
-  const toggleDone = useTaskStore((s) => s.toggleDone);
+  const updateStatus = useTaskStore((s) => s.updateStatus);
   const deleteTask = useTaskStore((s) => s.deleteTask);
   const hideCompletedTasks = useSettingsStore((s) => s.hideCompletedTasks);
   const searchFullText = useSettingsStore((s) => s.searchFullText);
@@ -78,7 +78,7 @@ export default function TasksList({ userId }: Props) {
   const tags = useMemo(() => allTags(tasks), [tasks]);
 
   const filtered = useMemo(() => {
-    let result = hideCompletedTasks ? tasks.filter((t) => !t.done) : tasks;
+    let result = hideCompletedTasks ? tasks.filter((t) => t.status !== "Done") : tasks;
     if (selectedTag) result = result.filter((task) => extractTags((task.title ?? "") + " " + task.body_md).includes(selectedTag));
     if (search) {
       const q = search.toLowerCase();
@@ -91,7 +91,8 @@ export default function TasksList({ userId }: Props) {
     const arr = [...result];
     if (sortOrder === "due") {
       arr.sort((a, b) => {
-        if (a.done !== b.done) return a.done ? 1 : -1;
+        const aDone = a.status === "Done", bDone = b.status === "Done";
+        if (aDone !== bDone) return aDone ? 1 : -1;
         if (!a.due_date && !b.due_date) return 0;
         if (!a.due_date) return 1;
         if (!b.due_date) return -1;
@@ -106,7 +107,11 @@ export default function TasksList({ userId }: Props) {
   const sections = useMemo(() => groupTasks(filtered, t.tasks.groups), [filtered, t]);
 
   const handleRefresh = useCallback(() => { if (userId) fetchTasks(userId); }, [userId]);
-  const handleToggle = useCallback((id: string) => { if (userId) toggleDone(id, userId); }, [userId]);
+  const handleToggle = useCallback((id: string) => {
+    const task = useTaskStore.getState().tasks.find((t) => t.id === id);
+    if (!userId || !task) return;
+    updateStatus(id, task.status === "Done" ? "Todo" : "Done", userId);
+  }, [userId, updateStatus]);
   const enterSelectMode = useCallback((id: string) => { setSelectMode(true); setSelectedIds(new Set([id])); }, []);
   const exitSelectMode = useCallback(() => { setSelectMode(false); setSelectedIds(new Set()); }, []);
   const toggleSelect = useCallback((id: string) => {
@@ -124,7 +129,7 @@ export default function TasksList({ userId }: Props) {
   }, [selectedIds, deleteTask, exitSelectMode, t]);
 
   const renderItem = useCallback(({ item }: { item: Task }) => {
-    const overdue = !item.done && item.due_date != null && item.due_date < todayStr();
+    const overdue = item.status !== "Done" && item.due_date != null && item.due_date < todayStr();
     const isSelected = selectedIds.has(item.id);
     const itemTags = extractTags((item.title ?? "") + " " + item.body_md);
     const q = search.trim();
@@ -148,7 +153,7 @@ export default function TasksList({ userId }: Props) {
           }]}>
             {isSelected && <Text style={styles.checkmarkText}>✓</Text>}
           </View>
-          <Text style={[styles.itemTitle, { color: item.done ? colors.textSecondary : colors.text }, item.done && styles.doneTitle]} numberOfLines={1}>
+          <Text style={[styles.itemTitle, { color: item.status === "Done" ? colors.textSecondary : colors.text }, item.status === "Done" && styles.doneTitle]} numberOfLines={1}>
             {item.title || t.tasks.untitled}
           </Text>
           <Text style={[styles.itemDate, { color: overdue ? colors.danger : colors.textSecondary }]}>{item.due_date ? relativeDate(item.due_date, t.date) : ""}</Text>
@@ -161,12 +166,12 @@ export default function TasksList({ userId }: Props) {
         <Pressable
           onPress={() => handleToggle(item.id)}
           style={[styles.checkbox, {
-            borderColor: item.done ? colors.accent : colors.textSecondary,
-            backgroundColor: item.done ? colors.accent : "transparent",
+            borderColor: item.status === "Done" ? colors.accent : colors.textSecondary,
+            backgroundColor: item.status === "Done" ? colors.accent : "transparent",
           }]}
           hitSlop={8}
         >
-          {item.done && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "bold" }}>✓</Text>}
+          {item.status === "Done" && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "bold" }}>✓</Text>}
         </Pressable>
         <TouchableOpacity
           style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}
@@ -176,7 +181,7 @@ export default function TasksList({ userId }: Props) {
           activeOpacity={0.7}
         >
           <View style={styles.itemHeader}>
-            <Text style={[styles.itemTitle, { color: item.done ? colors.textSecondary : colors.text }, item.done && styles.doneTitle]} numberOfLines={1}>
+            <Text style={[styles.itemTitle, { color: item.status === "Done" ? colors.textSecondary : colors.text }, item.status === "Done" && styles.doneTitle]} numberOfLines={1}>
               {item.title || t.tasks.untitled}
             </Text>
             <Text style={[styles.itemDate, { color: overdue ? colors.danger : colors.textSecondary }]}>{item.due_date ? relativeDate(item.due_date, t.date) : ""}</Text>
