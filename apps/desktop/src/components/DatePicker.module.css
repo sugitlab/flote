@@ -1,0 +1,88 @@
+.wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.trigger {
+  font-size: 11px;
+  color: var(--text-secondary);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.trigger:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.triggerHasValue {
+  color: var(--text-primary);
+}
+
+.popover {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 200;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  padding: 8px;
+  min-width: 260px;
+}
+
+.quickRow {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.quick {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.quick:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.quickClear {
+  margin-left: auto;
+  color: var(--text-secondary);
+}
+
+.quickClear:hover {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #fff;
+}
+
+/* react-day-picker overrides to match app theme */
+.calendar {
+  --rdp-accent-color: var(--accent);
+  --rdp-accent-background-color: color-mix(in srgb, var(--accent) 20%, transparent);
+  --rdp-background-color: var(--bg-sidebar);
+  --rdp-color: var(--text-primary);
+  --rdp-muted-color: var(--text-muted);
+  --rdp-border-color: var(--border);
+  --rdp-range_start-color: #fff;
+  --rdp-range_end-color: #fff;
+  font-size: 13px;
+  margin: 0;
+}

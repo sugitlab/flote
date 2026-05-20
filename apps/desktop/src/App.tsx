@@ -37,6 +37,7 @@ import ResizeHandles from "./components/ResizeHandles";
 import ToastContainer from "./components/Toast";
 import FloteLogo from "./components/FloteLogo";
 import ExpensePanel from "./components/ExpensePanel";
+import DatePicker from "./components/DatePicker";
 import styles from "./App.module.css";
 
 // Initialize Supabase client from env vars (fast path for developer builds)
@@ -405,7 +406,7 @@ function MainApp({
   );
 
   const handleTaskDueDateChange = useCallback(
-    (dueDate: string) => {
+    (dueDate: string | null) => {
       if (!activeTaskId) return;
       const task = tasks.find((t) => t.id === activeTaskId);
       if (!task) return;
@@ -818,17 +819,11 @@ function MainApp({
                     </div>
                   )}
                 </div>
-                <div className={styles.datePickerWrap}>
-                  <span className={styles.taskDetailDateInput}>
-                    {selectedTask.due_date || t.taskStatus.setDueDate}
-                  </span>
-                  <input
-                    type="date"
-                    value={selectedTask.due_date ?? ""}
-                    onChange={(e) => handleTaskDueDateChange(e.target.value)}
-                    className={styles.datePickerHidden}
-                  />
-                </div>
+                <DatePicker
+                  value={selectedTask.due_date}
+                  onChange={handleTaskDueDateChange}
+                  placeholder={t.taskStatus.setDueDate}
+                />
                 <button
                   className={`${styles.convertBtn} ${styles.convertBtnTask}`}
                   data-tooltip={t.confirm.convertToNote}
