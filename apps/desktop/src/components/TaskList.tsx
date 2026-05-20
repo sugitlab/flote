@@ -238,9 +238,24 @@ export default function TaskList({
                 e.stopPropagation();
                 onUpdateStatus(task.id, isDone(task) ? "Todo" : "Done");
               }}
-              className="shrink-0 mr-1.5 w-[10px] h-[10px] rounded-full border-none p-0 cursor-pointer transition-opacity hover:opacity-70"
-              style={{ backgroundColor: STATUS_COLORS[task.status] }}
-            />
+              className={[
+                "shrink-0 mr-1.5 cursor-pointer transition-opacity hover:opacity-70 p-0 border-none",
+                isDone(task)
+                  ? "w-[14px] h-[14px] rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                  : task.status === "Todo"
+                  ? "w-[10px] h-[10px] rounded-full border-[1.5px] bg-transparent box-border"
+                  : "w-[10px] h-[10px] rounded-full",
+              ].join(" ")}
+              style={
+                isDone(task)
+                  ? { backgroundColor: STATUS_COLORS.Done }
+                  : task.status === "Todo"
+                  ? { borderColor: STATUS_COLORS.Todo }
+                  : { backgroundColor: STATUS_COLORS[task.status] }
+              }
+            >
+              {isDone(task) && "✓"}
+            </button>
           </>
         )}
 
