@@ -1,6 +1,6 @@
 import { load } from "@tauri-apps/plugin-store";
 import type { StorageMode } from "@flote/types";
-import type { ThemeMode, DarkEditorTheme, LightEditorTheme } from "./store/uiStore";
+import type { ThemeMode, DarkEditorTheme, LightEditorTheme, AccentColor } from "./store/uiStore";
 import type { Language } from "./locales";
 
 export type AppSettings = {
@@ -23,6 +23,7 @@ export type AppSettings = {
   sidebarToggleShortcut: string;
   sidebarWidth: number;
   language: Language;
+  accentColor: AccentColor;
 };
 
 const STORE_PATH = "settings.json";
@@ -47,6 +48,7 @@ const DEFAULTS: AppSettings = {
   sidebarToggleShortcut: "CmdOrCtrl+B",
   sidebarWidth: 200,
   language: "ja",
+  accentColor: "blueberry",
 };
 
 async function getStore() {

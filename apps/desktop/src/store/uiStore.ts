@@ -3,6 +3,7 @@ import type { DarkCodeTheme, LightCodeTheme } from "@flote/types";
 import type { Language } from "../locales";
 
 export type ThemeMode = "dark" | "light" | "system";
+export type AccentColor = "blueberry" | "cherry" | "kiwi" | "orange";
 export type DarkEditorTheme = DarkCodeTheme;
 export type LightEditorTheme = LightCodeTheme;
 export type { DarkCodeTheme, LightCodeTheme };
@@ -45,6 +46,8 @@ type UIStore = {
   setHideCompletedInSearch: (v: boolean) => void;
   suppressHideOnBlur: boolean;
   setSuppressHideOnBlur: (v: boolean) => void;
+  accentColor: AccentColor;
+  setAccentColor: (color: AccentColor) => void;
 };
 
 export const useUIStore = create<UIStore>((set, get) => ({
@@ -61,6 +64,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   sidebarCollapsed: false,
   supabaseReady: false,
   language: "ja",
+  accentColor: "blueberry",
 
   setSupabaseReady: (v) => set({ supabaseReady: v }),
   setLanguage: (lang) => set({ language: lang }),
@@ -72,6 +76,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setEditorThemeLight: (editorThemeLight) => set({ editorThemeLight }),
   suppressHideOnBlur: false,
   setSuppressHideOnBlur: (v) => set({ suppressHideOnBlur: v }),
+  setAccentColor: (accentColor) => set({ accentColor }),
   setSearchFullText: (v) => set({ searchFullText: v }),
   setHideCompletedInSearch: (v) => set({ hideCompletedInSearch: v }),
 

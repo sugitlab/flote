@@ -10,6 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTheme } from "../src/theme";
 import { useNoteStore } from "../src/store/noteStore";
 import { useSettingsStore } from "../src/store/settingsStore";
@@ -87,7 +88,7 @@ export default function NotesList({ userId }: Props) {
   const handleLongPress = useCallback((item: Note) => {
     Alert.alert(item.title || t.notes.untitled, undefined, [
       {
-        text: item.pinned ? "📌 ピンを外す" : "📌 ピン留め",
+        text: item.pinned ? "ピンを外す" : "ピン留め",
         onPress: () => {
           if (userId) saveNote({ ...item, pinned: !item.pinned }, userId);
         },
@@ -157,7 +158,7 @@ export default function NotesList({ userId }: Props) {
         activeOpacity={0.7}
       >
         <View style={styles.itemRow}>
-          {item.pinned && <Text style={styles.pinEmoji}>📌</Text>}
+          {item.pinned && <MaterialCommunityIcons name="pin" size={13} color={colors.accent} style={styles.pinIcon} />}
           <Text style={[styles.itemTitle, { color: colors.text }]} numberOfLines={1}>{title}</Text>
           <Text style={[styles.itemDate, { color: colors.textSecondary }]}>{relativeDate(item.updated_at, t.date)}</Text>
         </View>
@@ -254,7 +255,7 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: "row", alignItems: "center" },
   checkbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: "center", justifyContent: "center", marginRight: 12, flexShrink: 0 },
   checkmark: { color: "#fff", fontSize: 13, fontWeight: "bold" },
-  pinEmoji: { fontSize: 12, marginRight: 4 },
+  pinIcon: { marginRight: 4 },
   itemTitle: { fontSize: 16, fontWeight: "600", flex: 1, marginRight: 8 },
   itemDate: { fontSize: 12, flexShrink: 0 },
   itemSnippet: { fontSize: 13, marginTop: 4, lineHeight: 18 },

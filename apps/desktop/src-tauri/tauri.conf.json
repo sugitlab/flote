@@ -42,6 +42,12 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
+    ],
+    "resources": [
+      "icons/accent-blueberry.png",
+      "icons/accent-cherry.png",
+      "icons/accent-kiwi.png",
+      "icons/accent-orange.png"
     ]
   },
   "plugins": {}

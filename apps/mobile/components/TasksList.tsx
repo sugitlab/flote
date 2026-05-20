@@ -11,6 +11,7 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTheme } from "../src/theme";
 import { useTaskStore } from "../src/store/taskStore";
 import { useSettingsStore } from "../src/store/settingsStore";
@@ -130,7 +131,7 @@ export default function TasksList({ userId }: Props) {
   const handleLongPress = useCallback((item: Task) => {
     Alert.alert(item.title || t.tasks.untitled, undefined, [
       {
-        text: item.pinned ? "📌 ピンを外す" : "📌 ピン留め",
+        text: item.pinned ? "ピンを外す" : "ピン留め",
         onPress: () => {
           if (userId) saveTask({ ...item, pinned: !item.pinned }, userId);
         },
@@ -216,7 +217,7 @@ export default function TasksList({ userId }: Props) {
           activeOpacity={0.7}
         >
           <View style={styles.itemHeader}>
-            {item.pinned && <Text style={styles.pinEmoji}>📌</Text>}
+            {item.pinned && <MaterialCommunityIcons name="pin" size={13} color={colors.accent} style={styles.pinIcon} />}
             <Text style={[styles.itemTitle, { color: item.status === "Done" ? colors.textSecondary : colors.text }, item.status === "Done" && styles.doneTitle]} numberOfLines={1}>
               {item.title || t.tasks.untitled}
             </Text>
@@ -327,7 +328,7 @@ const styles = StyleSheet.create({
   checkbox: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: "center", justifyContent: "center", marginRight: 10, marginTop: 14 },
   selectCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: "center", justifyContent: "center", marginRight: 12, flexShrink: 0 },
   checkmarkText: { color: "#fff", fontSize: 13, fontWeight: "bold" },
-  pinEmoji: { fontSize: 12, marginRight: 4 },
+  pinIcon: { marginRight: 4 },
   item: { flex: 1, padding: 14, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
   itemHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   itemTitle: { fontSize: 16, fontWeight: "600", flex: 1, marginRight: 8 },

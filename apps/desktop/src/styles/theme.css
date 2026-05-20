@@ -53,6 +53,122 @@
   --warning: #D97706;
 }
 
+/*
+ * 色の対称性ルール（blueberry基準）
+ * Dark bg-window: 中立(22,22,22)に対して支配チャンネル+15
+ * Dark bg-sidebar: 中立(33,33,33)に対して支配チャンネル+21
+ * Dark text: 支配チャンネル+10/+35/+30
+ * Dark accent: HSL 明度74%・彩度88-93%、blueberryと同格のソフトな色
+ * Light bg: 中立(250/243)に対して支配チャンネル+4/+5
+ * Light text: blueberryのRGBをチャンネル入替（B→各色の支配チャンネル）
+ * Light border: 中立(213)に対して支配チャンネル+11
+ */
+
+/* ── Accent: cherry ── */
+/* 支配チャンネル: R。blueberryのBをRに入替 */
+:root[data-accent="cherry"],
+[data-theme="dark"][data-accent="cherry"] {
+  --bg-window: rgba(37, 22, 22, 0.92);       /* R+15 */
+  --bg-sidebar: rgba(54, 33, 33, 0.95);       /* R+21 */
+  --bg-editor: rgba(37, 22, 22, 0.92);
+  --text-primary: #F4EAEA;                    /* R+10 */
+  --text-secondary: #A88585;                  /* R+35 */
+  --text-muted: #7A5C5C;                      /* R+30 */
+  --accent: #F77E8E;                          /* HSL(351°,88%,73%) ≈ blueberry同格 */
+  --accent-hover: #E46474;
+  --bg-active: rgba(247, 126, 142, 0.15);
+  --border-focus: rgba(247, 126, 142, 0.55);
+  --info: #F77E8E;
+  --info-bg: rgba(247, 126, 142, 0.15);
+}
+[data-theme="light"][data-accent="cherry"] {
+  --bg-window: rgba(254, 250, 250, 0.9);      /* R+4 */
+  --bg-sidebar: rgba(248, 243, 243, 0.95);    /* R+5 */
+  --bg-editor: rgba(254, 250, 250, 0.9);
+  --text-primary: #5C3D3D;                    /* blueberry #3D3D5C のB↔R入替 */
+  --text-secondary: #7A5C5C;
+  --text-muted: #A88585;
+  --text-inverse: #FEFAFA;                    /* R+4 */
+  --border: #E0D5D5;                          /* blueberry #D5D5E0 のB↔R入替 */
+  --accent: #E5394F;
+  --accent-hover: #CC2E41;
+  --bg-active: rgba(229, 57, 79, 0.08);
+  --bg-hover: rgba(229, 57, 79, 0.04);
+  --border-focus: rgba(229, 57, 79, 0.5);
+  --info: #E5394F;
+  --info-bg: rgba(229, 57, 79, 0.08);
+}
+
+/* ── Accent: kiwi ── */
+/* 支配チャンネル: G。blueberryのBをGに入替 */
+:root[data-accent="kiwi"],
+[data-theme="dark"][data-accent="kiwi"] {
+  --bg-window: rgba(22, 37, 22, 0.92);        /* G+15 */
+  --bg-sidebar: rgba(33, 54, 33, 0.95);        /* G+21 */
+  --bg-editor: rgba(22, 37, 22, 0.92);
+  --text-primary: #EAF4EA;                     /* G+10 */
+  --text-secondary: #85A885;                   /* G+35 */
+  --text-muted: #5C7A5C;                       /* G+30 */
+  --accent: #74C874;                           /* HSL(120°,53%,62%) ソフトセージグリーン */
+  --accent-hover: #5CAF5C;
+  --bg-active: rgba(116, 200, 116, 0.15);
+  --border-focus: rgba(116, 200, 116, 0.55);
+  --info: #74C874;
+  --info-bg: rgba(116, 200, 116, 0.15);
+}
+[data-theme="light"][data-accent="kiwi"] {
+  --bg-window: rgba(250, 254, 250, 0.9);       /* G+4 */
+  --bg-sidebar: rgba(243, 248, 243, 0.95);     /* G+5 */
+  --bg-editor: rgba(250, 254, 250, 0.9);
+  --text-primary: #3D5C3D;                     /* blueberry #3D3D5C のB→G */
+  --text-secondary: #5C7A5C;
+  --text-muted: #85A885;
+  --text-inverse: #FAFEFA;                     /* G+4 */
+  --border: #D5E0D5;                           /* blueberry #D5D5E0 のB→G */
+  --accent: #4BA24B;
+  --accent-hover: #3A8A3A;
+  --bg-active: rgba(75, 162, 75, 0.08);
+  --bg-hover: rgba(75, 162, 75, 0.04);
+  --border-focus: rgba(75, 162, 75, 0.5);
+  --info: #4BA24B;
+  --info-bg: rgba(75, 162, 75, 0.08);
+}
+
+/* ── Accent: orange ── */
+/* 支配チャンネル: R+G（色相33°→R寄り）。R+15・G+8・B中立 */
+:root[data-accent="orange"],
+[data-theme="dark"][data-accent="orange"] {
+  --bg-window: rgba(37, 30, 22, 0.92);         /* R+15, G+8 */
+  --bg-sidebar: rgba(54, 44, 33, 0.95);         /* R+21, G+11 */
+  --bg-editor: rgba(37, 30, 22, 0.92);
+  --text-primary: #F4F0EA;                      /* R+10, G+6 */
+  --text-secondary: #A89478;                    /* R+35, G+21 */
+  --text-muted: #7A6E58;                        /* R+30, G+18 */
+  --accent: #FBBA6A;                            /* HSL(33°,93%,70%) ソフトゴールデンアンバー */
+  --accent-hover: #F0A050;
+  --bg-active: rgba(251, 186, 106, 0.15);
+  --border-focus: rgba(251, 186, 106, 0.55);
+  --info: #FBBA6A;
+  --info-bg: rgba(251, 186, 106, 0.15);
+}
+[data-theme="light"][data-accent="orange"] {
+  --bg-window: rgba(254, 251, 250, 0.9);        /* R+4, G+1 */
+  --bg-sidebar: rgba(248, 246, 243, 0.95);      /* R+5, G+3 */
+  --bg-editor: rgba(254, 251, 250, 0.9);
+  --text-primary: #5C4A3D;                      /* ウォームダーク */
+  --text-secondary: #7A6352;
+  --text-muted: #A88E78;
+  --text-inverse: #FEFBFA;                      /* R+4, G+1 */
+  --border: #E0DBD5;                            /* ウォームボーダー */
+  --accent: #FF8A1E;
+  --accent-hover: #E87A10;
+  --bg-active: rgba(255, 138, 30, 0.08);
+  --bg-hover: rgba(255, 138, 30, 0.04);
+  --border-focus: rgba(255, 138, 30, 0.5);
+  --info: #FF8A1E;
+  --info-bg: rgba(255, 138, 30, 0.08);
+}
+
 * {
   box-sizing: border-box;
   margin: 0;

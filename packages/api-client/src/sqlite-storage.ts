@@ -245,11 +245,18 @@ function taskFrontmatter(task: Task): string {
   return lines.join("\n");
 }
 
-// Returns the export folder path so the caller can reveal it in Finder.
-export async function exportToMarkdown(notes: Note[], tasks: Task[]): Promise<string> {
-  const base = await appDataDir();
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  const exportDir = await join(base, "exports", `flote-export-${timestamp}`);
+// Returns the export folder path so the caller can reveal it in Finder/Explorer.
+// destDir: if provided, exports into {destDir}/notes/ and {destDir}/tasks/
+//          if omitted, creates a timestamped folder inside the app data dir.
+export async function exportToMarkdown(notes: Note[], tasks: Task[], destDir?: string): Promise<string> {
+  let exportDir: string;
+  if (destDir) {
+    exportDir = destDir;
+  } else {
+    const base = await appDataDir();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    exportDir = await join(base, "exports", `flote-export-${timestamp}`);
+  }
   const notesDir = await join(exportDir, "notes");
   const tasksDir = await join(exportDir, "tasks");
 

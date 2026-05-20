@@ -17,6 +17,7 @@ type Props = {
   onNew: () => void;
   onTagFilter?: (tag: string | null) => void;
   onTogglePin: (id: string) => void;
+  onVisibleChange?: (orderedIds: string[]) => void;
 };
 
 export default function NoteList({
@@ -29,6 +30,7 @@ export default function NoteList({
   onNew,
   onTagFilter,
   onTogglePin,
+  onVisibleChange,
 }: Props) {
   const t = useT();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -70,6 +72,10 @@ export default function NoteList({
     }
     return arr;
   }, [notes, activeTag, sortOrder]);
+
+  useEffect(() => {
+    onVisibleChange?.(filteredNotes.map((n) => n.id));
+  }, [filteredNotes]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!sortMenuOpen) return;
@@ -257,7 +263,13 @@ export default function NoteList({
               </span>
             ) : (
               note.pinned
-                ? <span className={styles.pinIcon}>📌</span>
+                ? (
+                  <span className={styles.pinIcon}>
+                    <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M9.5 1.5L14.5 6.5L10 9.5L8.5 14.5L7 11L3 14.5L2.5 10L5 8.5L1.5 7L6.5 5.5Z"/>
+                    </svg>
+                  </span>
+                )
                 : idx < 9 && <span className={styles.indexBadge}>{idx + 1}</span>
             )}
             <div className={styles.itemContent}>
@@ -265,21 +277,12 @@ export default function NoteList({
               <div className={styles.itemDate}>{relativeDate(note.updated_at, t.date)}</div>
             </div>
             {!selectMode && (
-              <>
-                <button
-                  className={styles.pinBtn}
-                  title={note.pinned ? t.noteList.unpin : t.noteList.pin}
-                  onClick={(e) => { e.stopPropagation(); onTogglePin(note.id); }}
-                >
-                  {note.pinned ? "📌" : "⊞"}
-                </button>
-                <button
-                  className={styles.deleteBtn}
-                  onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
-                >
-                  ✕
-                </button>
-              </>
+              <button
+                className={styles.deleteBtn}
+                onClick={(e) => { e.stopPropagation(); onDelete(note.id); }}
+              >
+                ✕
+              </button>
             )}
           </div>
         );

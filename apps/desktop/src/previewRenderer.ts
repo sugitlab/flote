@@ -84,9 +84,16 @@ const hashtagExtension: MarkedExtension = {
   ],
 };
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 const previewMarked = new Marked(hashtagExtension, {
   renderer: {
     code({ text, lang }) {
+      if (lang === "mermaid") {
+        return `<div class="mermaid">${escapeHtml(text)}</div>`;
+      }
       const language = lang && hljs.getLanguage(lang) ? lang : null;
       const highlighted = language
         ? hljs.highlight(text, { language }).value
@@ -98,5 +105,8 @@ const previewMarked = new Marked(hashtagExtension, {
 
 export function renderPreview(value: string, emptyText = "ノートが空です"): string {
   const raw = previewMarked.parse(value || `*${emptyText}*`) as string;
-  return DOMPurify.sanitize(raw);
+  return DOMPurify.sanitize(raw, {
+    ADD_TAGS: ["foreignObject"],
+    ADD_ATTR: ["dominant-baseline", "text-anchor", "transform", "viewBox", "xmlns", "marker-end", "marker-start"],
+  });
 }

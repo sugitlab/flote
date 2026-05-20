@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 import type { ThemeColors } from "./theme";
 import CodeBlock from "../components/CodeBlock";
+import MermaidChart from "../components/MermaidChart";
 
 export function makeMarkdownStyles(colors: ThemeColors) {
   return {
@@ -158,6 +159,9 @@ export function makeMarkdownRules(colors: ThemeColors) {
   return {
     fence: (node: any) => {
       const lang = node.sourceInfo?.trim() || undefined;
+      if (lang === "mermaid") {
+        return <MermaidChart key={node.key} code={node.content} />;
+      }
       return <CodeBlock key={node.key} code={node.content} language={lang} />;
     },
 

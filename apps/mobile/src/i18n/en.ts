@@ -112,6 +112,13 @@ export const en = {
     themeSystem: "System",
     themeLight: "Light",
     themeDark: "Dark",
+    accentColor: "Accent Color",
+    accentColors: {
+      blueberry: "Blueberry",
+      cherry: "Cherry",
+      kiwi: "Kiwi",
+      orange: "Orange",
+    },
     editor: "Editor",
     codeThemeDark: "Code theme (dark)",
     codeThemeLight: "Code theme (light)",

@@ -8,11 +8,12 @@ import {
   disable as disableAutostart,
 } from "@tauri-apps/plugin-autostart";
 import type { StorageMode } from "@flote/types";
-import { useUIStore, type ThemeMode } from "../store/uiStore";
+import { useUIStore, type ThemeMode, type AccentColor } from "../store/uiStore";
 import { DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS } from "@flote/types";
 import type { DarkEditorTheme, LightEditorTheme } from "../store/uiStore";
 import { getConfig, setConfig } from "../config";
 import type { Language } from "../locales";
+import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { reinitSupabase, getSupabase, exportToMarkdown } from "@flote/api-client";
 import { useNoteStore } from "../store/noteStore";
 import { useTaskStore } from "../store/taskStore";
@@ -20,8 +21,12 @@ import { SCHEMA_SQL } from "../migrations";
 import { useAuth } from "../hooks/useAuth";
 import FloteLogo from "./FloteLogo";
 import styles from "./Settings.module.css";
+import blueberryImg from "../assets/blueberry.png";
+import cherryImg from "../assets/cherry.png";
+import kiwiImg from "../assets/kiwi.png";
+import orangeImg from "../assets/orange.png";
 
-type SettingsTab = "general" | "shortcuts" | "howto" | "storage" | "import" | "about";
+type SettingsTab = "general" | "shortcuts" | "howto" | "storage" | "data" | "about";
 
 type Props = {
   currentMode: StorageMode;
@@ -48,7 +53,7 @@ export default function Settings({
               ["shortcuts", t.settings.nav.shortcuts],
               ["howto", t.settings.nav.howto],
               ["storage", t.settings.nav.storage],
-              ["import", t.settings.nav.import],
+              ["data", t.settings.nav.data],
               ["about", t.settings.nav.about],
             ] as const
           ).map(([key, label]) => (
@@ -75,7 +80,7 @@ export default function Settings({
               onStorageModeChange={onStorageModeChange}
             />
           )}
-          {tab === "import" && <ImportTab currentMode={currentMode} />}
+          {tab === "data" && <DataTab currentMode={currentMode} />}
           {tab === "about" && <AboutTab />}
         </div>
       </div>
@@ -85,10 +90,24 @@ export default function Settings({
 
 /* ─── General ─── */
 
+const ACCENT_FRUITS: { key: AccentColor; img: string }[] = [
+  { key: "blueberry", img: blueberryImg },
+  { key: "cherry", img: cherryImg },
+  { key: "kiwi", img: kiwiImg },
+  { key: "orange", img: orangeImg },
+];
+
 function GeneralTab() {
   const t = useT();
   const theme = useUIStore((s) => s.theme);
   const setTheme = useUIStore((s) => s.setTheme);
+  const accentColor = useUIStore((s) => s.accentColor);
+  const setAccentColor = useUIStore((s) => s.setAccentColor);
+
+  const changeAccent = (color: AccentColor) => {
+    setAccentColor(color);
+    setConfig({ accentColor: color });
+  };
   const editorThemeDark = useUIStore((s) => s.editorThemeDark);
   const editorThemeLight = useUIStore((s) => s.editorThemeLight);
   const setEditorThemeDark = useUIStore((s) => s.setEditorThemeDark);
@@ -197,6 +216,22 @@ function GeneralTab() {
               onClick={() => handleTheme(th)}
             >
               {th === "dark" ? "Dark" : th === "light" ? "Light" : "System"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className={styles.field}>
+        <div className={styles.fieldLabel}>{t.settings.general.accentColor}</div>
+        <div className={styles.accentFruits}>
+          {ACCENT_FRUITS.map(({ key, img }) => (
+            <button
+              key={key}
+              className={`${styles.accentFruit} ${accentColor === key ? styles.accentFruitActive : ""}`}
+              onClick={() => changeAccent(key)}
+              title={t.settings.general.accentColors[key]}
+            >
+              <img src={img} alt={t.settings.general.accentColors[key]} className={styles.accentFruitImg} />
             </button>
           ))}
         </div>
@@ -469,7 +504,7 @@ function StorageTab({
   );
 }
 
-/* ─── Note import ─── */
+/* ─── Import / Export tab ─── */
 
 function extractTitleFromBody(body: string, filename: string): string {
   const heading = body.match(/^#{1,6}\s+(.+)$/m);
@@ -495,13 +530,16 @@ function parseMarkdownNote(text: string, filename: string): { title: string; bod
   return { title: extractTitleFromBody(text, filename), body_md: text };
 }
 
-function ImportTab({ currentMode }: { currentMode: StorageMode }) {
+function DataTab({ currentMode }: { currentMode: StorageMode }) {
   const t = useT();
   const saveNote = useNoteStore((s) => s.saveNote);
+  const notes = useNoteStore((s) => s.notes);
+  const tasks = useTaskStore((s) => s.tasks);
   const addToast = useUIStore((s) => s.addToast);
   const setSuppressHideOnBlur = useUIStore((s) => s.setSuppressHideOnBlur);
   const { session } = useAuth();
   const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const modeLabel = {
@@ -533,6 +571,27 @@ function ImportTab({ currentMode }: { currentMode: StorageMode }) {
     }
   };
 
+  const handleExport = async () => {
+    setSuppressHideOnBlur(true);
+    const selected = await openDialog({ directory: true, title: t.settings.storage.exportNote }).catch(() => null);
+    if (!selected) { setSuppressHideOnBlur(false); return; }
+    // openDialog with directory:true returns string | string[] | null
+    const destDir = Array.isArray(selected) ? selected[0] : selected;
+    if (!destDir) { setSuppressHideOnBlur(false); return; }
+    setExporting(true);
+    try {
+      const exportDir = await exportToMarkdown(notes, tasks, destDir);
+      addToast("success", t.settings.storage.exportNoteDone(notes.length));
+      invoke("open_path", { path: exportDir }).catch(() => {});
+    } catch (e) {
+      console.error("[export]", e);
+      addToast("error", t.settings.storage.exportNoteError);
+    } finally {
+      setExporting(false);
+      setSuppressHideOnBlur(false);
+    }
+  };
+
   return (
     <>
       <h3 className={styles.sectionTitle}>{t.settings.storage.importNote}</h3>
@@ -555,6 +614,19 @@ function ImportTab({ currentMode }: { currentMode: StorageMode }) {
         </button>
         <div className={styles.fieldHint}>{t.settings.storage.importNoteHint}</div>
         <div className={styles.fieldHint}>{t.settings.storage.importNoteDestination(modeLabel)}</div>
+      </div>
+
+      <h3 className={styles.sectionTitle}>{t.settings.storage.exportNote}</h3>
+      <div className={styles.field}>
+        <button
+          className={styles.useModeBtn}
+          onClick={handleExport}
+          disabled={exporting}
+          style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+        >
+          {exporting ? t.settings.storage.exportingNote : t.settings.storage.exportNoteChooseFolder}
+        </button>
+        <div className={styles.fieldHint}>{t.settings.storage.exportNoteHint}</div>
       </div>
     </>
   );

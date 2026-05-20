@@ -9,11 +9,20 @@ import {
   Platform,
   Linking,
   TextInput,
+  Image,
 } from "react-native";
 import * as Notifications from "expo-notifications";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme, useThemeStore, type ThemeMode } from "../src/theme";
-import { useSettingsStore, DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS } from "../src/store/settingsStore";
+import { useSettingsStore, DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS, type AccentColor } from "../src/store/settingsStore";
+
+const FRUIT_IMAGES: Record<AccentColor, ReturnType<typeof require>> = {
+  blueberry: require("../assets/blueberry.png"),
+  cherry:    require("../assets/cherry.png"),
+  kiwi:      require("../assets/kiwi.png"),
+  orange:    require("../assets/orange.png"),
+};
+const ACCENT_KEYS: AccentColor[] = ["blueberry", "cherry", "kiwi", "orange"];
 import { reinitSupabase, defaultUrl, defaultKey } from "../src/lib/supabase";
 import Dropdown from "./Dropdown";
 import { useTaskStore } from "../src/store/taskStore";
@@ -47,6 +56,8 @@ export default function SettingsPage({ onSignOut }: Props) {
   const clearCustomSupabase = useSettingsStore((s) => s.clearCustomSupabase);
   const language = useSettingsStore((s) => s.language);
   const setLanguage = useSettingsStore((s) => s.setLanguage);
+  const accentColor = useSettingsStore((s) => s.accentColor);
+  const setAccentColor = useSettingsStore((s) => s.setAccentColor);
   const isSelfHosted = !!customSupabaseUrl;
   const [storageMode, setStorageMode] = useState<"cloud" | "selfhosted">(isSelfHosted ? "selfhosted" : "cloud");
   const [supabaseUrlInput, setSupabaseUrlInput] = useState(customSupabaseUrl);
@@ -158,6 +169,25 @@ export default function SettingsPage({ onSignOut }: Props) {
             <TouchableOpacity key={m} style={[s.themeBtn, mode === m && { backgroundColor: colors.accent }]} onPress={() => setThemeMode(m)} activeOpacity={0.7}>
               <Text style={[s.themeBtnText, mode === m && { color: "#fff" }]}>
                 {m === "system" ? t.settings.themeSystem : m === "light" ? t.settings.themeLight : t.settings.themeDark}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      <Text style={s.sectionTitle}>{t.settings.accentColor}</Text>
+      <View style={s.card}>
+        <View style={s.fruitRow}>
+          {ACCENT_KEYS.map((key) => (
+            <TouchableOpacity
+              key={key}
+              style={[s.fruitBtn, accentColor === key && { borderColor: colors.accent, backgroundColor: colors.accent + "22" }]}
+              onPress={() => setAccentColor(key)}
+              activeOpacity={0.7}
+            >
+              <Image source={FRUIT_IMAGES[key]} style={s.fruitImg} resizeMode="contain" />
+              <Text style={[s.fruitLabel, accentColor === key && { color: colors.accent }]}>
+                {t.settings.accentColors[key]}
               </Text>
             </TouchableOpacity>
           ))}
@@ -440,6 +470,10 @@ function makeStyles(colors: ReturnType<typeof import("../src/theme").useTheme>["
     themeRow: { flexDirection: "row", padding: 8, gap: 6 },
     themeBtn: { flex: 1, paddingVertical: 8, alignItems: "center", borderRadius: 8, backgroundColor: colors.border },
     themeBtnText: { fontSize: 13, fontWeight: "500", color: colors.text },
+    fruitRow: { flexDirection: "row", padding: 8, gap: 6 },
+    fruitBtn: { flex: 1, alignItems: "center", paddingVertical: 10, borderRadius: 10, borderWidth: 2, borderColor: "transparent", backgroundColor: colors.border + "60" },
+    fruitImg: { width: 40, height: 40 },
+    fruitLabel: { fontSize: 11, fontWeight: "500", color: colors.textSecondary, marginTop: 4 },
     hourPicker: { flexDirection: "row", alignItems: "center", gap: 12 },
     hourBtn: { width: 32, height: 32, borderRadius: 8, alignItems: "center", justifyContent: "center" },
     hourBtnText: { fontSize: 18, fontWeight: "400", lineHeight: 22 },

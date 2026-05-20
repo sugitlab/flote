@@ -17,6 +17,7 @@ type TaskListProps = {
   onSelectTask: (id: string) => void;
   onTagFilter?: (tag: string | null) => void;
   onTogglePin: (id: string) => void;
+  onVisibleChange?: (orderedIds: string[]) => void;
 };
 
 function todayStr(): string {
@@ -91,6 +92,7 @@ export default function TaskList({
   onSelectTask,
   onTagFilter,
   onTogglePin,
+  onVisibleChange,
 }: TaskListProps) {
   const t = useT();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -198,8 +200,12 @@ export default function TaskList({
     clearSelect();
   }, [selectedIds, onDeleteMultiple, clearSelect]);
 
-  const groups = groupTasks(sortedTasks, t.taskList.groups);
-  const orderedIds = groups.flatMap((g) => g.tasks.map((t) => t.id));
+  const groups = useMemo(() => groupTasks(sortedTasks, t.taskList.groups), [sortedTasks, t]);
+  const orderedIds = useMemo(() => groups.flatMap((g) => g.tasks.map((t) => t.id)), [groups]);
+
+  useEffect(() => {
+    onVisibleChange?.(orderedIds);
+  }, [orderedIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function renderTask(task: Task) {
     const isSelected = selectedIds.has(task.id);
@@ -233,7 +239,13 @@ export default function TaskList({
           </span>
         ) : (
           <>
-            {globalIdx < 9 && (
+            {task.pinned ? (
+              <span className="inline-flex items-center justify-center w-4 h-4 mr-1.5 shrink-0 text-[var(--accent)]" style={{ opacity: 0.8 }}>
+                <svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9.5 1.5L14.5 6.5L10 9.5L8.5 14.5L7 11L3 14.5L2.5 10L5 8.5L1.5 7L6.5 5.5Z"/>
+                </svg>
+              </span>
+            ) : globalIdx < 9 && (
               <span className="inline-flex items-center justify-center w-4 h-4 text-[9px] font-semibold text-[var(--text-muted)] bg-[var(--bg-input)] rounded mr-1.5 shrink-0">
                 {globalIdx + 1}
               </span>
@@ -289,21 +301,12 @@ export default function TaskList({
         </div>
 
         {!selectMode && (
-          <>
-            <button
-              title={task.pinned ? t.taskList.unpin : t.taskList.pin}
-              className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--accent)] ml-1 text-xs shrink-0"
-              onClick={(e) => { e.stopPropagation(); onTogglePin(task.id); }}
-            >
-              {task.pinned ? "📌" : "⊞"}
-            </button>
-            <button
-              className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--danger)] ml-1 text-xs shrink-0"
-              onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
-            >
-              ✕
-            </button>
-          </>
+          <button
+            className="opacity-0 group-hover:opacity-100 text-[var(--text-muted)] hover:text-[var(--danger)] ml-1 text-xs shrink-0"
+            onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
+          >
+            ✕
+          </button>
         )}
       </div>
     );

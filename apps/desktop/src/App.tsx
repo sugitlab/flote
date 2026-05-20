@@ -21,6 +21,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useRealtime } from "./hooks/useRealtime";
 import { useBadge } from "./hooks/useBadge";
 import { useTheme } from "./hooks/useTheme";
+import { useAccentColor } from "./hooks/useAccentColor";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { useNoteStore } from "./store/noteStore";
 import { useTaskStore } from "./store/taskStore";
@@ -29,7 +30,7 @@ import { useUIStore } from "./store/uiStore";
 import Auth from "./components/Auth";
 import Editor from "./components/Editor";
 import NoteList from "./components/NoteList";
-import TaskList, { groupTasks } from "./components/TaskList";
+import TaskList from "./components/TaskList";
 import Settings from "./components/Settings";
 import CommandPalette from "./components/CommandPalette";
 import ConfirmDialog from "./components/ConfirmDialog";
@@ -39,6 +40,14 @@ import FloteLogo from "./components/FloteLogo";
 import ExpensePanel from "./components/ExpensePanel";
 import DatePicker from "./components/DatePicker";
 import styles from "./App.module.css";
+
+function PinIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 1.5L14.5 6.5L10 9.5L8.5 14.5L7 11L3 14.5L2.5 10L5 8.5L1.5 7L6.5 5.5Z"/>
+    </svg>
+  );
+}
 
 // Initialize Supabase client from env vars (fast path for developer builds)
 const envSupabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -191,6 +200,9 @@ function MainApp({
   const [isEditing, setIsEditing] = useState(false);
   const [activeNoteTag, setActiveNoteTag] = useState<string | null>(null);
   const [activeTaskTag, setActiveTaskTag] = useState<string | null>(null);
+  // Track the display order from NoteList/TaskList to keep Cmd+1..9 in sync
+  const visibleNoteIds = useRef<string[]>([]);
+  const visibleTaskIds = useRef<string[]>([]);
   const [confirmDelete, setConfirmDelete] = useState<{ type: "note" | "task"; id: string } | null>(null);
   const [confirmConvert, setConfirmConvert] = useState<{ type: "note" | "task"; id: string } | null>(null);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -534,15 +546,14 @@ function MainApp({
     (index: number) => {
       setIsEditing(false);
       if (activeTab === "notes") {
-        const note = notes[index];
-        if (note) setActiveNote(note.id);
+        const id = visibleNoteIds.current[index];
+        if (id) setActiveNote(id);
       } else {
-        const ordered = groupTasks(tasks).flatMap((g) => g.tasks);
-        const task = ordered[index];
-        if (task) setActiveTask(task.id);
+        const id = visibleTaskIds.current[index];
+        if (id) setActiveTask(id);
       }
     },
-    [activeTab, notes, tasks, setActiveNote, setActiveTask]
+    [activeTab, setActiveNote, setActiveTask]
   );
 
   const handleEnterEditor = useCallback(() => {
@@ -709,6 +720,7 @@ function MainApp({
                       onNew={handleCreateNote}
                       onTagFilter={setActiveNoteTag}
                       onTogglePin={(id) => toggleNotePin(id, userId)}
+                      onVisibleChange={(ids) => { visibleNoteIds.current = ids; }}
                     />
                   )}
                   {activeTab === "tasks" && (
@@ -723,6 +735,7 @@ function MainApp({
                       onSelectTask={handleSelectTask}
                       onTagFilter={setActiveTaskTag}
                       onTogglePin={(id) => toggleTaskPin(id, userId)}
+                      onVisibleChange={(ids) => { visibleTaskIds.current = ids; }}
                     />
                   )}
                 </div>
@@ -749,13 +762,22 @@ function MainApp({
           {activeTab === "notes" && selectedNote ? (
             <div className={styles.noteDetail}>
               <div className={styles.noteDetailHeader}>
-                <button
-                  className={`${styles.convertBtn} ${styles.convertBtnNote}`}
-                  data-tooltip={t.confirm.convertToTask}
-                  onClick={() => setConfirmConvert({ type: "note", id: selectedNote.id })}
-                >
-                  ↻
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                  <button
+                    className={`${styles.pinDetailBtn} ${selectedNote.pinned ? styles.pinDetailBtnActive : ""}`}
+                    title={selectedNote.pinned ? t.noteList.unpin : t.noteList.pin}
+                    onClick={() => toggleNotePin(selectedNote.id, userId)}
+                  >
+                    <PinIcon />
+                  </button>
+                  <button
+                    className={`${styles.convertBtn} ${styles.convertBtnNote}`}
+                    data-tooltip={t.confirm.convertToTask}
+                    onClick={() => setConfirmConvert({ type: "note", id: selectedNote.id })}
+                  >
+                    ↻
+                  </button>
+                </div>
               </div>
               {extractTags(selectedNote.body_md).length > 0 && (
                 <div className={styles.noteTags}>
@@ -794,54 +816,65 @@ function MainApp({
           ) : activeTab === "tasks" && selectedTask ? (
             <div className={styles.taskDetail}>
               <div className={styles.taskDetailHeader}>
-                <div className={styles.statusPickerWrap} data-status-dropdown="">
-                  <button
-                    className={styles.taskDetailStatusBtn}
-                    onClick={() => setStatusDropdownOpen((v) => !v)}
-                  >
-                    <span
-                      className={styles.statusDot}
-                      style={{ backgroundColor: STATUS_COLORS[selectedTask.status] }}
-                    />
-                    <span
-                      className={styles.taskDetailStatus}
-                      style={{ color: STATUS_COLORS[selectedTask.status] }}
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <div className={styles.statusPickerWrap} data-status-dropdown="">
+                    <button
+                      className={styles.taskDetailStatusBtn}
+                      onClick={() => setStatusDropdownOpen((v) => !v)}
                     >
-                      {t.taskStatus.statuses[selectedTask.status]}
-                    </span>
-                    <span className={styles.statusChevron}>▾</span>
-                  </button>
-                  {statusDropdownOpen && (
-                    <div className={styles.statusDropdown}>
-                      {(Object.keys(STATUS_COLORS) as TaskStatus[]).map((s) => (
-                        <button
-                          key={s}
-                          className={`${styles.statusDropdownItem} ${selectedTask.status === s ? styles.statusDropdownItemActive : ""}`}
-                          onClick={() => {
-                            updateStatus(selectedTask.id, s, userId);
-                            setStatusDropdownOpen(false);
-                          }}
-                        >
-                          <span className={styles.statusDot} style={{ backgroundColor: STATUS_COLORS[s] }} />
-                          {t.taskStatus.statuses[s]}
-                          {selectedTask.status === s && <span className={styles.statusCheck}>✓</span>}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                      <span
+                        className={styles.statusDot}
+                        style={{ backgroundColor: STATUS_COLORS[selectedTask.status] }}
+                      />
+                      <span
+                        className={styles.taskDetailStatus}
+                        style={{ color: STATUS_COLORS[selectedTask.status] }}
+                      >
+                        {t.taskStatus.statuses[selectedTask.status]}
+                      </span>
+                      <span className={styles.statusChevron}>▾</span>
+                    </button>
+                    {statusDropdownOpen && (
+                      <div className={styles.statusDropdown}>
+                        {(Object.keys(STATUS_COLORS) as TaskStatus[]).map((s) => (
+                          <button
+                            key={s}
+                            className={`${styles.statusDropdownItem} ${selectedTask.status === s ? styles.statusDropdownItemActive : ""}`}
+                            onClick={() => {
+                              updateStatus(selectedTask.id, s, userId);
+                              setStatusDropdownOpen(false);
+                            }}
+                          >
+                            <span className={styles.statusDot} style={{ backgroundColor: STATUS_COLORS[s] }} />
+                            {t.taskStatus.statuses[s]}
+                            {selectedTask.status === s && <span className={styles.statusCheck}>✓</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <DatePicker
+                    value={selectedTask.due_date}
+                    onChange={handleTaskDueDateChange}
+                    placeholder={t.taskStatus.setDueDate}
+                  />
                 </div>
-                <DatePicker
-                  value={selectedTask.due_date}
-                  onChange={handleTaskDueDateChange}
-                  placeholder={t.taskStatus.setDueDate}
-                />
-                <button
-                  className={`${styles.convertBtn} ${styles.convertBtnTask}`}
-                  data-tooltip={t.confirm.convertToNote}
-                  onClick={() => setConfirmConvert({ type: "task", id: selectedTask.id })}
-                >
-                  ↻
-                </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                  <button
+                    className={`${styles.pinDetailBtn} ${selectedTask.pinned ? styles.pinDetailBtnActive : ""}`}
+                    title={selectedTask.pinned ? t.taskList.unpin : t.taskList.pin}
+                    onClick={() => toggleTaskPin(selectedTask.id, userId)}
+                  >
+                    <PinIcon />
+                  </button>
+                  <button
+                    className={`${styles.convertBtn} ${styles.convertBtnTask}`}
+                    data-tooltip={t.confirm.convertToNote}
+                    onClick={() => setConfirmConvert({ type: "task", id: selectedTask.id })}
+                  >
+                    ↻
+                  </button>
+                </div>
               </div>
               {extractTags(selectedTask.body_md).length > 0 && (
                 <div className={styles.noteTags}>
@@ -993,6 +1026,7 @@ function App() {
   const initExpenseStore = useExpenseStore((s) => s.initStore);
 
   useTheme();
+  useAccentColor();
 
   // Sync tray menu labels whenever language changes
   useEffect(() => {

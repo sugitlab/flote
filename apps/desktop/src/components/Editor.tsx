@@ -1,5 +1,6 @@
 import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import mermaid from "mermaid";
 import { EditorState, Compartment, EditorSelection } from "@codemirror/state";
 import { EditorView, keymap, placeholder, drawSelection } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -261,6 +262,13 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     if (editing) return "";
     return renderPreview(value, emptyNoteText);
   }, [value, editing, emptyNoteText]);
+
+  useEffect(() => {
+    if (editing || !previewHtml.includes('class="mermaid"')) return;
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    mermaid.initialize({ startOnLoad: false, theme: isDark ? "dark" : "default", securityLevel: "loose" });
+    mermaid.run({ querySelector: ".mermaid" }).catch(console.error);
+  }, [previewHtml, editing]);
 
   return (
     <div className="h-full w-full overflow-hidden relative">

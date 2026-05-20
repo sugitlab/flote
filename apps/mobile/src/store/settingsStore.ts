@@ -8,6 +8,8 @@ import {
 } from "@flote/types";
 import type { Language } from "../i18n";
 
+export type AccentColor = "blueberry" | "cherry" | "kiwi" | "orange";
+
 export type { DarkCodeTheme, LightCodeTheme };
 export { DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS };
 
@@ -20,6 +22,7 @@ const CUSTOM_SUPABASE_URL_KEY = "flote_custom_supabase_url";
 const CUSTOM_SUPABASE_KEY_KEY = "flote_custom_supabase_key";
 const LANGUAGE_KEY = "flote_language";
 const DEFAULT_REMINDER_HOUR = 9;
+const ACCENT_COLOR_KEY = "flote_accent_color";
 
 type SettingsStore = {
   reminderHour: number;
@@ -30,6 +33,7 @@ type SettingsStore = {
   customSupabaseUrl: string;
   customSupabaseAnonKey: string;
   language: Language;
+  accentColor: AccentColor;
   setReminderHour: (hour: number) => Promise<void>;
   setSearchFullText: (v: boolean) => Promise<void>;
   setHideCompletedTasks: (v: boolean) => Promise<void>;
@@ -38,6 +42,7 @@ type SettingsStore = {
   setCustomSupabase: (url: string, anonKey: string) => Promise<void>;
   clearCustomSupabase: () => Promise<void>;
   setLanguage: (lang: Language) => Promise<void>;
+  setAccentColor: (color: AccentColor) => Promise<void>;
   loadSettings: () => Promise<void>;
 };
 
@@ -50,6 +55,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   customSupabaseUrl: "",
   customSupabaseAnonKey: "",
   language: "ja",
+  accentColor: "blueberry",
 
   setReminderHour: async (hour) => {
     set({ reminderHour: hour });
@@ -93,12 +99,17 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     await SecureStore.setItemAsync(LANGUAGE_KEY, lang);
   },
 
+  setAccentColor: async (color) => {
+    set({ accentColor: color });
+    await SecureStore.setItemAsync(ACCENT_COLOR_KEY, color);
+  },
+
   loadSettings: async () => {
     const [
       hourStr, searchStr, hideCompletedStr,
       darkThemeStr, lightThemeStr,
       customUrlStr, customKeyStr,
-      languageStr,
+      languageStr, accentStr,
     ] = await Promise.all([
       SecureStore.getItemAsync(REMINDER_HOUR_KEY),
       SecureStore.getItemAsync(SEARCH_FULL_TEXT_KEY),
@@ -108,6 +119,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       SecureStore.getItemAsync(CUSTOM_SUPABASE_URL_KEY),
       SecureStore.getItemAsync(CUSTOM_SUPABASE_KEY_KEY),
       SecureStore.getItemAsync(LANGUAGE_KEY),
+      SecureStore.getItemAsync(ACCENT_COLOR_KEY),
     ]);
     const next: Partial<SettingsStore> = {};
     if (hourStr !== null) {
@@ -121,6 +133,9 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
     if (customUrlStr !== null) next.customSupabaseUrl = customUrlStr;
     if (customKeyStr !== null) next.customSupabaseAnonKey = customKeyStr;
     if (languageStr === "ja" || languageStr === "en") next.language = languageStr;
+    if (accentStr === "blueberry" || accentStr === "cherry" || accentStr === "kiwi" || accentStr === "orange") {
+      next.accentColor = accentStr;
+    }
     if (Object.keys(next).length > 0) set(next as SettingsStore);
   },
 }));

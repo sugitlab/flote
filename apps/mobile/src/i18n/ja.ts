@@ -106,6 +106,13 @@ export const ja = {
     themeSystem: "システム",
     themeLight: "ライト",
     themeDark: "ダーク",
+    accentColor: "アクセントカラー",
+    accentColors: {
+      blueberry: "パープル",
+      cherry: "チェリー",
+      kiwi: "キウイ",
+      orange: "オレンジ",
+    },
     editor: "エディタ",
     codeThemeDark: "コードテーマ（ダーク）",
     codeThemeLight: "コードテーマ（ライト）",
