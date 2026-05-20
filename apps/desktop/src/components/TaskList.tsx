@@ -238,20 +238,25 @@ export default function TaskList({
                 e.stopPropagation();
                 onUpdateStatus(task.id, isDone(task) ? "Todo" : "Done");
               }}
-              className={[
-                "shrink-0 mr-1.5 cursor-pointer transition-opacity hover:opacity-70 p-0 border-none",
-                isDone(task)
-                  ? "w-[14px] h-[14px] rounded-full flex items-center justify-center text-[10px] font-bold text-white"
-                  : task.status === "Todo"
-                  ? "w-[10px] h-[10px] rounded-full border-[1.5px] bg-transparent box-border"
-                  : "w-[10px] h-[10px] rounded-full",
-              ].join(" ")}
+              className="shrink-0 mr-1.5 cursor-pointer transition-opacity hover:opacity-70 p-0"
               style={
                 isDone(task)
-                  ? { backgroundColor: STATUS_COLORS.Done }
+                  ? {
+                      width: 14, height: 14, borderRadius: "50%", border: "none",
+                      backgroundColor: STATUS_COLORS.Done,
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 10, fontWeight: 700, color: "#fff", lineHeight: 1,
+                    }
                   : task.status === "Todo"
-                  ? { borderColor: STATUS_COLORS.Todo }
-                  : { backgroundColor: STATUS_COLORS[task.status] }
+                  ? {
+                      width: 10, height: 10, borderRadius: "50%",
+                      border: `1.5px solid ${STATUS_COLORS.Todo}`,
+                      backgroundColor: "transparent", display: "inline-block",
+                    }
+                  : {
+                      width: 10, height: 10, borderRadius: "50%", border: "none",
+                      backgroundColor: STATUS_COLORS[task.status], display: "inline-block",
+                    }
               }
             >
               {isDone(task) && "✓"}
