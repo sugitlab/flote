@@ -38,11 +38,11 @@ export async function initDb(): Promise<void> {
   `);
   // Migration: add status column to existing DBs that only have done column
   try {
-    await db.execute(`ALTER TABLE tasks ADD COLUMN status TEXT NOT NULL DEFAULT 'Todo'`);
-    await db.execute(`UPDATE tasks SET status = 'Done' WHERE done = 1 AND status = 'Todo'`);
-  } catch {
-    // Column already exists or table was just created with status — no-op
-  }
+    await db.execute(`ALTER TABLE tasks ADD COLUMN status TEXT DEFAULT 'Todo'`);
+  } catch { /* already exists */ }
+  try {
+    await db.execute(`UPDATE tasks SET status = 'Done' WHERE done = 1 AND (status IS NULL OR status = 'Todo')`);
+  } catch { /* done column may not exist on fresh install — OK */ }
   await db.execute(`
     CREATE TABLE IF NOT EXISTS transactions (
       id          TEXT PRIMARY KEY,
@@ -116,7 +116,7 @@ function rowToTask(r: TaskRow): Task {
 export async function getTasks(): Promise<Task[]> {
   const db = await getDb();
   const rows = await db.select<TaskRow[]>(
-    "SELECT id, title, body_md, due_date, status, updated_at FROM tasks ORDER BY updated_at DESC"
+    "SELECT id, title, body_md, due_date, COALESCE(status, 'Todo') AS status, updated_at FROM tasks ORDER BY updated_at DESC"
   );
   return rows.map(rowToTask);
 }
@@ -133,7 +133,7 @@ export async function saveTask(task: Task): Promise<void> {
 export async function getTaskById(id: string): Promise<Task | null> {
   const db = await getDb();
   const rows = await db.select<TaskRow[]>(
-    "SELECT id, title, body_md, due_date, status, updated_at FROM tasks WHERE id = $1",
+    "SELECT id, title, body_md, due_date, COALESCE(status, 'Todo') AS status, updated_at FROM tasks WHERE id = $1",
     [id]
   );
   if (rows.length === 0) return null;

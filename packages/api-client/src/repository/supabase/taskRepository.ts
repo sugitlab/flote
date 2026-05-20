@@ -24,13 +24,13 @@ export class SupabaseTaskRepository implements TaskRepository {
     const [fullRes, minimalRes] = await Promise.all([
       supabase
         .from("tasks")
-        .select("id, title, body_md, due_date, status, done, updated_at")
+        .select("*")
         .eq("user_id", userId)
         .order("updated_at", { ascending: false })
         .limit(BODY_FETCH_LIMIT),
       supabase
         .from("tasks")
-        .select("id, title, due_date, status, done, updated_at")
+        .select("id, title, due_date, done, updated_at")
         .eq("user_id", userId)
         .order("updated_at", { ascending: false })
         .range(BODY_FETCH_LIMIT, 1_000_000),
@@ -46,7 +46,7 @@ export class SupabaseTaskRepository implements TaskRepository {
     const supabase = getSupabase();
     const { data, error } = await supabase
       .from("tasks")
-      .select("id, title, body_md, due_date, status, done, updated_at")
+      .select("*")
       .eq("id", id)
       .single();
     if (error) return null;
@@ -55,21 +55,40 @@ export class SupabaseTaskRepository implements TaskRepository {
 
   async saveTask(task: Task, userId: string): Promise<Task> {
     const supabase = getSupabase();
+    // Try with status column first; fall back to done-only if status column doesn't exist yet
+    const payload = {
+      id: task.id,
+      title: task.title,
+      body_md: task.body_md,
+      due_date: task.due_date,
+      status: task.status,
+      done: task.status === "Done",
+      updated_at: task.updated_at,
+      user_id: userId,
+    };
     const { data, error } = await supabase
       .from("tasks")
-      .upsert({
-        id: task.id,
-        title: task.title,
-        body_md: task.body_md,
-        due_date: task.due_date,
-        status: task.status,
-        done: task.status === "Done",
-        updated_at: task.updated_at,
-        user_id: userId,
-      })
+      .upsert(payload)
       .select()
       .single();
-    if (error) throw error;
+    if (error) {
+      // Fallback: status column may not exist yet in Supabase — retry without it
+      const { data: d2, error: e2 } = await supabase
+        .from("tasks")
+        .upsert({
+          id: task.id,
+          title: task.title,
+          body_md: task.body_md,
+          due_date: task.due_date,
+          done: task.status === "Done",
+          updated_at: task.updated_at,
+          user_id: userId,
+        })
+        .select()
+        .single();
+      if (e2) throw e2;
+      return toTask(d2);
+    }
     return toTask(data);
   }
 
