@@ -18,7 +18,18 @@ import { extractTags, allTags } from "../src/tagUtils";
 import { TagFilterIcon, SortIcon, TagChips } from "./TagFilterDropdown";
 import { useT } from "../src/hooks/useT";
 import { relativeDate } from "../src/utils/date";
-import type { Task } from "@flote/types";
+import type { Task, TaskStatus } from "@flote/types";
+
+const STATUS_COLORS: Record<TaskStatus, string> = {
+  Todo: "#6b7280",
+  InProgress: "#3b82f6",
+  Waiting: "#f59e0b",
+  Reviewing: "#8b5cf6",
+  NoPlan: "#9ca3af",
+  HalfwaySpot: "#06b6d4",
+  LastEffort: "#ef4444",
+  Done: "#22c55e",
+};
 
 function todayStr(): string {
   const d = new Date();
@@ -165,10 +176,14 @@ export default function TasksList({ userId }: Props) {
       <View style={styles.row}>
         <Pressable
           onPress={() => handleToggle(item.id)}
-          style={[styles.checkbox, {
-            borderColor: item.status === "Done" ? colors.accent : colors.textSecondary,
-            backgroundColor: item.status === "Done" ? colors.accent : "transparent",
-          }]}
+          style={[
+            styles.checkbox,
+            item.status === "Done"
+              ? { backgroundColor: STATUS_COLORS.Done, borderColor: STATUS_COLORS.Done }
+              : item.status === "Todo"
+              ? { backgroundColor: "transparent", borderColor: STATUS_COLORS.Todo }
+              : { backgroundColor: STATUS_COLORS[item.status], borderColor: STATUS_COLORS[item.status] },
+          ]}
           hitSlop={8}
         >
           {item.status === "Done" && <Text style={{ color: "#fff", fontSize: 14, fontWeight: "bold" }}>✓</Text>}
@@ -288,7 +303,7 @@ const styles = StyleSheet.create({
   list: { padding: 16, paddingBottom: 40 },
   sectionTitle: { fontSize: 13, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5, paddingVertical: 8 },
   row: { flexDirection: "row", alignItems: "flex-start", marginBottom: 6 },
-  checkbox: { width: 24, height: 24, borderRadius: 4, borderWidth: 2, alignItems: "center", justifyContent: "center", marginRight: 10, marginTop: 14 },
+  checkbox: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: "center", justifyContent: "center", marginRight: 10, marginTop: 14 },
   selectCircle: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: "center", justifyContent: "center", marginRight: 12, flexShrink: 0 },
   checkmarkText: { color: "#fff", fontSize: 13, fontWeight: "bold" },
   item: { flex: 1, padding: 14, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth },
