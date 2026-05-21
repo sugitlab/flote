@@ -50,6 +50,8 @@ export const ja = {
     convert: "変換",
     deleteConfirmTitle: "削除確認",
     deleteConfirmMessage: "このノートを削除しますか？",
+    pin: "ピン留め",
+    unpin: "ピン留めを解除",
   },
   tasks: {
     newTaskTitle: "新しいタスク",
@@ -73,6 +75,8 @@ export const ja = {
     convert: "変換",
     deleteConfirmTitle: "削除確認",
     deleteConfirmMessage: "このタスクを削除しますか？",
+    pin: "ピン留め",
+    unpin: "ピン留めを解除",
     markDone: "ステータスを変更",
     markNotDone: "未完了",
     setDueDate: "期日を設定",

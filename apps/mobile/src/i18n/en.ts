@@ -56,6 +56,8 @@ export const en = {
     convert: "Convert",
     deleteConfirmTitle: "Confirm Delete",
     deleteConfirmMessage: "Delete this note?",
+    pin: "Pin",
+    unpin: "Unpin",
   },
   tasks: {
     newTaskTitle: "New Task",
@@ -79,6 +81,8 @@ export const en = {
     convert: "Convert",
     deleteConfirmTitle: "Confirm Delete",
     deleteConfirmMessage: "Delete this task?",
+    pin: "Pin",
+    unpin: "Unpin",
     markDone: "Change Status",
     markNotDone: "Not done",
     setDueDate: "Set due date",

@@ -57,6 +57,7 @@ export default function TaskDetailScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempDate, setTempDate] = useState<Date>(new Date());
   const [statusPickerVisible, setStatusPickerVisible] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const taskRef = useRef<Task | null>(null);
 
@@ -103,6 +104,8 @@ export default function TaskDetailScreen() {
   };
 
   const handleConvertToNote = () => {
+    setMenuVisible(false);
+    setTimeout(() => {
     Alert.alert(t.tasks.convertToNoteTitle, t.tasks.convertToNoteMessage, [
       { text: t.common.cancel, style: "cancel" },
       {
@@ -123,6 +126,7 @@ export default function TaskDetailScreen() {
         },
       },
     ]);
+    }, 300);
   };
 
   const handleTogglePin = () => {
@@ -130,9 +134,12 @@ export default function TaskDetailScreen() {
     const updated: Task = { ...taskRef.current, pinned: !taskRef.current.pinned, updated_at: new Date().toISOString() };
     taskRef.current = updated;
     saveTask(updated, userId);
+    setMenuVisible(false);
   };
 
   const handleDelete = () => {
+    setMenuVisible(false);
+    setTimeout(() => {
     Alert.alert(t.tasks.deleteConfirmTitle, t.tasks.deleteConfirmMessage, [
       { text: t.common.cancel, style: "cancel" },
       {
@@ -147,6 +154,7 @@ export default function TaskDetailScreen() {
         },
       },
     ]);
+    }, 300);
   };
 
   const STATUS_ORDER: TaskStatus[] = ["Todo", "InProgress", "Waiting", "Reviewing", "NoPlan", "HalfwaySpot", "LastEffort", "Done"];
@@ -222,18 +230,24 @@ export default function TaskDetailScreen() {
           <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="chevron-back" size={28} color={colors.text} />
           </TouchableOpacity>
-          <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
-            <TouchableOpacity onPress={handleConvertToNote} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={{ color: colors.textSecondary, fontSize: 22, lineHeight: 26 }}>↻</Text>
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+            <TouchableOpacity
+              onPress={() => setEditing(!editing)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.headerIconBtn}
+            >
+              <Ionicons
+                name={editing ? "checkmark" : "pencil-outline"}
+                size={22}
+                color={editing ? colors.accent : colors.textSecondary}
+              />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleTogglePin} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <MaterialCommunityIcons name={task?.pinned ? "pin" : "pin-outline"} size={22} color={task?.pinned ? colors.accent : colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setEditing(!editing)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={{ color: colors.accent, fontSize: 16 }}>{editing ? t.common.done : t.common.edit}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleDelete} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="trash-outline" size={22} color={colors.danger} />
+            <TouchableOpacity
+              onPress={() => setMenuVisible(true)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.headerIconBtn}
+            >
+              <Ionicons name="ellipsis-horizontal" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>
@@ -345,6 +359,68 @@ export default function TaskDetailScreen() {
         </Modal>
       )}
 
+      {/* 3-dot menu */}
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setMenuVisible(false)}>
+          <Pressable style={[styles.menuSheet, { backgroundColor: colors.surface }]} onPress={() => {}}>
+            {/* Pin */}
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomColor: colors.border }]}
+              onPress={handleTogglePin}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={task?.pinned ? "pin" : "pin-outline"}
+                size={20}
+                color={task?.pinned ? colors.accent : colors.text}
+              />
+              <Text style={[styles.menuItemText, { color: task?.pinned ? colors.accent : colors.text }]}>
+                {task?.pinned ? t.tasks.unpin ?? "ピン留めを解除" : t.tasks.pin ?? "ピン留め"}
+              </Text>
+              {task?.pinned && <Ionicons name="checkmark" size={16} color={colors.accent} />}
+            </TouchableOpacity>
+
+            {/* Convert to note */}
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomColor: colors.border }]}
+              onPress={handleConvertToNote}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="swap-horizontal-outline" size={20} color={colors.text} />
+              <Text style={[styles.menuItemText, { color: colors.text }]}>
+                {t.tasks.convertToNoteTitle}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Delete */}
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomColor: colors.border }]}
+              onPress={handleDelete}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              <Text style={[styles.menuItemText, { color: colors.danger }]}>
+                {t.common.delete}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Cancel */}
+            <TouchableOpacity
+              style={[styles.cancelItem, { borderTopColor: colors.border }]}
+              onPress={() => setMenuVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.cancelText, { color: colors.textSecondary }]}>{t.common.cancel}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <Modal
         visible={statusPickerVisible}
         transparent
@@ -418,10 +494,37 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   editor: { flex: 1, padding: 16, fontSize: 15, lineHeight: 22 },
   preview: { flex: 1 },
   previewContent: { padding: 16, paddingTop: 20 },
   modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+  menuSheet: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: Platform.OS === "ios" ? 32 : 16,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  menuItemText: { flex: 1, fontSize: 16 },
+  cancelItem: {
+    marginTop: 8,
+    paddingVertical: 16,
+    alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth * 4,
+  },
+  cancelText: { fontSize: 16 },
   modalSheet: { borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: Platform.OS === "ios" ? 32 : 16 },
   modalTitle: { fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center", paddingVertical: 14 },
   statusOption: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 },

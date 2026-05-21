@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal,
+  Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
@@ -37,6 +39,7 @@ export default function NoteDetailScreen() {
   const [editing, setEditing] = useState(edit === "1");
   const [content, setContent] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
+  const [menuVisible, setMenuVisible] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noteRef = useRef<Note | null>(null);
 
@@ -82,52 +85,59 @@ export default function NoteDetailScreen() {
     debouncedSave(text);
   };
 
-  const handleConvertToTask = () => {
-    Alert.alert(t.notes.convertToTaskTitle, t.notes.convertToTaskMessage, [
-      { text: t.common.cancel, style: "cancel" },
-      {
-        text: t.notes.convert,
-        onPress: async () => {
-          if (!userId || !noteRef.current) return;
-          const note = noteRef.current;
-          const newTask: Task = {
-            id: generateId(),
-            title: note.title || content.split("\n").find((l) => l.trim())?.replace(/^#{1,6}\s+/, "").trim() || t.tasks.untitled,
-            body_md: note.body_md,
-            due_date: null,
-            status: "Todo",
-            pinned: false,
-            updated_at: new Date().toISOString(),
-          };
-          await saveTask(newTask, userId);
-          await deleteNote(note.id);
-          router.replace(`/(app)/tasks/${newTask.id}` as never);
-        },
-      },
-    ]);
-  };
-
   const handleTogglePin = () => {
     if (!userId || !noteRef.current) return;
     const updated: Note = { ...noteRef.current, pinned: !noteRef.current.pinned, updated_at: new Date().toISOString() };
     noteRef.current = updated;
     saveNote(updated, userId);
+    setMenuVisible(false);
+  };
+
+  const handleConvertToTask = () => {
+    setMenuVisible(false);
+    setTimeout(() => {
+      Alert.alert(t.notes.convertToTaskTitle, t.notes.convertToTaskMessage, [
+        { text: t.common.cancel, style: "cancel" },
+        {
+          text: t.notes.convert,
+          onPress: async () => {
+            if (!userId || !noteRef.current) return;
+            const note = noteRef.current;
+            const newTask: Task = {
+              id: generateId(),
+              title: note.title || content.split("\n").find((l) => l.trim())?.replace(/^#{1,6}\s+/, "").trim() || t.tasks.untitled,
+              body_md: note.body_md,
+              due_date: null,
+              status: "Todo",
+              pinned: false,
+              updated_at: new Date().toISOString(),
+            };
+            await saveTask(newTask, userId);
+            await deleteNote(note.id);
+            router.replace(`/(app)/tasks/${newTask.id}` as never);
+          },
+        },
+      ]);
+    }, 300);
   };
 
   const handleDelete = () => {
-    Alert.alert(t.notes.deleteConfirmTitle, t.notes.deleteConfirmMessage, [
-      { text: t.common.cancel, style: "cancel" },
-      {
-        text: t.common.delete,
-        style: "destructive",
-        onPress: async () => {
-          if (id) {
-            await deleteNote(id);
-            router.back();
-          }
+    setMenuVisible(false);
+    setTimeout(() => {
+      Alert.alert(t.notes.deleteConfirmTitle, t.notes.deleteConfirmMessage, [
+        { text: t.common.cancel, style: "cancel" },
+        {
+          text: t.common.delete,
+          style: "destructive",
+          onPress: async () => {
+            if (id) {
+              await deleteNote(id);
+              router.back();
+            }
+          },
         },
-      },
-    ]);
+      ]);
+    }, 300);
   };
 
   const markdownStyles = makeMarkdownStyles(colors);
@@ -146,21 +156,28 @@ export default function NoteDetailScreen() {
           <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Ionicons name="chevron-back" size={28} color={colors.text} />
           </TouchableOpacity>
-          <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
-            <TouchableOpacity onPress={handleConvertToTask} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={{ color: colors.textSecondary, fontSize: 22, lineHeight: 26 }}>↻</Text>
+          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+            <TouchableOpacity
+              onPress={() => setEditing(!editing)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.headerIconBtn}
+            >
+              <Ionicons
+                name={editing ? "checkmark" : "pencil-outline"}
+                size={22}
+                color={editing ? colors.accent : colors.textSecondary}
+              />
             </TouchableOpacity>
-            <TouchableOpacity onPress={handleTogglePin} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <MaterialCommunityIcons name={note?.pinned ? "pin" : "pin-outline"} size={22} color={note?.pinned ? colors.accent : colors.textSecondary} />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => setEditing(!editing)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={{ color: colors.accent, fontSize: 16 }}>{editing ? t.common.done : t.common.edit}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={handleDelete} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name="trash-outline" size={22} color={colors.danger} />
+            <TouchableOpacity
+              onPress={() => setMenuVisible(true)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.headerIconBtn}
+            >
+              <Ionicons name="ellipsis-horizontal" size={22} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
         </View>
+
         {editing ? (
           <TextInput
             style={[
@@ -192,6 +209,68 @@ export default function NoteDetailScreen() {
           </ScrollView>
         )}
       </KeyboardAvoidingView>
+
+      {/* 3-dot menu */}
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setMenuVisible(false)}>
+          <Pressable style={[styles.menuSheet, { backgroundColor: colors.surface }]} onPress={() => {}}>
+            {/* Pin */}
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomColor: colors.border }]}
+              onPress={handleTogglePin}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name={note?.pinned ? "pin" : "pin-outline"}
+                size={20}
+                color={note?.pinned ? colors.accent : colors.text}
+              />
+              <Text style={[styles.menuItemText, { color: note?.pinned ? colors.accent : colors.text }]}>
+                {note?.pinned ? t.notes.unpin ?? "ピン留めを解除" : t.notes.pin ?? "ピン留め"}
+              </Text>
+              {note?.pinned && <Ionicons name="checkmark" size={16} color={colors.accent} />}
+            </TouchableOpacity>
+
+            {/* Convert to task */}
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomColor: colors.border }]}
+              onPress={handleConvertToTask}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="swap-horizontal-outline" size={20} color={colors.text} />
+              <Text style={[styles.menuItemText, { color: colors.text }]}>
+                {t.notes.convertToTaskTitle}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Delete */}
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomColor: colors.border }]}
+              onPress={handleDelete}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              <Text style={[styles.menuItemText, { color: colors.danger }]}>
+                {t.common.delete}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Cancel */}
+            <TouchableOpacity
+              style={[styles.cancelItem, { borderTopColor: colors.border }]}
+              onPress={() => setMenuVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.cancelText, { color: colors.textSecondary }]}>{t.common.cancel}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
@@ -206,7 +285,35 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   editor: { flex: 1, padding: 16, fontSize: 15, lineHeight: 22 },
   preview: { flex: 1 },
   previewContent: { padding: 16, paddingTop: 20 },
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+  menuSheet: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: Platform.OS === "ios" ? 32 : 16,
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  menuItemText: { flex: 1, fontSize: 16 },
+  cancelItem: {
+    marginTop: 8,
+    paddingVertical: 16,
+    alignItems: "center",
+    borderTopWidth: StyleSheet.hairlineWidth * 4,
+  },
+  cancelText: { fontSize: 16 },
 });
