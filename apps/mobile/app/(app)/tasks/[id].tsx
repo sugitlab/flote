@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal,
+  Pressable,
 } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
@@ -51,6 +53,7 @@ export default function TaskDetailScreen() {
   const [content, setContent] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [statusPickerVisible, setStatusPickerVisible] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const taskRef = useRef<Task | null>(null);
 
@@ -147,23 +150,15 @@ export default function TaskDetailScreen() {
 
   const handleStatusPicker = () => {
     if (!userId || !taskRef.current) return;
-    const current = taskRef.current.status;
-    Alert.alert(
-      t.tasks.markDone,
-      undefined,
-      [
-        ...STATUS_ORDER.map((s) => ({
-          text: (s === current ? "✓ " : "") + (t.tasks.statuses?.[s] ?? s),
-          onPress: () => {
-            if (!userId || !taskRef.current) return;
-            const updated: Task = { ...taskRef.current, status: s, updated_at: new Date().toISOString() };
-            taskRef.current = updated;
-            saveTask(updated, userId);
-          },
-        })),
-        { text: t.common.cancel, style: "cancel" },
-      ]
-    );
+    setStatusPickerVisible(true);
+  };
+
+  const handleSelectStatus = (s: TaskStatus) => {
+    if (!userId || !taskRef.current) return;
+    const updated: Task = { ...taskRef.current, status: s, updated_at: new Date().toISOString() };
+    taskRef.current = updated;
+    saveTask(updated, userId);
+    setStatusPickerVisible(false);
   };
 
   const handleDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -317,6 +312,43 @@ export default function TaskDetailScreen() {
           </ScrollView>
         )}
       </KeyboardAvoidingView>
+
+      <Modal
+        visible={statusPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setStatusPickerVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setStatusPickerVisible(false)}>
+          <Pressable style={[styles.modalSheet, { backgroundColor: colors.surface }]} onPress={() => {}}>
+            <Text style={[styles.modalTitle, { color: colors.textSecondary }]}>{t.tasks.markDone}</Text>
+            {STATUS_ORDER.map((s) => {
+              const isCurrent = task?.status === s;
+              return (
+                <TouchableOpacity
+                  key={s}
+                  style={[styles.statusOption, { borderBottomColor: colors.border }]}
+                  onPress={() => handleSelectStatus(s)}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.statusOptionDot, { backgroundColor: STATUS_COLORS[s] }]} />
+                  <Text style={[styles.statusOptionText, { color: colors.text }]}>
+                    {t.tasks.statuses?.[s] ?? s}
+                  </Text>
+                  {isCurrent && <Text style={[styles.statusCheck, { color: STATUS_COLORS[s] }]}>✓</Text>}
+                </TouchableOpacity>
+              );
+            })}
+            <TouchableOpacity
+              style={[styles.cancelOption, { borderTopColor: colors.border }]}
+              onPress={() => setStatusPickerVisible(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.cancelOptionText, { color: colors.textSecondary }]}>{t.common.cancel}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
@@ -349,4 +381,13 @@ const styles = StyleSheet.create({
   editor: { flex: 1, padding: 16, fontSize: 15, lineHeight: 22 },
   preview: { flex: 1 },
   previewContent: { padding: 16, paddingTop: 20 },
+  modalOverlay: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.4)" },
+  modalSheet: { borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: Platform.OS === "ios" ? 32 : 16 },
+  modalTitle: { fontSize: 12, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5, textAlign: "center", paddingVertical: 14 },
+  statusOption: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth, gap: 12 },
+  statusOptionDot: { width: 12, height: 12, borderRadius: 6 },
+  statusOptionText: { flex: 1, fontSize: 16 },
+  statusCheck: { fontSize: 16, fontWeight: "700" },
+  cancelOption: { marginTop: 8, paddingVertical: 16, alignItems: "center", borderTopWidth: StyleSheet.hairlineWidth * 4 },
+  cancelOptionText: { fontSize: 16 },
 });
