@@ -25,6 +25,17 @@ import { generateId } from "../../../src/utils";
 import { useT } from "../../../src/hooks/useT";
 import type { Task, Note, TaskStatus } from "@flote/types";
 
+const STATUS_COLORS: Record<TaskStatus, string> = {
+  Todo: "#6b7280",
+  InProgress: "#3b82f6",
+  Waiting: "#f59e0b",
+  Reviewing: "#8b5cf6",
+  NoPlan: "#9ca3af",
+  HalfwaySpot: "#06b6d4",
+  LastEffort: "#ef4444",
+  Done: "#22c55e",
+};
+
 export default function TaskDetailScreen() {
   const { id, edit } = useLocalSearchParams<{ id: string; edit?: string }>();
   const { colors } = useTheme();
@@ -227,23 +238,19 @@ export default function TaskDetailScreen() {
             >
               <View
                 style={[
-                  styles.checkbox,
-                  {
-                    borderColor: task.status === "Done" ? colors.accent : colors.textSecondary,
-                    backgroundColor: task.status === "Done" ? colors.accent : "transparent",
-                  },
+                  styles.statusDot,
+                  { backgroundColor: STATUS_COLORS[task.status] },
                 ]}
-              >
-                {task.status === "Done" && <Text style={styles.checkmark}>✓</Text>}
-              </View>
+              />
               <Text
                 style={[
                   styles.metaStatus,
-                  { color: task.status === "Done" ? colors.accent : "#ff9500" },
+                  { color: STATUS_COLORS[task.status] },
                 ]}
               >
                 {t.tasks.statuses?.[task.status] ?? task.status}
               </Text>
+              <Text style={[styles.statusChevron, { color: colors.textSecondary }]}>▾</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -321,15 +328,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 2,
   },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    borderWidth: 2,
-    alignItems: "center",
-    justifyContent: "center",
+  statusDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
-  checkmark: { color: "#fff", fontSize: 12, fontWeight: "bold", marginTop: -1 },
+  statusChevron: { fontSize: 11 },
   metaStatus: { fontSize: 14, fontWeight: "600" },
   metaDue: { fontSize: 13 },
   editor: { flex: 1, padding: 16, fontSize: 15, lineHeight: 22 },
