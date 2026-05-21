@@ -105,6 +105,13 @@ export default function NoteDetailScreen() {
     ]);
   };
 
+  const handleTogglePin = () => {
+    if (!userId || !noteRef.current) return;
+    const updated: Note = { ...noteRef.current, pinned: !noteRef.current.pinned, updated_at: new Date().toISOString() };
+    noteRef.current = updated;
+    saveNote(updated, userId);
+  };
+
   const handleDelete = () => {
     Alert.alert(t.notes.deleteConfirmTitle, t.notes.deleteConfirmMessage, [
       { text: t.common.cancel, style: "cancel" },
@@ -147,6 +154,9 @@ export default function NoteDetailScreen() {
                 <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 9, paddingVertical: 4 }}>
                   <Text style={{ color: colors.textSecondary, fontSize: 20, lineHeight: 24 }}>↻</Text>
                 </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleTogglePin} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name={note?.pinned ? "pin" : "pin-outline"} size={22} color={note?.pinned ? colors.accent : colors.textSecondary} />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setEditing(!editing)}>
                 <Text style={{ color: colors.accent, fontSize: 16 }}>

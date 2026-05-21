@@ -119,6 +119,13 @@ export default function TaskDetailScreen() {
     ]);
   };
 
+  const handleTogglePin = () => {
+    if (!userId || !taskRef.current) return;
+    const updated: Task = { ...taskRef.current, pinned: !taskRef.current.pinned, updated_at: new Date().toISOString() };
+    taskRef.current = updated;
+    saveTask(updated, userId);
+  };
+
   const handleDelete = () => {
     Alert.alert(t.tasks.deleteConfirmTitle, t.tasks.deleteConfirmMessage, [
       { text: t.common.cancel, style: "cancel" },
@@ -211,6 +218,9 @@ export default function TaskDetailScreen() {
                 <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 9, paddingVertical: 4 }}>
                   <Text style={{ color: colors.textSecondary, fontSize: 20, lineHeight: 24 }}>↻</Text>
                 </View>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleTogglePin} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Ionicons name={task?.pinned ? "pin" : "pin-outline"} size={22} color={task?.pinned ? colors.accent : colors.textSecondary} />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setEditing(!editing)}>
                 <Text style={{ color: colors.accent, fontSize: 16 }}>
