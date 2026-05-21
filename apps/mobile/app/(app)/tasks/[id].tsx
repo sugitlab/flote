@@ -19,8 +19,6 @@ import Markdown from "react-native-markdown-display";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTheme } from "../../../src/theme";
 import { makeMarkdownStyles, makeMarkdownRules } from "../../../src/markdownStyles";
-import { extractTags } from "../../../src/tagUtils";
-import { TagChips } from "../../../components/TagFilterDropdown";
 import { scheduleTaskReminder, cancelTaskReminder } from "../../../src/lib/notifications";
 import { useSettingsStore } from "../../../src/store/settingsStore";
 import { useTaskStore } from "../../../src/store/taskStore";
@@ -210,7 +208,6 @@ export default function TaskDetailScreen() {
 
   const markdownStyles = makeMarkdownStyles(colors);
   const markdownRules = makeMarkdownRules(colors);
-  const tags = extractTags(content);
 
   return (
     <>
@@ -309,10 +306,7 @@ export default function TaskDetailScreen() {
           <ScrollView style={styles.preview} contentContainerStyle={styles.previewContent}>
             <View style={{ height: 4 }} />
             {content ? (
-              <>
-                <Markdown style={markdownStyles} rules={markdownRules}>{content}</Markdown>
-                {tags.length > 0 && <TagChips tags={tags} accentColor={colors.accent} />}
-              </>
+              <Markdown style={markdownStyles} rules={markdownRules}>{content}</Markdown>
             ) : (
               <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
                 {t.tasks.emptyBody}

@@ -16,8 +16,6 @@ import Markdown from "react-native-markdown-display";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTheme } from "../../../src/theme";
 import { makeMarkdownStyles, makeMarkdownRules } from "../../../src/markdownStyles";
-import { extractTags } from "../../../src/tagUtils";
-import { TagChips } from "../../../components/TagFilterDropdown";
 import { useNoteStore } from "../../../src/store/noteStore";
 import { useTaskStore } from "../../../src/store/taskStore";
 import { supabase } from "../../../src/lib/supabase";
@@ -134,7 +132,6 @@ export default function NoteDetailScreen() {
 
   const markdownStyles = makeMarkdownStyles(colors);
   const markdownRules = makeMarkdownRules(colors);
-  const tags = extractTags(content);
 
   return (
     <>
@@ -186,10 +183,7 @@ export default function NoteDetailScreen() {
           <ScrollView style={styles.preview} contentContainerStyle={styles.previewContent}>
             <View style={{ height: 4 }} />
             {content ? (
-              <>
-                <Markdown style={markdownStyles} rules={markdownRules}>{content}</Markdown>
-                {tags.length > 0 && <TagChips tags={tags} accentColor={colors.accent} />}
-              </>
+              <Markdown style={markdownStyles} rules={markdownRules}>{content}</Markdown>
             ) : (
               <Text style={{ color: colors.textSecondary, fontSize: 16 }}>
                 {t.notes.emptyBody}

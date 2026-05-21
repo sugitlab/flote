@@ -155,8 +155,58 @@ const BULLET_CHARS = ["•", "◦", "▸"];
 
 const TAG_RE = /#([\w぀-龯一-鿿゠-ヿ]+)/g;
 
+function extractNodeText(node: any): string {
+  if (node.content !== undefined && node.children === undefined) return node.content as string;
+  if (Array.isArray(node.children)) {
+    return node.children
+      .map((c: any) =>
+        c.type === "softbreak" || c.type === "hardbreak" ? " " : extractNodeText(c)
+      )
+      .join("");
+  }
+  return node.content ?? "";
+}
+
+const TAG_ONLY_RE = /^(\s*#[\w぀-龯一-鿿゠-ヿ]+\s*)+$/;
+
 export function makeMarkdownRules(colors: ThemeColors) {
   return {
+    paragraph: (node: any, children: any, _parent: any, styles: any) => {
+      const rawText = extractNodeText(node);
+      if (rawText && TAG_ONLY_RE.test(rawText)) {
+        const tags = [...rawText.matchAll(TAG_RE)].map((m) => m[1]);
+        return (
+          <View
+            key={node.key}
+            style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginVertical: 4 }}
+          >
+            {tags.map((tag, i) => (
+              <View
+                key={i}
+                style={{
+                  backgroundColor: colors.accent + "22",
+                  borderColor: colors.accent + "55",
+                  borderWidth: 1,
+                  borderRadius: 10,
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                }}
+              >
+                <Text style={{ color: colors.accent, fontSize: 13, fontWeight: "500" }}>
+                  #{tag}
+                </Text>
+              </View>
+            ))}
+          </View>
+        );
+      }
+      return (
+        <View key={node.key} style={styles._VIEW_SAFE_paragraph}>
+          {children}
+        </View>
+      );
+    },
+
     fence: (node: any) => {
       const lang = node.sourceInfo?.trim() || undefined;
       if (lang === "mermaid") {
