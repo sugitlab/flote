@@ -150,10 +150,8 @@ export default function NoteDetailScreen() {
           ),
           headerRight: () => (
             <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-              <TouchableOpacity onPress={handleConvertToTask} style={{ marginRight: 4 }}>
-                <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 6, paddingHorizontal: 9, paddingVertical: 4 }}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 20, lineHeight: 24 }}>↻</Text>
-                </View>
+              <TouchableOpacity onPress={handleConvertToTask} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={{ color: colors.textSecondary, fontSize: 22, lineHeight: 26 }}>↻</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={handleTogglePin} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Ionicons name={note?.pinned ? "pin" : "pin-outline"} size={22} color={note?.pinned ? colors.accent : colors.textSecondary} />

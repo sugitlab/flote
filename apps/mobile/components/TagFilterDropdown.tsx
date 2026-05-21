@@ -77,10 +77,7 @@ export function TagFilterIcon({ tags, selectedTag, onSelect }: Props) {
         activeOpacity={0.7}
         style={[
           styles.iconBtn,
-          {
-            backgroundColor: active ? colors.accent + "18" : colors.surface,
-            borderColor: active ? colors.accent : colors.border,
-          },
+          active && { backgroundColor: colors.accent + "18", borderColor: colors.accent },
         ]}
       >
         <Ionicons
@@ -153,10 +150,7 @@ export function SortIcon({ options, value, onChange }: SortIconProps) {
         activeOpacity={0.7}
         style={[
           styles.iconBtn,
-          {
-            backgroundColor: active ? colors.accent + "18" : colors.surface,
-            borderColor: active ? colors.accent : colors.border,
-          },
+          active && { backgroundColor: colors.accent + "18", borderColor: colors.accent },
         ]}
       >
         <Ionicons
@@ -224,7 +218,7 @@ export function TagChips({ tags, accentColor }: TagsProps) {
 }
 
 const styles = StyleSheet.create({
-  iconBtn: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  iconBtn: { width: 40, height: 40, borderRadius: 10, borderWidth: 1, borderColor: "transparent", backgroundColor: "transparent", alignItems: "center", justifyContent: "center" },
   wrap: {
     flexDirection: "row",
     alignItems: "center",
