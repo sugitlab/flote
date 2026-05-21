@@ -156,15 +156,14 @@ const BULLET_CHARS = ["•", "◦", "▸"];
 const TAG_RE = /#([\w぀-龯一-鿿゠-ヿ]+)/g;
 
 function extractNodeText(node: any): string {
-  if (node.content !== undefined && node.children === undefined) return node.content as string;
-  if (Array.isArray(node.children)) {
-    return node.children
-      .map((c: any) =>
-        c.type === "softbreak" || c.type === "hardbreak" ? " " : extractNodeText(c)
-      )
-      .join("");
+  if (!Array.isArray(node.children) || node.children.length === 0) {
+    return node.content ?? "";
   }
-  return node.content ?? "";
+  return node.children
+    .map((c: any) =>
+      c.type === "softbreak" || c.type === "hardbreak" ? " " : extractNodeText(c)
+    )
+    .join(" ");
 }
 
 const TAG_ONLY_RE = /^(\s*#[\w぀-龯一-鿿゠-ヿ]+\s*)+$/;
@@ -172,7 +171,11 @@ const TAG_ONLY_RE = /^(\s*#[\w぀-龯一-鿿゠-ヿ]+\s*)+$/;
 export function makeMarkdownRules(colors: ThemeColors) {
   return {
     paragraph: (node: any, children: any, _parent: any, styles: any) => {
-      const rawText = extractNodeText(node);
+      // markdown-it inline token carries the raw source in .content
+      const inlineChild = Array.isArray(node.children)
+        ? node.children.find((c: any) => c.type === "inline")
+        : null;
+      const rawText = (inlineChild ? inlineChild.content : extractNodeText(node)).trim();
       if (rawText && TAG_ONLY_RE.test(rawText)) {
         const tags = [...rawText.matchAll(TAG_RE)].map((m) => m[1]);
         return (
