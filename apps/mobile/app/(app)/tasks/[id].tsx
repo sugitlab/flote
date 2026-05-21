@@ -16,7 +16,7 @@ import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/dat
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import Markdown from "react-native-markdown-display";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTheme } from "../../../src/theme";
 import { makeMarkdownStyles, makeMarkdownRules } from "../../../src/markdownStyles";
 import { scheduleTaskReminder, cancelTaskReminder } from "../../../src/lib/notifications";
@@ -210,7 +210,7 @@ export default function TaskDetailScreen() {
               <Text style={{ color: colors.textSecondary, fontSize: 22, lineHeight: 26 }}>↻</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={handleTogglePin} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Ionicons name={task?.pinned ? "pin" : "pin-outline"} size={22} color={task?.pinned ? colors.accent : colors.textSecondary} />
+              <MaterialCommunityIcons name={task?.pinned ? "pin" : "pin-outline"} size={22} color={task?.pinned ? colors.accent : colors.textSecondary} />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setEditing(!editing)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
               <Text style={{ color: colors.accent, fontSize: 16 }}>{editing ? t.common.done : t.common.edit}</Text>
