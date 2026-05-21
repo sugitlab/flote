@@ -55,6 +55,7 @@ export default function TaskDetailScreen() {
   const [content, setContent] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [tempDate, setTempDate] = useState<Date>(new Date());
   const [statusPickerVisible, setStatusPickerVisible] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const taskRef = useRef<Task | null>(null);
@@ -163,15 +164,31 @@ export default function TaskDetailScreen() {
     setStatusPickerVisible(false);
   };
 
+  const handleOpenDatePicker = () => {
+    const initial = taskRef.current?.due_date ? new Date(taskRef.current.due_date + "T12:00:00") : new Date();
+    setTempDate(initial);
+    setShowDatePicker(true);
+  };
+
   const handleDateChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === "ios");
-    if (!userId || !taskRef.current || !selectedDate) return;
-    const due_date = selectedDate.toISOString().split("T")[0];
-    const updated: Task = {
-      ...taskRef.current,
-      due_date,
-      updated_at: new Date().toISOString(),
-    };
+    if (Platform.OS === "android") {
+      setShowDatePicker(false);
+      if (_event.type === "dismissed" || !selectedDate || !userId || !taskRef.current) return;
+      const due_date = selectedDate.toISOString().split("T")[0];
+      const updated: Task = { ...taskRef.current, due_date, updated_at: new Date().toISOString() };
+      taskRef.current = updated;
+      saveTask(updated, userId);
+      scheduleTaskReminder(updated, reminderHour);
+    } else {
+      if (selectedDate) setTempDate(selectedDate);
+    }
+  };
+
+  const handleDateConfirm = () => {
+    setShowDatePicker(false);
+    if (!userId || !taskRef.current) return;
+    const due_date = tempDate.toISOString().split("T")[0];
+    const updated: Task = { ...taskRef.current, due_date, updated_at: new Date().toISOString() };
     taskRef.current = updated;
     saveTask(updated, userId);
     scheduleTaskReminder(updated, reminderHour);
@@ -246,7 +263,7 @@ export default function TaskDetailScreen() {
 
             <TouchableOpacity
               style={[styles.metaChip, { marginLeft: "auto" }]}
-              onPress={() => setShowDatePicker(true)}
+              onPress={handleOpenDatePicker}
               onLongPress={task.due_date ? handleClearDate : undefined}
               activeOpacity={0.6}
             >
@@ -258,11 +275,11 @@ export default function TaskDetailScreen() {
           </View>
         )}
 
-        {showDatePicker && (
+        {Platform.OS === "android" && showDatePicker && (
           <DateTimePicker
-            value={task?.due_date ? new Date(task.due_date) : new Date()}
+            value={tempDate}
             mode="date"
-            display={Platform.OS === "ios" ? "inline" : "default"}
+            display="default"
             onChange={handleDateChange}
           />
         )}
@@ -298,6 +315,35 @@ export default function TaskDetailScreen() {
           </ScrollView>
         )}
       </KeyboardAvoidingView>
+
+      {Platform.OS === "ios" && (
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setShowDatePicker(false)}>
+            <Pressable style={[styles.dateModalSheet, { backgroundColor: colors.surface }]} onPress={() => {}}>
+              <View style={[styles.dateModalHeader, { borderBottomColor: colors.border }]}>
+                <TouchableOpacity onPress={() => setShowDatePicker(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={{ color: colors.accent, fontSize: 16 }}>{t.common.cancel}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleDateConfirm} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                  <Text style={{ color: colors.accent, fontSize: 16, fontWeight: "600" }}>{t.common.done}</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                value={tempDate}
+                mode="date"
+                display="spinner"
+                onChange={handleDateChange}
+                style={{ backgroundColor: colors.surface }}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
 
       <Modal
         visible={statusPickerVisible}
@@ -384,4 +430,6 @@ const styles = StyleSheet.create({
   statusCheck: { fontSize: 16, fontWeight: "700" },
   cancelOption: { marginTop: 8, paddingVertical: 16, alignItems: "center", borderTopWidth: StyleSheet.hairlineWidth * 4 },
   cancelOptionText: { fontSize: 16 },
+  dateModalSheet: { borderTopLeftRadius: 16, borderTopRightRadius: 16, paddingBottom: Platform.OS === "ios" ? 32 : 16 },
+  dateModalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
 });
