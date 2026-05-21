@@ -407,7 +407,7 @@ export default function SettingsPage({ onSignOut }: Props) {
   const menuItems: MenuItem[] = [
     { key: "general", label: t.settings.general,  icon: "settings-outline",           desc: `${t.settings.theme} · ${t.settings.editor} · ${t.settings.search} · ${t.settings.notifications}` },
     { key: "howto",   label: t.settings.howToUse, icon: "help-circle-outline",        desc: "操作ガイド" },
-    { key: "storage", label: t.settings.storage,  icon: "cloud-outline",              desc: customSupabaseUrl ? "カスタム接続" : "未設定" },
+    { key: "storage", label: t.settings.storage,  icon: "cloud-outline",              desc: isSelfHosted ? t.settings.selfHosted : email ? t.settings.cloud : t.settings.notLoggedIn },
     { key: "about",   label: t.settings.about,    icon: "information-circle-outline" },
   ];
 

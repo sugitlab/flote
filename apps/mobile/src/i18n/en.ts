@@ -136,6 +136,7 @@ export const en = {
     storage: "Storage",
     cloud: "Cloud",
     selfHosted: "Self-hosted",
+    notLoggedIn: "Not signed in",
     supabaseSettings: "Supabase connection",
     supabaseUrlPlaceholder: "Supabase URL (https://xxxx.supabase.co)",
     supabaseKeyPlaceholder: "Anon Key (eyJ...)",

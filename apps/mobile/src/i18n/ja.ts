@@ -130,6 +130,7 @@ export const ja = {
     storage: "保存先",
     cloud: "クラウド版",
     selfHosted: "セルフホスト版",
+    notLoggedIn: "未ログイン",
     supabaseSettings: "Supabase接続設定",
     supabaseUrlPlaceholder: "Supabase URL (https://xxxx.supabase.co)",
     supabaseKeyPlaceholder: "Anon Key (eyJ...)",
