@@ -44,7 +44,6 @@ export default function NotesList({ userId }: Props) {
   const notes = useNoteStore((s) => s.notes);
   const loading = useNoteStore((s) => s.loading);
   const fetchNotes = useNoteStore((s) => s.fetchNotes);
-  const saveNote = useNoteStore((s) => s.saveNote);
   const deleteNote = useNoteStore((s) => s.deleteNote);
   const searchFullText = useSettingsStore((s) => s.searchFullText);
   const [search, setSearch] = useState("");
@@ -84,23 +83,6 @@ export default function NotesList({ userId }: Props) {
   }, [notes, search, searchFullText, selectedTag, sortOrder, t]);
 
   const handleRefresh = useCallback(() => { if (userId) fetchNotes(userId); }, [userId]);
-
-  const handleLongPress = useCallback((item: Note) => {
-    Alert.alert(item.title || t.notes.untitled, undefined, [
-      {
-        text: item.pinned ? "ピンを外す" : "ピン留め",
-        onPress: () => {
-          if (userId) saveNote({ ...item, pinned: !item.pinned }, userId);
-        },
-      },
-      {
-        text: t.common.delete,
-        style: "destructive",
-        onPress: () => deleteNote(item.id),
-      },
-      { text: t.common.cancel, style: "cancel" },
-    ]);
-  }, [userId, saveNote, deleteNote, t]);
 
   const enterSelectMode = useCallback((id: string) => { setSelectMode(true); setSelectedIds(new Set([id])); }, []);
   const exitSelectMode = useCallback(() => { setSelectMode(false); setSelectedIds(new Set()); }, []);
@@ -153,7 +135,7 @@ export default function NotesList({ userId }: Props) {
       <TouchableOpacity
         style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}
         onPress={() => router.push(`/(app)/notes/${item.id}` as never)}
-        onLongPress={() => handleLongPress(item)}
+        onLongPress={() => enterSelectMode(item.id)}
         delayLongPress={400}
         activeOpacity={0.7}
       >
@@ -166,16 +148,27 @@ export default function NotesList({ userId }: Props) {
         <TagChips tags={itemTags} accentColor={colors.accent} />
       </TouchableOpacity>
     );
-  }, [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, handleLongPress, t]);
+  }, [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, enterSelectMode, t]);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {selectMode ? (
         <View style={[styles.selectHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <Text style={[styles.selectCount, { color: colors.text }]}>{t.notes.selectedCount(selectedIds.size)}</Text>
-          <TouchableOpacity onPress={exitSelectMode}>
-            <Text style={[styles.cancelText, { color: colors.accent }]}>{t.common.cancel}</Text>
-          </TouchableOpacity>
+          <View style={styles.selectActions}>
+            <TouchableOpacity
+              onPress={handleDeleteSelected}
+              disabled={selectedIds.size === 0}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={[styles.deleteText, { color: selectedIds.size > 0 ? colors.danger : colors.textSecondary }]}>
+                {t.common.delete}{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={exitSelectMode} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={[styles.cancelText, { color: colors.accent }]}>{t.common.cancel}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <View style={styles.searchRow}>
@@ -224,18 +217,6 @@ export default function NotesList({ userId }: Props) {
         ) : null}
       />
 
-      {selectMode && (
-        <View style={[styles.actionBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={[styles.deleteButton, { backgroundColor: selectedIds.size > 0 ? "#ff3b30" : colors.border }]}
-            onPress={handleDeleteSelected}
-            disabled={selectedIds.size === 0}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.deleteButtonText}>{t.common.delete}{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </View>
   );
 }
@@ -249,6 +230,8 @@ const styles = StyleSheet.create({
   clearBtnText: { color: "#fff", fontSize: 10, fontWeight: "bold", lineHeight: 12 },
   selectHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   selectCount: { fontSize: 15, fontWeight: "600" },
+  selectActions: { flexDirection: "row", alignItems: "center", gap: 16 },
+  deleteText: { fontSize: 15, fontWeight: "600" },
   cancelText: { fontSize: 15 },
   list: { padding: 16, paddingBottom: 40 },
   item: { flexDirection: "column", padding: 14, borderRadius: 10, borderWidth: StyleSheet.hairlineWidth, marginBottom: 8 },
@@ -261,7 +244,4 @@ const styles = StyleSheet.create({
   itemSnippet: { fontSize: 13, marginTop: 4, lineHeight: 18 },
   empty: { alignItems: "center", marginTop: 80 },
   emptyText: { fontSize: 16 },
-  actionBar: { padding: 16, borderTopWidth: StyleSheet.hairlineWidth },
-  deleteButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12 },
-  deleteButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });

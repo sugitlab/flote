@@ -77,7 +77,6 @@ export default function TasksList({ userId }: Props) {
   const loading = useTaskStore((s) => s.loading);
   const fetchTasks = useTaskStore((s) => s.fetchTasks);
   const updateStatus = useTaskStore((s) => s.updateStatus);
-  const saveTask = useTaskStore((s) => s.saveTask);
   const deleteTask = useTaskStore((s) => s.deleteTask);
   const hideCompletedTasks = useSettingsStore((s) => s.hideCompletedTasks);
   const searchFullText = useSettingsStore((s) => s.searchFullText);
@@ -128,22 +127,6 @@ export default function TasksList({ userId }: Props) {
     updateStatus(id, task.status === "Done" ? "Todo" : "Done", userId);
   }, [userId, updateStatus]);
 
-  const handleLongPress = useCallback((item: Task) => {
-    Alert.alert(item.title || t.tasks.untitled, undefined, [
-      {
-        text: item.pinned ? "ピンを外す" : "ピン留め",
-        onPress: () => {
-          if (userId) saveTask({ ...item, pinned: !item.pinned }, userId);
-        },
-      },
-      {
-        text: t.common.delete,
-        style: "destructive",
-        onPress: () => deleteTask(item.id),
-      },
-      { text: t.common.cancel, style: "cancel" },
-    ]);
-  }, [userId, saveTask, deleteTask, t]);
   const enterSelectMode = useCallback((id: string) => { setSelectMode(true); setSelectedIds(new Set([id])); }, []);
   const exitSelectMode = useCallback(() => { setSelectMode(false); setSelectedIds(new Set()); }, []);
   const toggleSelect = useCallback((id: string) => {
@@ -212,7 +195,7 @@ export default function TasksList({ userId }: Props) {
         <TouchableOpacity
           style={[styles.item, { backgroundColor: colors.surface, borderColor: colors.border }]}
           onPress={() => router.push(`/(app)/tasks/${item.id}` as never)}
-          onLongPress={() => handleLongPress(item)}
+          onLongPress={() => enterSelectMode(item.id)}
           delayLongPress={400}
           activeOpacity={0.7}
         >
@@ -228,7 +211,7 @@ export default function TasksList({ userId }: Props) {
         </TouchableOpacity>
       </View>
     );
-  }, [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, enterSelectMode, handleToggle, handleLongPress, t]);
+  }, [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, enterSelectMode, handleToggle, t]);
 
   const renderSectionHeader = useCallback(({ section }: { section: Section }) => (
     <Text style={[styles.sectionTitle, {
@@ -244,9 +227,20 @@ export default function TasksList({ userId }: Props) {
       {selectMode ? (
         <View style={[styles.selectHeader, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <Text style={[styles.selectCount, { color: colors.text }]}>{t.tasks.selectedCount(selectedIds.size)}</Text>
-          <TouchableOpacity onPress={exitSelectMode}>
-            <Text style={[styles.cancelText, { color: colors.accent }]}>{t.common.cancel}</Text>
-          </TouchableOpacity>
+          <View style={styles.selectActions}>
+            <TouchableOpacity
+              onPress={handleDeleteSelected}
+              disabled={selectedIds.size === 0}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={[styles.deleteText, { color: selectedIds.size > 0 ? colors.danger : colors.textSecondary }]}>
+                {t.common.delete}{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={exitSelectMode} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={[styles.cancelText, { color: colors.accent }]}>{t.common.cancel}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <View style={styles.searchRow}>
@@ -296,18 +290,6 @@ export default function TasksList({ userId }: Props) {
         ) : null}
       />
 
-      {selectMode && (
-        <View style={[styles.actionBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
-          <TouchableOpacity
-            style={[styles.deleteButton, { backgroundColor: selectedIds.size > 0 ? "#ff3b30" : colors.border }]}
-            onPress={handleDeleteSelected}
-            disabled={selectedIds.size === 0}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.deleteButtonText}>{t.common.delete}{selectedIds.size > 0 ? ` (${selectedIds.size})` : ""}</Text>
-          </TouchableOpacity>
-        </View>
-      )}
     </View>
   );
 }
@@ -321,6 +303,8 @@ const styles = StyleSheet.create({
   clearBtnText: { color: "#fff", fontSize: 10, fontWeight: "bold", lineHeight: 12 },
   selectHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
   selectCount: { fontSize: 15, fontWeight: "600" },
+  selectActions: { flexDirection: "row", alignItems: "center", gap: 16 },
+  deleteText: { fontSize: 15, fontWeight: "600" },
   cancelText: { fontSize: 15 },
   list: { padding: 16, paddingBottom: 40 },
   sectionTitle: { fontSize: 13, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.5, paddingVertical: 8 },
@@ -337,7 +321,4 @@ const styles = StyleSheet.create({
   itemSnippet: { fontSize: 13, marginTop: 4, lineHeight: 18 },
   empty: { alignItems: "center", marginTop: 80 },
   emptyText: { fontSize: 16 },
-  actionBar: { padding: 16, borderTopWidth: StyleSheet.hairlineWidth },
-  deleteButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12 },
-  deleteButtonText: { color: "#fff", fontSize: 16, fontWeight: "600" },
 });
