@@ -45,14 +45,12 @@ function withIosAlternateIconAssets(config) {
         const appiconsetDir = path.join(xcassetsDir, `${iconName}.appiconset`);
         fs.mkdirSync(appiconsetDir, { recursive: true });
 
-        // Copy icon from docs/ to the appiconset
         const srcIcon = path.join(projectRoot, "..", "..", "docs", `flote-${color}.png`);
         const destIcon = path.join(appiconsetDir, `${color}.png`);
         if (fs.existsSync(srcIcon)) {
           fs.copyFileSync(srcIcon, destIcon);
         }
 
-        // Write Contents.json
         const contents = {
           images: [
             {
@@ -113,7 +111,7 @@ function withAndroidAlternateIconManifest(config) {
         name: `.MainActivity${capitalize(color)}`,
         enabled: "false",
         icon: `@mipmap/ic_launcher_${color}`,
-        roundIcon: `@mipmap/ic_launcher_${color}`,
+        roundIcon: `@mipmap/ic_launcher_${color}_round`,
       })),
     ];
 
@@ -155,30 +153,64 @@ function withAndroidAlternateIconAssets(config) {
         "res"
       );
 
-      const sizes = {
-        "mipmap-mdpi": 48,
-        "mipmap-hdpi": 72,
-        "mipmap-xhdpi": 96,
-        "mipmap-xxhdpi": 144,
+      // Regular icon sizes (48dp × density) — fallback for Android < 8
+      const regularSizes = {
+        "mipmap-mdpi":    48,
+        "mipmap-hdpi":    72,
+        "mipmap-xhdpi":   96,
+        "mipmap-xxhdpi":  144,
         "mipmap-xxxhdpi": 192,
       };
 
+      // Adaptive foreground sizes (108dp × density) — used by adaptive icon XML on Android 8+
+      const foregroundSizes = {
+        "mipmap-mdpi":    108,
+        "mipmap-hdpi":    162,
+        "mipmap-xhdpi":   216,
+        "mipmap-xxhdpi":  324,
+        "mipmap-xxxhdpi": 432,
+      };
+
       const { execFileSync } = require("child_process");
+
+      function resizeIcon(src, dest, size) {
+        try {
+          execFileSync("sips", ["-z", String(size), String(size), src, "--out", dest]);
+        } catch {
+          fs.copyFileSync(src, dest);
+        }
+      }
 
       for (const color of ACCENT_COLORS) {
         const srcIcon = path.join(projectRoot, "..", "..", "docs", `flote-${color}.png`);
         if (!fs.existsSync(srcIcon)) continue;
 
-        for (const [mipmapDir, size] of Object.entries(sizes)) {
+        for (const [mipmapDir, size] of Object.entries(regularSizes)) {
           const destDir = path.join(resDir, mipmapDir);
           fs.mkdirSync(destDir, { recursive: true });
-          const destIcon = path.join(destDir, `ic_launcher_${color}.png`);
-          try {
-            execFileSync("sips", ["-z", String(size), String(size), srcIcon, "--out", destIcon]);
-          } catch {
-            fs.copyFileSync(srcIcon, destIcon);
-          }
+          resizeIcon(srcIcon, path.join(destDir, `ic_launcher_${color}.png`), size);
         }
+
+        for (const [mipmapDir, size] of Object.entries(foregroundSizes)) {
+          const destDir = path.join(resDir, mipmapDir);
+          fs.mkdirSync(destDir, { recursive: true });
+          resizeIcon(srcIcon, path.join(destDir, `ic_launcher_${color}_foreground.png`), size);
+        }
+      }
+
+      // Write adaptive icon XML for each alternate color (Android 8+)
+      const anydpiDir = path.join(resDir, "mipmap-anydpi-v26");
+      fs.mkdirSync(anydpiDir, { recursive: true });
+
+      for (const color of ACCENT_COLORS) {
+        const xml = `<?xml version="1.0" encoding="utf-8"?>
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/iconBackground"/>
+    <foreground android:drawable="@mipmap/ic_launcher_${color}_foreground"/>
+</adaptive-icon>
+`;
+        fs.writeFileSync(path.join(anydpiDir, `ic_launcher_${color}.xml`), xml);
+        fs.writeFileSync(path.join(anydpiDir, `ic_launcher_${color}_round.xml`), xml);
       }
 
       return config;
