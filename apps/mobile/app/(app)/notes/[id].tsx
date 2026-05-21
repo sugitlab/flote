@@ -163,7 +163,7 @@ export default function NoteDetailScreen() {
               style={styles.headerIconBtn}
             >
               <Ionicons
-                name={editing ? "checkmark" : "pencil-outline"}
+                name={editing ? "checkmark" : "create-outline"}
                 size={22}
                 color={editing ? colors.accent : colors.textSecondary}
               />
