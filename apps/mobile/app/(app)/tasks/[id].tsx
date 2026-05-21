@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TextInput,
+  type TextInput as TextInputType,
   TouchableOpacity,
   ScrollView,
   StyleSheet,
@@ -26,6 +27,8 @@ import { useNoteStore } from "../../../src/store/noteStore";
 import { supabase } from "../../../src/lib/supabase";
 import { generateId } from "../../../src/utils";
 import { useT } from "../../../src/hooks/useT";
+import { useMarkdownInput } from "../../../src/hooks/useMarkdownInput";
+import MarkdownToolbar from "../../../components/MarkdownToolbar";
 import type { Task, Note, TaskStatus } from "@flote/types";
 
 const STATUS_COLORS: Record<TaskStatus, string> = {
@@ -217,6 +220,10 @@ export default function TaskDetailScreen() {
   const markdownStyles = makeMarkdownStyles(colors);
   const markdownRules = makeMarkdownRules(colors);
 
+  const inputRef = useRef<TextInputType>(null);
+  const { handleChangeText: mdHandleChangeText, handleSelectionChange, insertAtCursor, insertLinePrefix } =
+    useMarkdownInput(content, handleChangeText, inputRef);
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -299,23 +306,28 @@ export default function TaskDetailScreen() {
         )}
 
         {editing ? (
-          <TextInput
-            style={[
-              styles.editor,
-              {
-                color: colors.text,
-                backgroundColor: colors.background,
-                fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }),
-              },
-            ]}
-            value={content}
-            onChangeText={handleChangeText}
-            multiline
-            autoFocus
-            textAlignVertical="top"
-            placeholder={t.tasks.editorPlaceholder}
-            placeholderTextColor={colors.textSecondary}
-          />
+          <View style={{ flex: 1 }}>
+            <TextInput
+              ref={inputRef}
+              style={[
+                styles.editor,
+                {
+                  color: colors.text,
+                  backgroundColor: colors.background,
+                  fontFamily: Platform.select({ ios: "Menlo", default: "monospace" }),
+                },
+              ]}
+              value={content}
+              onChangeText={mdHandleChangeText}
+              onSelectionChange={handleSelectionChange}
+              multiline
+              autoFocus
+              textAlignVertical="top"
+              placeholder={t.tasks.editorPlaceholder}
+              placeholderTextColor={colors.textSecondary}
+            />
+            <MarkdownToolbar onInsertWrap={insertAtCursor} onInsertLinePrefix={insertLinePrefix} />
+          </View>
         ) : (
           <ScrollView style={styles.preview} contentContainerStyle={styles.previewContent}>
             <View style={{ height: 4 }} />
