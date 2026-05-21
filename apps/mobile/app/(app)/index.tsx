@@ -10,6 +10,7 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, Stack } from "expo-router";
 import { useTheme } from "../../src/theme";
 import { useNoteStore } from "../../src/store/noteStore";
@@ -44,6 +45,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export default function HomeScreen() {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const t = useT();
   const scrollRef = useRef<ScrollView>(null);
@@ -114,32 +116,22 @@ export default function HomeScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: [t.nav.notes, t.nav.tasks, t.nav.expenses, t.nav.settings][activeTab],
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
-          headerShadowVisible: false,
-          headerLeft: () => (
-            <View style={{ marginRight: 12 }}>
-              <FloteLogo size={28} />
-            </View>
-          ),
-          headerRight: showAddButton
-            ? () => (
-                <TouchableOpacity
-                  onPress={handleAdd}
-                  activeOpacity={0.5}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={{ color: colors.accent, fontSize: 30, lineHeight: 34, fontWeight: "300" }}>+</Text>
-                </TouchableOpacity>
-              )
-            : undefined,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
       <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Custom header */}
+        <View style={[styles.customHeader, { paddingTop: insets.top, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <FloteLogo size={28} />
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            {[t.nav.notes, t.nav.tasks, t.nav.expenses, t.nav.settings][activeTab]}
+          </Text>
+          {showAddButton ? (
+            <TouchableOpacity onPress={handleAdd} activeOpacity={0.5} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={{ color: colors.accent, fontSize: 30, lineHeight: 34, fontWeight: "300" }}>+</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 28 }} />
+          )}
+        </View>
         {/* Tab bar */}
         <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
           {([t.nav.notes, t.nav.tasks, t.nav.expenses, t.nav.settings] as string[]).map((label, i) => (
@@ -197,6 +189,15 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  customHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerTitle: { fontSize: 17, fontWeight: "600" },
   tabBar: {
     flexDirection: "row",
     borderBottomWidth: StyleSheet.hairlineWidth,

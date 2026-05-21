@@ -13,6 +13,7 @@ import {
   Pressable,
 } from "react-native";
 import DateTimePicker, { DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import Markdown from "react-native-markdown-display";
 import { Ionicons } from "@expo/vector-icons";
@@ -41,6 +42,7 @@ const STATUS_COLORS: Record<TaskStatus, string> = {
 export default function TaskDetailScreen() {
   const { id, edit } = useLocalSearchParams<{ id: string; edit?: string }>();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const t = useT();
   const router = useRouter();
   const tasks = useTaskStore((s) => s.tasks);
@@ -192,46 +194,32 @@ export default function TaskDetailScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: "",
-          headerStyle: { backgroundColor: colors.background },
-          headerTintColor: colors.text,
-          headerLeft: () => (
-            <TouchableOpacity
-              onPress={() => router.back()}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={{ marginRight: 8 }}
-            >
-              <Ionicons name="chevron-back" size={28} color={colors.text} />
-            </TouchableOpacity>
-          ),
-          headerRight: () => (
-            <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
-              <TouchableOpacity onPress={handleConvertToNote} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Text style={{ color: colors.textSecondary, fontSize: 22, lineHeight: 26 }}>↻</Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleTogglePin} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <Ionicons name={task?.pinned ? "pin" : "pin-outline"} size={22} color={task?.pinned ? colors.accent : colors.textSecondary} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => setEditing(!editing)}>
-                <Text style={{ color: colors.accent, fontSize: 16 }}>
-                  {editing ? t.common.done : t.common.edit}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleDelete}>
-                <Ionicons name="trash-outline" size={22} color={colors.danger} />
-              </TouchableOpacity>
-            </View>
-          ),
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={[styles.container, { backgroundColor: colors.background }]}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={90}
+        keyboardVerticalOffset={0}
       >
+        {/* Custom header */}
+        <View style={[styles.customHeader, { paddingTop: insets.top, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
+          <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="chevron-back" size={28} color={colors.text} />
+          </TouchableOpacity>
+          <View style={{ flexDirection: "row", gap: 16, alignItems: "center" }}>
+            <TouchableOpacity onPress={handleConvertToNote} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 22, lineHeight: 26 }}>↻</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleTogglePin} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name={task?.pinned ? "pin" : "pin-outline"} size={22} color={task?.pinned ? colors.accent : colors.textSecondary} />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setEditing(!editing)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={{ color: colors.accent, fontSize: 16 }}>{editing ? t.common.done : t.common.edit}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleDelete} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Ionicons name="trash-outline" size={22} color={colors.danger} />
+            </TouchableOpacity>
+          </View>
+        </View>
         {task && (
           <View style={[styles.metaBar, { borderBottomColor: colors.border }]}>
             <TouchableOpacity
@@ -376,6 +364,14 @@ const styles = StyleSheet.create({
   statusChevron: { fontSize: 11 },
   metaStatus: { fontSize: 14, fontWeight: "600" },
   metaDue: { fontSize: 13 },
+  customHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
   editor: { flex: 1, padding: 16, fontSize: 15, lineHeight: 22 },
   preview: { flex: 1 },
   previewContent: { padding: 16, paddingTop: 20 },
