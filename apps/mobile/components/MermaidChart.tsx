@@ -1,12 +1,19 @@
 import { useState } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview";
 import { useTheme } from "../src/theme";
+import { useSettingsStore } from "../src/store/settingsStore";
+import { getMermaidThemeConfig, type AccentColor } from "../src/mermaidThemes";
 
-function buildHtml(code: string, isDark: boolean): string {
-  const bg = isDark ? "#161625" : "#FAFAFE";
-  const theme = isDark ? "dark" : "default";
-  // Escape backticks in mermaid code so the template literal is safe
+function buildHtml(code: string, isDark: boolean, accentColor: AccentColor): string {
+  const themeConfig = getMermaidThemeConfig(accentColor, isDark);
+  const bg = isDark ? "#161625" : themeConfig.themeVariables?.background ?? "#FAFAFE";
+  const initConfig = JSON.stringify({
+    startOnLoad: false,
+    theme: themeConfig.theme,
+    ...(themeConfig.themeVariables ? { themeVariables: themeConfig.themeVariables } : {}),
+    securityLevel: "loose",
+  });
   const safe = code.replace(/\\/g, "\\\\").replace(/`/g, "\\`");
   return `<!DOCTYPE html>
 <html>
@@ -24,7 +31,7 @@ function buildHtml(code: string, isDark: boolean): string {
 <body>
 <div id="wrap"></div>
 <script>
-mermaid.initialize({ startOnLoad:false, theme:'${theme}', securityLevel:'loose' });
+mermaid.initialize(${initConfig});
 (async () => {
   try {
     const { svg } = await mermaid.render('m', \`${safe}\`);
@@ -43,12 +50,13 @@ type Props = { code: string };
 
 export default function MermaidChart({ code }: Props) {
   const { isDark } = useTheme();
+  const accentColor = useSettingsStore((s) => s.accentColor) as AccentColor;
   const [height, setHeight] = useState(160);
 
   return (
     <View style={[styles.wrap, { height }]}>
       <WebView
-        source={{ html: buildHtml(code, isDark) }}
+        source={{ html: buildHtml(code, isDark, accentColor) }}
         style={styles.web}
         scrollEnabled={false}
         originWhitelist={["*"]}

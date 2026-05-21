@@ -11,6 +11,7 @@ import type { EditorTheme } from "../editorThemes";
 import { resolveEditorTheme } from "../editorThemes";
 import { HLJS_THEME_CSS, renderPreview } from "../previewRenderer";
 import { tagHighlighter } from "../utils/tagHighlighter";
+import { getMermaidThemeConfig, type AccentColor } from "../mermaidThemes";
 
 type EditorProps = {
   docId: string;
@@ -266,7 +267,14 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
   useEffect(() => {
     if (editing || !previewHtml.includes('class="mermaid"')) return;
     const isDark = document.documentElement.getAttribute("data-theme") === "dark";
-    mermaid.initialize({ startOnLoad: false, theme: isDark ? "dark" : "default", securityLevel: "loose" });
+    const accentColor = (document.documentElement.getAttribute("data-accent") ?? "blueberry") as AccentColor;
+    const themeConfig = getMermaidThemeConfig(accentColor, isDark);
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: themeConfig.theme,
+      ...(themeConfig.themeVariables ? { themeVariables: themeConfig.themeVariables } : {}),
+      securityLevel: "loose",
+    });
     mermaid.run({ querySelector: ".mermaid" }).catch(console.error);
   }, [previewHtml, editing]);
 
