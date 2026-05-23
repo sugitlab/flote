@@ -36,7 +36,8 @@ function buildHtml(
   const initConfig = JSON.stringify({
     startOnLoad: false,
     theme: themeConfig.theme,
-    ...(themeConfig.look ? { look: themeConfig.look } : {}),
+    look: themeConfig.look ?? "classic",
+    htmlLabels: false,
     ...(themeConfig.themeVariables ? { themeVariables: themeConfig.themeVariables } : {}),
     securityLevel: "loose",
   });
@@ -60,7 +61,8 @@ function buildHtml(
 <div id="wrap"></div>
 <script>
 mermaid.initialize(${initConfig});
-(async () => {
+// Small delay to ensure initialize completes before render on Android WebView
+setTimeout(async () => {
   try {
     const { svg } = await mermaid.render('m', \`${safe}\`);
     document.getElementById('wrap').innerHTML = svg;
@@ -68,7 +70,7 @@ mermaid.initialize(${initConfig});
     document.getElementById('wrap').innerHTML = '<div class="error">Diagram error: ' + e.message + '</div>';
   }
   window.ReactNativeWebView.postMessage(String(document.body.scrollHeight));
-})();
+}, 50);
 </script>
 </body>
 </html>`;

@@ -273,7 +273,7 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     mermaid.initialize({
       startOnLoad: false,
       theme: themeConfig.theme,
-      ...(themeConfig.look ? { look: themeConfig.look } : {}),
+      look: themeConfig.look ?? "classic",
       ...(themeConfig.themeVariables ? { themeVariables: themeConfig.themeVariables } : {}),
       securityLevel: "loose",
     });
