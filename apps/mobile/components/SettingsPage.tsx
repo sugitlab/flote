@@ -94,6 +94,9 @@ export default function SettingsPage({ onSignOut }: Props) {
   const [notifEnabled, setNotifEnabled] = useState(false);
   const [subPage, setSubPage] = useState<SubPage>(null);
 
+  const currentVersion = Constants.expoConfig?.version ?? "";
+  const { status: versionStatus, releasesUrl } = useLatestVersion(currentVersion);
+
   useEffect(() => {
     setStorageMode(isSelfHosted ? "selfhosted" : "cloud");
   }, [isSelfHosted]);
@@ -408,10 +411,6 @@ export default function SettingsPage({ onSignOut }: Props) {
   }
 
   if (subPage === "about") {
-    const currentVersion = Constants.expoConfig?.version ?? "";
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    const { status, releasesUrl } = useLatestVersion(currentVersion);
-
     const legalItems = [
       { label: t.settings.privacyPolicy, url: "https://github.com/sugitlab/flote/blob/main/docs/privacy.md" },
       { label: t.settings.terms, url: "https://github.com/sugitlab/flote/blob/main/docs/terms.md" },
@@ -427,12 +426,12 @@ export default function SettingsPage({ onSignOut }: Props) {
             <Text style={[s.aboutVersion, { color: colors.textSecondary }]}>
               v{currentVersion || "—"}
             </Text>
-            {status === "latest" && (
+            {versionStatus === "latest" && (
               <View style={[s.versionLatestBadge, { backgroundColor: colors.accent + "22" }]}>
                 <Text style={[s.versionLatestText, { color: colors.accent }]}>{t.settings.latestBadge}</Text>
               </View>
             )}
-            {status === "update-available" && (
+            {versionStatus === "update-available" && (
               <TouchableOpacity
                 style={[s.versionUpdateBtn, { backgroundColor: colors.accent }]}
                 onPress={() => Linking.openURL(releasesUrl)}
