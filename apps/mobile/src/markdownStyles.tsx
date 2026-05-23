@@ -204,9 +204,9 @@ export function makeMarkdownRules(colors: ThemeColors) {
         );
       }
       return (
-        <View key={node.key} style={styles._VIEW_SAFE_paragraph}>
+        <Text key={node.key} selectable style={[styles._VIEW_SAFE_paragraph, { flexWrap: "wrap" }]}>
           {children}
-        </View>
+        </Text>
       );
     },
 
@@ -243,7 +243,7 @@ export function makeMarkdownRules(colors: ThemeColors) {
             <Text style={[inheritedStyles, styles._VIEW_SAFE_bullet_list_icon]}>
               {bullet}
             </Text>
-            <View style={styles._VIEW_SAFE_bullet_list_content}>{children}</View>
+            <View style={styles._VIEW_SAFE_bullet_list_content} pointerEvents="box-none">{children}</View>
           </View>
         );
       }
@@ -254,7 +254,7 @@ export function makeMarkdownRules(colors: ThemeColors) {
             {node.index + 1}
             {node.markup}
           </Text>
-          <View style={styles._VIEW_SAFE_ordered_list_content}>{children}</View>
+          <View style={styles._VIEW_SAFE_ordered_list_content} pointerEvents="box-none">{children}</View>
         </View>
       );
     },
