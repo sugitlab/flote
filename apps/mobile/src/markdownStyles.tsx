@@ -170,6 +170,12 @@ const TAG_ONLY_RE = /^(\s*#[\w぀-龯一-鿿゠-ヿ]+\s*)+$/;
 
 export function makeMarkdownRules(colors: ThemeColors) {
   return {
+    body: (node: any, children: any, _parent: any, styles: any) => (
+      <View key={node.key} style={styles._VIEW_SAFE_body} pointerEvents="box-none">
+        {children}
+      </View>
+    ),
+
     paragraph: (node: any, children: any, _parent: any, styles: any) => {
       // markdown-it inline token carries the raw source in .content
       const inlineChild = Array.isArray(node.children)

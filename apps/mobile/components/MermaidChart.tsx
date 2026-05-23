@@ -27,7 +27,7 @@ function buildHtml(code: string, isDark: boolean, accentColor: AccentColor, hand
   svg { max-width:100%; height:auto; display:block; }
   .error { color:#f03e3e; font-size:13px; font-family:monospace; padding:8px; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11.15.0/dist/mermaid.min.js"></script>
 </head>
 <body>
 <div id="wrap"></div>
@@ -58,6 +58,7 @@ export default function MermaidChart({ code }: Props) {
   return (
     <View style={[styles.wrap, { height }]}>
       <WebView
+        key={`${isDark}-${accentColor}-${mermaidHandDrawn}`}
         source={{ html: buildHtml(code, isDark, accentColor, mermaidHandDrawn) }}
         style={styles.web}
         scrollEnabled={false}
