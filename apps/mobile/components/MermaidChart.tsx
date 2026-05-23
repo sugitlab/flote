@@ -27,7 +27,7 @@ function buildHtml(code: string, isDark: boolean, accentColor: AccentColor, hand
   svg { max-width:100%; height:auto; display:block; }
   .error { color:#f03e3e; font-size:13px; font-family:monospace; padding:8px; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
 <body>
 <div id="wrap"></div>
