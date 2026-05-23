@@ -10,6 +10,9 @@ const monorepoRoot = path.resolve(projectRoot, "../..");
 
 const config = getDefaultConfig(projectRoot);
 
+// Allow .txt files to be bundled as static assets (e.g. mermaid JS bundle)
+config.resolver.assetExts.push("txt");
+
 config.watchFolders = [monorepoRoot];
 
 config.resolver.nodeModulesPaths = [
