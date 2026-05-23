@@ -5,12 +5,13 @@ import { useTheme } from "../src/theme";
 import { useSettingsStore } from "../src/store/settingsStore";
 import { getMermaidThemeConfig, type AccentColor } from "../src/mermaidThemes";
 
-function buildHtml(code: string, isDark: boolean, accentColor: AccentColor): string {
-  const themeConfig = getMermaidThemeConfig(accentColor, isDark);
+function buildHtml(code: string, isDark: boolean, accentColor: AccentColor, handDrawn: boolean): string {
+  const themeConfig = getMermaidThemeConfig(accentColor, isDark, handDrawn);
   const bg = isDark ? "#161625" : themeConfig.themeVariables?.background ?? "#FAFAFE";
   const initConfig = JSON.stringify({
     startOnLoad: false,
     theme: themeConfig.theme,
+    ...(themeConfig.look ? { look: themeConfig.look } : {}),
     ...(themeConfig.themeVariables ? { themeVariables: themeConfig.themeVariables } : {}),
     securityLevel: "loose",
   });
@@ -51,12 +52,13 @@ type Props = { code: string };
 export default function MermaidChart({ code }: Props) {
   const { isDark } = useTheme();
   const accentColor = useSettingsStore((s) => s.accentColor) as AccentColor;
+  const mermaidHandDrawn = useSettingsStore((s) => s.mermaidHandDrawn);
   const [height, setHeight] = useState(160);
 
   return (
     <View style={[styles.wrap, { height }]}>
       <WebView
-        source={{ html: buildHtml(code, isDark, accentColor) }}
+        source={{ html: buildHtml(code, isDark, accentColor, mermaidHandDrawn) }}
         style={styles.web}
         scrollEnabled={false}
         originWhitelist={["*"]}

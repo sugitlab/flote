@@ -22,6 +22,7 @@ type EditorProps = {
   onExitEdit?: () => void;
   editorTheme?: EditorTheme;
   vimMode?: boolean;
+  mermaidHandDrawn?: boolean;
   placeholderText?: string;
   emptyNoteText?: string;
 };
@@ -93,7 +94,7 @@ function ensureVimExCommands(onExit: () => void) {
   Vim.map("<Esc>", ":q<CR>", "normal");
 }
 
-export default function Editor({ docId, value, onChange, editing, onExitEdit, editorTheme, vimMode = false, placeholderText = "# タイトルを入力...", emptyNoteText = "ノートが空です" }: EditorProps) {
+export default function Editor({ docId, value, onChange, editing, onExitEdit, editorTheme, vimMode = false, mermaidHandDrawn = false, placeholderText = "# タイトルを入力...", emptyNoteText = "ノートが空です" }: EditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -268,15 +269,16 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     if (editing || !previewHtml.includes('class="mermaid"')) return;
     const isDark = document.documentElement.getAttribute("data-theme") === "dark";
     const accentColor = (document.documentElement.getAttribute("data-accent") ?? "blueberry") as AccentColor;
-    const themeConfig = getMermaidThemeConfig(accentColor, isDark);
+    const themeConfig = getMermaidThemeConfig(accentColor, isDark, mermaidHandDrawn);
     mermaid.initialize({
       startOnLoad: false,
       theme: themeConfig.theme,
+      ...(themeConfig.look ? { look: themeConfig.look } : {}),
       ...(themeConfig.themeVariables ? { themeVariables: themeConfig.themeVariables } : {}),
       securityLevel: "loose",
     });
     mermaid.run({ querySelector: ".mermaid" }).catch(console.error);
-  }, [previewHtml, editing]);
+  }, [previewHtml, editing, mermaidHandDrawn]);
 
   return (
     <div className="h-full w-full overflow-hidden relative">

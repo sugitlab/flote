@@ -268,10 +268,10 @@ export function makeMarkdownRules(colors: ThemeColors) {
       let checkboxEl: React.ReactNode = null;
       if (inListItem) {
         if (content.startsWith("[ ] ")) {
-          checkboxEl = <Text key="cb" style={inheritedStyles}>{"☐ "}</Text>;
+          checkboxEl = <Text key="cb" selectable style={inheritedStyles}>{"☐ "}</Text>;
           content = content.slice(4);
         } else if (/^\[x\] /i.test(content)) {
-          checkboxEl = <Text key="cb" style={[inheritedStyles, { color: colors.accent }]}>{"☑ "}</Text>;
+          checkboxEl = <Text key="cb" selectable style={[inheritedStyles, { color: colors.accent }]}>{"☑ "}</Text>;
           content = content.slice(4);
         }
       }
@@ -284,7 +284,7 @@ export function makeMarkdownRules(colors: ThemeColors) {
       while ((match = TAG_RE.exec(content)) !== null) {
         if (match.index > lastIndex) {
           parts.push(
-            <Text key={`t${i++}`} style={inheritedStyles}>
+            <Text key={`t${i++}`} selectable style={inheritedStyles}>
               {content.slice(lastIndex, match.index)}
             </Text>
           );
@@ -292,6 +292,7 @@ export function makeMarkdownRules(colors: ThemeColors) {
         parts.push(
           <Text
             key={`tag${i++}`}
+            selectable
             style={[
               inheritedStyles,
               {
@@ -315,33 +316,52 @@ export function makeMarkdownRules(colors: ThemeColors) {
       if (parts.length === 0) {
         if (!checkboxEl) {
           return (
-            <Text key={node.key} style={inheritedStyles}>
+            <Text key={node.key} selectable style={inheritedStyles}>
               {content}
             </Text>
           );
         }
         return (
-          <Text key={node.key}>
+          <Text key={node.key} selectable>
             {checkboxEl}
-            <Text style={inheritedStyles}>{content}</Text>
+            <Text selectable style={inheritedStyles}>{content}</Text>
           </Text>
         );
       }
 
       if (lastIndex < content.length) {
         parts.push(
-          <Text key={`t${i++}`} style={inheritedStyles}>
+          <Text key={`t${i++}`} selectable style={inheritedStyles}>
             {content.slice(lastIndex)}
           </Text>
         );
       }
 
       return (
-        <Text key={node.key}>
+        <Text key={node.key} selectable>
           {checkboxEl}
           {parts}
         </Text>
       );
     },
+
+    heading1: (node: any, children: any, _parent: any, styles: any) => (
+      <Text key={node.key} selectable style={styles.heading1}>{children}</Text>
+    ),
+    heading2: (node: any, children: any, _parent: any, styles: any) => (
+      <Text key={node.key} selectable style={styles.heading2}>{children}</Text>
+    ),
+    heading3: (node: any, children: any, _parent: any, styles: any) => (
+      <Text key={node.key} selectable style={styles.heading3}>{children}</Text>
+    ),
+    heading4: (node: any, children: any, _parent: any, styles: any) => (
+      <Text key={node.key} selectable style={styles.heading4}>{children}</Text>
+    ),
+    heading5: (node: any, children: any, _parent: any, styles: any) => (
+      <Text key={node.key} selectable style={styles.heading5}>{children}</Text>
+    ),
+    heading6: (node: any, children: any, _parent: any, styles: any) => (
+      <Text key={node.key} selectable style={styles.heading6}>{children}</Text>
+    ),
   };
 }

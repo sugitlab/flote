@@ -148,6 +148,8 @@ function MainApp({
   const setEditorThemeLight = useUIStore((s) => s.setEditorThemeLight);
   const vimMode = useUIStore((s) => s.vimMode);
   const setVimMode = useUIStore((s) => s.setVimMode);
+  const mermaidHandDrawn = useUIStore((s) => s.mermaidHandDrawn);
+  const setMermaidHandDrawn = useUIStore((s) => s.setMermaidHandDrawn);
   const sidebarCollapsed = useUIStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useUIStore((s) => s.toggleSidebar);
   const setSidebarCollapsed = useUIStore((s) => s.setSidebarCollapsed);
@@ -276,6 +278,7 @@ function MainApp({
       setEditorThemeDark(c.editorThemeDark);
       setEditorThemeLight(c.editorThemeLight);
       setVimMode(c.vimMode);
+      setMermaidHandDrawn(c.mermaidHandDrawn);
       if (c.sidebarToggleShortcut) setSidebarToggleShortcut(c.sidebarToggleShortcut);
       if (c.sidebarWidth) {
         const w = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, c.sidebarWidth));
@@ -809,6 +812,7 @@ function MainApp({
                   onExitEdit={handleExitEditor}
                   editorTheme={activeEditorTheme}
                   vimMode={vimMode}
+                  mermaidHandDrawn={mermaidHandDrawn}
                   placeholderText={t.editor.editorPlaceholder}
                   emptyNoteText={t.editor.emptyNote}
                 />
@@ -904,6 +908,7 @@ function MainApp({
                   onExitEdit={handleExitEditor}
                   editorTheme={activeEditorTheme}
                   vimMode={vimMode}
+                  mermaidHandDrawn={mermaidHandDrawn}
                   placeholderText={t.editor.editorPlaceholder}
                   emptyNoteText={t.editor.emptyNote}
                 />

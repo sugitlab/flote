@@ -46,6 +46,7 @@ async function applyAppIcon(color: AccentColor): Promise<void> {
   }
 }
 
+const MERMAID_HAND_DRAWN_KEY = "flote_mermaid_hand_drawn";
 const REMINDER_HOUR_KEY = "flote_reminder_hour";
 const SEARCH_FULL_TEXT_KEY = "flote_search_full_text";
 const HIDE_COMPLETED_TASKS_KEY = "flote_hide_completed_tasks";
@@ -58,6 +59,7 @@ const DEFAULT_REMINDER_HOUR = 9;
 const ACCENT_COLOR_KEY = "flote_accent_color";
 
 type SettingsStore = {
+  mermaidHandDrawn: boolean;
   reminderHour: number;
   searchFullText: boolean;
   hideCompletedTasks: boolean;
@@ -67,6 +69,7 @@ type SettingsStore = {
   customSupabaseAnonKey: string;
   language: Language;
   accentColor: AccentColor;
+  setMermaidHandDrawn: (v: boolean) => Promise<void>;
   setReminderHour: (hour: number) => Promise<void>;
   setSearchFullText: (v: boolean) => Promise<void>;
   setHideCompletedTasks: (v: boolean) => Promise<void>;
@@ -80,6 +83,7 @@ type SettingsStore = {
 };
 
 export const useSettingsStore = create<SettingsStore>((set) => ({
+  mermaidHandDrawn: false,
   reminderHour: DEFAULT_REMINDER_HOUR,
   searchFullText: false,
   hideCompletedTasks: false,
@@ -89,6 +93,11 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
   customSupabaseAnonKey: "",
   language: "ja",
   accentColor: "blueberry",
+
+  setMermaidHandDrawn: async (v) => {
+    set({ mermaidHandDrawn: v });
+    await SecureStore.setItemAsync(MERMAID_HAND_DRAWN_KEY, v ? "1" : "0");
+  },
 
   setReminderHour: async (hour) => {
     set({ reminderHour: hour });
@@ -143,7 +152,7 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       hourStr, searchStr, hideCompletedStr,
       darkThemeStr, lightThemeStr,
       customUrlStr, customKeyStr,
-      languageStr, accentStr,
+      languageStr, accentStr, mermaidHandDrawnStr,
     ] = await Promise.all([
       SecureStore.getItemAsync(REMINDER_HOUR_KEY),
       SecureStore.getItemAsync(SEARCH_FULL_TEXT_KEY),
@@ -154,8 +163,10 @@ export const useSettingsStore = create<SettingsStore>((set) => ({
       SecureStore.getItemAsync(CUSTOM_SUPABASE_KEY_KEY),
       SecureStore.getItemAsync(LANGUAGE_KEY),
       SecureStore.getItemAsync(ACCENT_COLOR_KEY),
+      SecureStore.getItemAsync(MERMAID_HAND_DRAWN_KEY),
     ]);
     const next: Partial<SettingsStore> = {};
+    if (mermaidHandDrawnStr !== null) next.mermaidHandDrawn = mermaidHandDrawnStr === "1";
     if (hourStr !== null) {
       const hour = parseInt(hourStr, 10);
       if (!isNaN(hour) && hour >= 0 && hour <= 23) next.reminderHour = hour;

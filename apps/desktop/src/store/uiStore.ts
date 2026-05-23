@@ -25,12 +25,14 @@ type UIStore = {
   searchFullText: boolean;
   hideCompletedInSearch: boolean;
   vimMode: boolean;
+  mermaidHandDrawn: boolean;
   sidebarCollapsed: boolean;
   supabaseReady: boolean;
   language: Language;
   setSupabaseReady: (v: boolean) => void;
   setLanguage: (lang: Language) => void;
   setVimMode: (v: boolean) => void;
+  setMermaidHandDrawn: (v: boolean) => void;
   setSidebarCollapsed: (v: boolean) => void;
   toggleSidebar: () => void;
   setTheme: (theme: ThemeMode) => void;
@@ -61,6 +63,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   searchFullText: false,
   hideCompletedInSearch: true,
   vimMode: false,
+  mermaidHandDrawn: false,
   sidebarCollapsed: false,
   supabaseReady: false,
   language: "ja",
@@ -69,6 +72,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setSupabaseReady: (v) => set({ supabaseReady: v }),
   setLanguage: (lang) => set({ language: lang }),
   setVimMode: (v) => set({ vimMode: v }),
+  setMermaidHandDrawn: (v) => set({ mermaidHandDrawn: v }),
   setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   setTheme: (theme) => set({ theme }),

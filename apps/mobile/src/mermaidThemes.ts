@@ -4,6 +4,7 @@ export type MermaidThemeName = "default" | "dark" | "base" | "forest" | "neutral
 
 export type MermaidThemeConfig = {
   theme: MermaidThemeName;
+  look?: "classic" | "handDrawn";
   themeVariables?: Record<string, string>;
 };
 
@@ -94,7 +95,8 @@ const LIGHT_THEMES: Record<AccentColor, MermaidThemeConfig> = {
   },
 };
 
-export function getMermaidThemeConfig(accentColor: AccentColor, isDark: boolean): MermaidThemeConfig {
-  if (isDark) return { theme: "dark" };
-  return LIGHT_THEMES[accentColor] ?? { theme: "default" };
+export function getMermaidThemeConfig(accentColor: AccentColor, isDark: boolean, handDrawn = false): MermaidThemeConfig {
+  const base: MermaidThemeConfig = isDark ? { theme: "dark" } : (LIGHT_THEMES[accentColor] ?? { theme: "default" });
+  if (handDrawn) return { ...base, look: "handDrawn" };
+  return base;
 }

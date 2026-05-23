@@ -607,6 +607,34 @@
 .aboutVersion {
   font-size: 12px;
   color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.versionLatest {
+  font-size: 11px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  border-radius: 4px;
+  padding: 1px 6px;
+}
+
+.versionUpdateBtn {
+  font-size: 11px;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 4px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.versionUpdateBtn:hover {
+  opacity: 0.85;
 }
 
 .aboutDesc {

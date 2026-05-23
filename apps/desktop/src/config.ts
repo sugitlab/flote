@@ -20,6 +20,7 @@ export type AppSettings = {
   customSupabaseUrl: string;
   customSupabaseAnonKey: string;
   vimMode: boolean;
+  mermaidHandDrawn: boolean;
   sidebarToggleShortcut: string;
   sidebarWidth: number;
   language: Language;
@@ -38,13 +39,14 @@ const DEFAULTS: AppSettings = {
   launchAtLogin: false,
   startInTray: true,
   globalShortcut: "CmdOrCtrl+Shift+N",
-  captureShortcut: "CmdOrCtrl+Shift+Space",
+  captureShortcut: "CmdOrCtrl+Shift+M",
   searchFullText: false,
   hideCompletedInSearch: true,
   hideDockIcon: false,
   customSupabaseUrl: "",
   customSupabaseAnonKey: "",
   vimMode: false,
+  mermaidHandDrawn: false,
   sidebarToggleShortcut: "CmdOrCtrl+B",
   sidebarWidth: 200,
   language: "ja",
