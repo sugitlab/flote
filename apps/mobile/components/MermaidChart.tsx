@@ -7,21 +7,25 @@ import { useTheme } from "../src/theme";
 import { useSettingsStore } from "../src/store/settingsStore";
 import { getMermaidThemeConfig, type AccentColor } from "../src/mermaidThemes";
 
-// Load mermaid JS from bundled asset once and cache in memory
+// Load JS assets from bundled files once and cache in memory
+let _roughJs: string | null = null;
 let _mermaidJs: string | null = null;
-let _mermaidJsPromise: Promise<string> | null = null;
+let _assetsPromise: Promise<void> | null = null;
 
-function getMermaidJs(): Promise<string> {
-  if (_mermaidJs) return Promise.resolve(_mermaidJs);
-  if (_mermaidJsPromise) return _mermaidJsPromise;
-  _mermaidJsPromise = Asset.fromModule(require("../assets/mermaid-11.15.0.txt"))
-    .downloadAsync()
-    .then((asset) => FileSystem.readAsStringAsync(asset.localUri!))
-    .then((content) => {
-      _mermaidJs = content;
-      return content;
-    });
-  return _mermaidJsPromise;
+function loadAssets(): Promise<void> {
+  if (_mermaidJs && _roughJs) return Promise.resolve();
+  if (_assetsPromise) return _assetsPromise;
+  _assetsPromise = Promise.all([
+    Asset.fromModule(require("../assets/rough-4.txt"))
+      .downloadAsync()
+      .then((a) => FileSystem.readAsStringAsync(a.localUri!))
+      .then((c) => { _roughJs = c; }),
+    Asset.fromModule(require("../assets/mermaid-11.15.0.txt"))
+      .downloadAsync()
+      .then((a) => FileSystem.readAsStringAsync(a.localUri!))
+      .then((c) => { _mermaidJs = c; }),
+  ]).then(() => {});
+  return _assetsPromise;
 }
 
 function buildHtml(
@@ -29,6 +33,7 @@ function buildHtml(
   isDark: boolean,
   accentColor: AccentColor,
   handDrawn: boolean,
+  roughJs: string,
   mermaidJs: string
 ): string {
   const themeConfig = getMermaidThemeConfig(accentColor, isDark, handDrawn);
@@ -41,9 +46,15 @@ function buildHtml(
     ...(themeConfig.themeVariables ? { themeVariables: themeConfig.themeVariables } : {}),
     securityLevel: "loose",
   });
-  const safe = code.replace(/\\/g, "\\\\").replace(/`/g, "\\`");
+  // Inject look:handDrawn via frontmatter when handDrawn is enabled.
+  // This bypasses initialize() config and avoids dynamic import issues on Android WebView.
+  const codeWithLook = handDrawn && !code.trimStart().startsWith("---")
+    ? `---\nconfig:\n  look: handDrawn\n---\n${code}`
+    : code;
+  const safe = codeWithLook.replace(/\\/g, "\\\\").replace(/`/g, "\\`");
   // Escape </script> inside the inlined JS to prevent early tag close
-  const safeJs = mermaidJs.replace(/<\/script>/gi, "<\\/script>");
+  const safeRoughJs = roughJs.replace(/<\/script>/gi, "<\\/script>");
+  const safeMermaidJs = mermaidJs.replace(/<\/script>/gi, "<\\/script>");
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -55,7 +66,8 @@ function buildHtml(
   svg { max-width:100%; height:auto; display:block; }
   .error { color:#f03e3e; font-size:13px; font-family:monospace; padding:8px; }
 </style>
-<script>${safeJs}</script>
+<script>${safeRoughJs}</script>
+<script>${safeMermaidJs}</script>
 </head>
 <body>
 <div id="wrap"></div>
@@ -97,14 +109,14 @@ export default function MermaidChart({ code }: Props) {
   const accentColor = useSettingsStore((s) => s.accentColor) as AccentColor;
   const mermaidHandDrawn = useSettingsStore((s) => s.mermaidHandDrawn);
   const [height, setHeight] = useState(160);
-  const [mermaidJs, setMermaidJs] = useState<string | null>(null);
+  const [assetsLoaded, setAssetsLoaded] = useState(false);
   const [diagLog, setDiagLog] = useState<string[]>([]);
 
   useEffect(() => {
-    getMermaidJs().then(setMermaidJs).catch(() => setMermaidJs(""));
+    loadAssets().then(() => setAssetsLoaded(true)).catch(() => setAssetsLoaded(true));
   }, []);
 
-  if (!mermaidJs) {
+  if (!assetsLoaded) {
     return <View style={[styles.wrap, { height: 160 }]} />;
   }
 
@@ -113,7 +125,7 @@ export default function MermaidChart({ code }: Props) {
       <View style={[styles.wrap, { height }]}>
       <WebView
         key={`${isDark}-${accentColor}-${mermaidHandDrawn}`}
-        source={{ html: buildHtml(code, isDark, accentColor, mermaidHandDrawn, mermaidJs) }}
+        source={{ html: buildHtml(code, isDark, accentColor, mermaidHandDrawn, _roughJs!, _mermaidJs!) }}
         style={styles.web}
         scrollEnabled={false}
         originWhitelist={["*"]}
