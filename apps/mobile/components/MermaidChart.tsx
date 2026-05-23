@@ -72,15 +72,21 @@ function buildHtml(
 <body>
 <div id="wrap"></div>
 <script>
-mermaid.initialize(${initConfig});
+// Use mermaidAPI.initialize — the rendering pipeline reads from this config
+var initCfg = ${initConfig};
+mermaid.initialize(initCfg);
+if (mermaid.mermaidAPI && mermaid.mermaidAPI.initialize) {
+  mermaid.mermaidAPI.initialize(initCfg);
+}
 setTimeout(async () => {
-  const cfg = mermaid.getConfig ? mermaid.getConfig() : {};
-  const diag = {
-    look: cfg.look,
-    theme: cfg.theme,
-    htmlLabels: cfg.htmlLabels,
-    version: mermaid.version ?? 'unknown',
+  var apiCfg = (mermaid.mermaidAPI && mermaid.mermaidAPI.getConfig) ? mermaid.mermaidAPI.getConfig() : {};
+  var diag = {
+    look: apiCfg.look,
+    theme: apiCfg.theme,
+    version: mermaid.version ?? mermaid.mermaidAPI?.version ?? 'unknown',
     roughGlobal: typeof rough !== 'undefined',
+    hasMermaidAPI: !!mermaid.mermaidAPI,
+    codePrefix: \`${safe}\`.slice(0,60),
   };
   window.ReactNativeWebView.postMessage('DIAG:' + JSON.stringify(diag));
   try {
@@ -90,6 +96,7 @@ setTimeout(async () => {
       len: svg.length,
       hasRough: svg.includes('rough'),
       hasTurbulence: svg.includes('feTurbulence'),
+      svgStart: svg.slice(0, 80),
     }));
   } catch(e) {
     document.getElementById('wrap').innerHTML = '<div class="error">Diagram error: ' + e.message + '</div>';
