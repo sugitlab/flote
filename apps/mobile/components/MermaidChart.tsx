@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system";
@@ -61,15 +61,29 @@ function buildHtml(
 <div id="wrap"></div>
 <script>
 mermaid.initialize(${initConfig});
-// Small delay to ensure initialize completes before render on Android WebView
 setTimeout(async () => {
+  const cfg = mermaid.getConfig ? mermaid.getConfig() : {};
+  const diag = {
+    look: cfg.look,
+    theme: cfg.theme,
+    htmlLabels: cfg.htmlLabels,
+    version: mermaid.version ?? 'unknown',
+    roughGlobal: typeof rough !== 'undefined',
+  };
+  window.ReactNativeWebView.postMessage('DIAG:' + JSON.stringify(diag));
   try {
     const { svg } = await mermaid.render('m', \`${safe}\`);
     document.getElementById('wrap').innerHTML = svg;
+    window.ReactNativeWebView.postMessage('SVG:' + JSON.stringify({
+      len: svg.length,
+      hasRough: svg.includes('rough'),
+      hasTurbulence: svg.includes('feTurbulence'),
+    }));
   } catch(e) {
     document.getElementById('wrap').innerHTML = '<div class="error">Diagram error: ' + e.message + '</div>';
+    window.ReactNativeWebView.postMessage('ERR:' + e.message);
   }
-  window.ReactNativeWebView.postMessage(String(document.body.scrollHeight));
+  window.ReactNativeWebView.postMessage('HEIGHT:' + String(document.body.scrollHeight));
 }, 50);
 </script>
 </body>
@@ -84,6 +98,7 @@ export default function MermaidChart({ code }: Props) {
   const mermaidHandDrawn = useSettingsStore((s) => s.mermaidHandDrawn);
   const [height, setHeight] = useState(160);
   const [mermaidJs, setMermaidJs] = useState<string | null>(null);
+  const [diagLog, setDiagLog] = useState<string[]>([]);
 
   useEffect(() => {
     getMermaidJs().then(setMermaidJs).catch(() => setMermaidJs(""));
@@ -94,7 +109,8 @@ export default function MermaidChart({ code }: Props) {
   }
 
   return (
-    <View style={[styles.wrap, { height }]}>
+    <View>
+      <View style={[styles.wrap, { height }]}>
       <WebView
         key={`${isDark}-${accentColor}-${mermaidHandDrawn}`}
         source={{ html: buildHtml(code, isDark, accentColor, mermaidHandDrawn, mermaidJs) }}
@@ -102,10 +118,23 @@ export default function MermaidChart({ code }: Props) {
         scrollEnabled={false}
         originWhitelist={["*"]}
         onMessage={(e) => {
-          const h = parseInt(e.nativeEvent.data, 10);
-          if (!isNaN(h) && h > 0) setHeight(h + 8);
+          const msg = e.nativeEvent.data;
+          if (msg.startsWith("HEIGHT:")) {
+            const h = parseInt(msg.slice(7), 10);
+            if (!isNaN(h) && h > 0) setHeight(h + 8);
+          } else {
+            setDiagLog((prev) => [...prev, msg]);
+          }
         }}
       />
+      </View>
+      {diagLog.length > 0 && (
+        <View style={styles.diagBox}>
+          {diagLog.map((line, i) => (
+            <Text key={i} selectable style={styles.diagText}>{line}</Text>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -113,4 +142,6 @@ export default function MermaidChart({ code }: Props) {
 const styles = StyleSheet.create({
   wrap: { width: "100%", marginVertical: 8, borderRadius: 8, overflow: "hidden" },
   web: { flex: 1, backgroundColor: "transparent" },
+  diagBox: { backgroundColor: "#1a1a2e", padding: 8, borderRadius: 6, marginBottom: 8, gap: 2 },
+  diagText: { color: "#00ff88", fontSize: 10, fontFamily: "monospace" },
 });
