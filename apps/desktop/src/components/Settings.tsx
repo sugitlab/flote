@@ -20,6 +20,7 @@ import { useTaskStore } from "../store/taskStore";
 import { SCHEMA_SQL } from "../migrations";
 import { useAuth } from "../hooks/useAuth";
 import FloteLogo from "./FloteLogo";
+import { useLatestVersion } from "../hooks/useLatestVersion";
 import styles from "./Settings.module.css";
 import blueberryImg from "../assets/blueberry.png";
 import cherryImg from "../assets/cherry.png";
@@ -119,6 +120,8 @@ function GeneralTab() {
   const setHideCompletedInSearch = useUIStore((s) => s.setHideCompletedInSearch);
   const vimMode = useUIStore((s) => s.vimMode);
   const setVimMode = useUIStore((s) => s.setVimMode);
+  const mermaidHandDrawn = useUIStore((s) => s.mermaidHandDrawn);
+  const setMermaidHandDrawn = useUIStore((s) => s.setMermaidHandDrawn);
   const language = useUIStore((s) => s.language);
   const setLanguage = useUIStore((s) => s.setLanguage);
   const [alwaysOnTop, setAlwaysOnTop] = useState(true);
@@ -149,6 +152,11 @@ function GeneralTab() {
   const handleVimMode = (v: boolean) => {
     setVimMode(v);
     setConfig({ vimMode: v });
+  };
+
+  const handleMermaidHandDrawn = (v: boolean) => {
+    setMermaidHandDrawn(v);
+    setConfig({ mermaidHandDrawn: v });
   };
 
   const handleLanguage = (lang: Language) => {
@@ -303,6 +311,13 @@ function GeneralTab() {
         <div className={styles.switchRow}>
           <span className={styles.switchLabel}>{t.settings.general.vimMode}</span>
           <Toggle checked={vimMode} onChange={handleVimMode} />
+        </div>
+      </div>
+
+      <div className={styles.field}>
+        <div className={styles.switchRow}>
+          <span className={styles.switchLabel}>{t.settings.general.mermaidHandDrawn}</span>
+          <Toggle checked={mermaidHandDrawn} onChange={handleMermaidHandDrawn} />
         </div>
       </div>
 
@@ -1042,6 +1057,8 @@ function AboutTab() {
     getVersion().then(setVersion).catch(() => {});
   }, []);
 
+  const { status, releasesUrl } = useLatestVersion(version);
+
   const oss = [
     { name: "Tauri", license: "MIT / Apache-2.0" },
     { name: "React", license: "MIT" },
@@ -1059,7 +1076,20 @@ function AboutTab() {
         <FloteLogo size={64} className={styles.aboutIcon} />
         <div className={styles.aboutAppName}>Flote</div>
         {version && (
-          <div className={styles.aboutVersion}>{t.settings.about.versionLabel(version)}</div>
+          <div className={styles.aboutVersion}>
+            {t.settings.about.versionLabel(version)}
+            {status === "latest" && (
+              <span className={styles.versionLatest}>{t.settings.about.latestBadge}</span>
+            )}
+            {status === "update-available" && (
+              <button
+                className={styles.versionUpdateBtn}
+                onClick={() => window.open(releasesUrl, "_blank")}
+              >
+                {t.settings.about.updateAvailable}
+              </button>
+            )}
+          </div>
         )}
         <div className={styles.aboutDesc}>{t.settings.about.appDesc}</div>
       </div>
@@ -1087,7 +1117,23 @@ function AboutTab() {
         <div className={styles.helpItem}>
           <button
             className={styles.legalLink}
-            onClick={() => window.open("https://github.com/sugitlab/flote?tab=MIT-1-ov-file#readme", "_blank")}
+            onClick={() => window.open("https://github.com/sugitlab/flote/blob/main/docs/privacy.md", "_blank")}
+          >
+            {t.settings.about.privacyPolicy}
+          </button>
+        </div>
+        <div className={styles.helpItem}>
+          <button
+            className={styles.legalLink}
+            onClick={() => window.open("https://github.com/sugitlab/flote/blob/main/docs/terms.md", "_blank")}
+          >
+            {t.settings.about.termsOfService}
+          </button>
+        </div>
+        <div className={styles.helpItem}>
+          <button
+            className={styles.legalLink}
+            onClick={() => window.open("https://github.com/sugitlab/flote/blob/main/LICENSE", "_blank")}
           >
             {t.settings.about.licenseLink}
           </button>

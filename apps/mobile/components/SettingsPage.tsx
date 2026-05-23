@@ -12,6 +12,8 @@ import {
   Image,
 } from "react-native";
 import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
+import { useLatestVersion } from "../src/hooks/useLatestVersion";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme, useThemeStore, type ThemeMode } from "../src/theme";
 import { useSettingsStore, DARK_CODE_THEME_OPTIONS, LIGHT_CODE_THEME_OPTIONS, type AccentColor } from "../src/store/settingsStore";
@@ -34,6 +36,29 @@ import type { Language } from "../src/i18n";
 
 type SubPage = "general" | "storage" | "howto" | "about" | null;
 
+type SubPageWrapProps = {
+  title: string;
+  children: React.ReactNode;
+  colors: ReturnType<typeof import("../src/theme").useTheme>["colors"];
+  onBack: () => void;
+};
+
+function SubPageWrap({ title, children, colors, onBack }: SubPageWrapProps) {
+  const s = makeStyles(colors);
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <View style={[s.backBar, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={onBack} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={s.backBtn}>
+          <Ionicons name="chevron-back" size={28} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={[s.backTitle, { color: colors.text }]}>{title}</Text>
+        <View style={s.backBtnPlaceholder} />
+      </View>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content}>{children}</ScrollView>
+    </View>
+  );
+}
+
 type Props = { onSignOut: () => void };
 
 export default function SettingsPage({ onSignOut }: Props) {
@@ -42,6 +67,8 @@ export default function SettingsPage({ onSignOut }: Props) {
   const setThemeMode = useThemeStore((s) => s.setMode);
   const reminderHour = useSettingsStore((s) => s.reminderHour);
   const setReminderHour = useSettingsStore((s) => s.setReminderHour);
+  const mermaidHandDrawn = useSettingsStore((s) => s.mermaidHandDrawn);
+  const setMermaidHandDrawn = useSettingsStore((s) => s.setMermaidHandDrawn);
   const searchFullText = useSettingsStore((s) => s.searchFullText);
   const setSearchFullText = useSettingsStore((s) => s.setSearchFullText);
   const hideCompletedTasks = useSettingsStore((s) => s.hideCompletedTasks);
@@ -134,21 +161,10 @@ export default function SettingsPage({ onSignOut }: Props) {
 
   const s = makeStyles(colors);
 
-  const SubPageWrap = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={[s.backBar, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => setSubPage(null)} activeOpacity={0.7} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={s.backBtn}>
-          <Ionicons name="chevron-back" size={28} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[s.backTitle, { color: colors.text }]}>{title}</Text>
-        <View style={s.backBtnPlaceholder} />
-      </View>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={s.content}>{children}</ScrollView>
-    </View>
-  );
+  const goBack = useCallback(() => setSubPage(null), []);
 
   if (subPage === "general") return (
-    <SubPageWrap title={t.settings.general}>
+    <SubPageWrap title={t.settings.general} colors={colors} onBack={goBack}>
       <Text style={s.sectionTitle}>{t.settings.language}</Text>
       <View style={s.card}>
         <View style={s.themeRow}>
@@ -207,6 +223,16 @@ export default function SettingsPage({ onSignOut }: Props) {
         </View>
       </View>
 
+      <Text style={s.sectionTitle}>{t.settings.mermaid}</Text>
+      <View style={s.card}>
+        <TouchableOpacity style={s.row} onPress={() => setMermaidHandDrawn(!mermaidHandDrawn)} activeOpacity={0.7}>
+          <Text style={s.label}>{t.settings.mermaidHandDrawn}</Text>
+          <View style={[s.badge, { backgroundColor: mermaidHandDrawn ? colors.accent : colors.border }]}>
+            <Text style={s.badgeText}>{mermaidHandDrawn ? t.common.on : t.common.off}</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
+
       <Text style={s.sectionTitle}>{t.settings.search}</Text>
       <View style={s.card}>
         <TouchableOpacity style={s.row} onPress={() => setSearchFullText(!searchFullText)} activeOpacity={0.7}>
@@ -254,7 +280,7 @@ export default function SettingsPage({ onSignOut }: Props) {
   );
 
   if (subPage === "storage") return (
-    <SubPageWrap title={t.settings.storage}>
+    <SubPageWrap title={t.settings.storage} colors={colors} onBack={goBack}>
       <Text style={s.sectionTitle}>接続先</Text>
       <View style={[s.card, { padding: 8 }]}>
         <View style={s.themeRow}>
@@ -331,7 +357,10 @@ export default function SettingsPage({ onSignOut }: Props) {
           { label: t.settings.tabSwitch, desc: t.settings.tabSwitchDesc },
           { label: t.settings.refreshList, desc: t.settings.refreshListDesc },
           { label: t.settings.editNote, desc: t.settings.editNoteDesc },
+          { label: t.settings.exitEdit, desc: t.settings.exitEditDesc },
           { label: t.settings.multiDelete, desc: t.settings.multiDeleteDesc },
+          { label: t.settings.pinItem, desc: t.settings.pinItemDesc },
+          { label: t.settings.convertItem, desc: t.settings.convertItemDesc },
         ],
       },
       {
@@ -347,10 +376,17 @@ export default function SettingsPage({ onSignOut }: Props) {
           { label: t.settings.tagClassify, desc: t.settings.tagClassifyDesc },
         ],
       },
+      {
+        title: t.settings.markdownSection,
+        items: [
+          { label: t.settings.markdownToolbar, desc: t.settings.markdownToolbarDesc },
+          { label: t.settings.markdownAutoList, desc: t.settings.markdownAutoListDesc },
+        ],
+      },
     ];
 
     return (
-      <SubPageWrap title={t.settings.howToUse}>
+      <SubPageWrap title={t.settings.howToUse} colors={colors} onBack={goBack}>
         {howToSections.map((section) => (
           <View key={section.title}>
             <Text style={s.sectionTitle}>{section.title}</Text>
@@ -372,17 +408,40 @@ export default function SettingsPage({ onSignOut }: Props) {
   }
 
   if (subPage === "about") {
+    const currentVersion = Constants.expoConfig?.version ?? "";
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    const { status, releasesUrl } = useLatestVersion(currentVersion);
+
     const legalItems = [
-      { label: t.settings.privacyPolicy, url: "https://example.com" },
-      { label: t.settings.terms, url: "https://example.com" },
-      { label: t.settings.license, url: "https://example.com" },
+      { label: t.settings.privacyPolicy, url: "https://github.com/sugitlab/flote/blob/main/docs/privacy.md" },
+      { label: t.settings.terms, url: "https://github.com/sugitlab/flote/blob/main/docs/terms.md" },
+      { label: t.settings.license, url: "https://github.com/sugitlab/flote/blob/main/LICENSE" },
     ];
 
     return (
-      <SubPageWrap title={t.settings.about}>
+      <SubPageWrap title={t.settings.about} colors={colors} onBack={goBack}>
         <View style={s.aboutHeader}>
           <FloteLogo size={64} />
           <Text style={[s.aboutAppName, { color: colors.text }]}>Flote</Text>
+          <View style={s.versionRow}>
+            <Text style={[s.aboutVersion, { color: colors.textSecondary }]}>
+              v{currentVersion || "—"}
+            </Text>
+            {status === "latest" && (
+              <View style={[s.versionLatestBadge, { backgroundColor: colors.accent + "22" }]}>
+                <Text style={[s.versionLatestText, { color: colors.accent }]}>{t.settings.latestBadge}</Text>
+              </View>
+            )}
+            {status === "update-available" && (
+              <TouchableOpacity
+                style={[s.versionUpdateBtn, { backgroundColor: colors.accent }]}
+                onPress={() => Linking.openURL(releasesUrl)}
+                activeOpacity={0.8}
+              >
+                <Text style={s.versionUpdateText}>{t.settings.updateAvailable}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <Text style={[s.aboutDesc, { color: colors.textSecondary }]}>
             {t.settings.aboutDescription}
           </Text>
@@ -448,6 +507,12 @@ function makeStyles(colors: ReturnType<typeof import("../src/theme").useTheme>["
     appName: { fontSize: 22, fontWeight: "700" },
     aboutHeader: { alignItems: "center", paddingVertical: 24, gap: 8 },
     aboutAppName: { fontSize: 20, fontWeight: "700" },
+    aboutVersion: { fontSize: 13 },
+    versionRow: { flexDirection: "row", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "center" },
+    versionLatestBadge: { borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
+    versionLatestText: { fontSize: 11, fontWeight: "600" },
+    versionUpdateBtn: { borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
+    versionUpdateText: { fontSize: 11, fontWeight: "600", color: "#fff" },
     aboutDesc: { fontSize: 13, textAlign: "center", lineHeight: 18, paddingHorizontal: 16 },
     sectionTitle: {
       fontSize: 12, fontWeight: "600", color: colors.textSecondary,
