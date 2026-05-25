@@ -91,9 +91,9 @@ function buildHtml(
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:${bg}; overflow:hidden; }
-  #wrap { display:flex; align-items:center; justify-content:center; min-height:10px; }
-  svg { max-width:100%; height:auto; display:block; }
+  html, body { width:100%; overflow-x:hidden; background:${bg}; }
+  #wrap { width:100%; }
+  svg { display:block; width:100% !important; height:auto !important; max-width:100% !important; }
   .error { color:#f03e3e; font-size:13px; font-family:monospace; padding:8px; }
 </style>
 <script>${safeSvg2roughJs}</script>
@@ -102,12 +102,26 @@ function buildHtml(
 <body>
 <div id="wrap"></div>
 <script>
+function normalizeSvg(svg) {
+  if (!svg) return;
+  // Ensure viewBox is set before removing width so aspect ratio is preserved
+  if (!svg.getAttribute('viewBox')) {
+    const w = parseFloat(svg.getAttribute('width')) || svg.getBoundingClientRect().width;
+    const h = parseFloat(svg.getAttribute('height')) || svg.getBoundingClientRect().height;
+    if (w && h) svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+  }
+  svg.removeAttribute('width');
+  svg.removeAttribute('height');
+  svg.style.removeProperty('max-width');
+}
 mermaid.initialize(${initConfig});
 setTimeout(async () => {
   try {
     const { svg } = await mermaid.render('m', \`${safe}\`);
     document.getElementById('wrap').innerHTML = svg;
+    normalizeSvg(document.querySelector('#wrap svg'));
     ${roughScript}
+    normalizeSvg(document.querySelector('#wrap svg'));
   } catch(e) {
     document.getElementById('wrap').innerHTML = '<div class="error">Diagram error: ' + e.message + '</div>';
   }
