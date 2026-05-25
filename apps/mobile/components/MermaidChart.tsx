@@ -74,11 +74,6 @@ function buildHtml(
         roughConverter.seed = 42;
         await roughConverter.sketch();
         svgEl.remove(); // remove original; sketch() appended the rough SVG
-        const newSvg = document.querySelector('#wrap svg');
-        if (newSvg) {
-          newSvg.setAttribute('width', '100%');
-          newSvg.style.maxWidth = '100%';
-        }
       }
     } catch(re) {
       // svg2roughjs failed — fall back to plain SVG silently

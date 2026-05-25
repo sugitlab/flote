@@ -194,3 +194,14 @@ html, body, #root {
   line-height: 1.8;
   vertical-align: middle;
 }
+
+.preview-content .mermaid {
+  overflow: hidden;
+}
+
+.preview-content .mermaid svg {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+}

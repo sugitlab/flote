@@ -14,6 +14,16 @@ import { HLJS_THEME_CSS, renderPreview } from "../previewRenderer";
 import { tagHighlighter } from "../utils/tagHighlighter";
 import { getMermaidThemeConfig, type AccentColor } from "../mermaidThemes";
 
+function normalizeSvgEl(svgEl: SVGSVGElement) {
+  if (!svgEl.getAttribute("viewBox")) {
+    const w = parseFloat(svgEl.getAttribute("width") ?? "") || svgEl.getBoundingClientRect().width;
+    const h = parseFloat(svgEl.getAttribute("height") ?? "") || svgEl.getBoundingClientRect().height;
+    if (w && h) svgEl.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  }
+  svgEl.removeAttribute("width");
+  svgEl.removeAttribute("height");
+}
+
 type EditorProps = {
   docId: string;
   value: string;
@@ -289,9 +299,12 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     });
 
     mermaid.run({ querySelector: ".mermaid" }).then(async () => {
+      // Normalize all mermaid SVGs so CSS width:100% scales content correctly
+      document.querySelectorAll<SVGSVGElement>(".mermaid svg").forEach(normalizeSvgEl);
+
       if (!mermaidHandDrawn) return;
       // Apply svg2roughjs only to non-flowchart diagrams
-      const svgEls = document.querySelectorAll<SVGSVGElement>(".mermaid svg");
+      const svgEls = Array.from(document.querySelectorAll<SVGSVGElement>(".mermaid svg"));
       for (const svgEl of svgEls) {
         const container = svgEl.closest(".mermaid") as HTMLElement | null;
         if (!container || container.dataset.isFlowchart === "true") continue;
@@ -303,10 +316,7 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
           await converter.sketch();
           svgEl.remove();
           const newSvg = container.querySelector("svg");
-          if (newSvg) {
-            newSvg.style.maxWidth = "100%";
-            newSvg.style.height = "auto";
-          }
+          if (newSvg) normalizeSvgEl(newSvg);
         } catch {
           // svg2roughjs failed — leave plain SVG
         }
