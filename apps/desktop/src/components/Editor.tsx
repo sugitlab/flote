@@ -1,6 +1,7 @@
 import { useRef, useEffect, useMemo, useState, useCallback } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import mermaid from "mermaid";
+import { Svg2Roughjs } from "svg2roughjs";
 import { EditorState, Compartment, EditorSelection } from "@codemirror/state";
 import { EditorView, keymap, placeholder, drawSelection } from "@codemirror/view";
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
@@ -277,7 +278,40 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
       ...(themeConfig.themeVariables ? { themeVariables: themeConfig.themeVariables } : {}),
       securityLevel: "loose",
     });
-    mermaid.run({ querySelector: ".mermaid" }).catch(console.error);
+
+    // Tag each .mermaid element before run() replaces text content with SVG
+    const mermaidEls = document.querySelectorAll<HTMLElement>(".mermaid");
+    mermaidEls.forEach((el) => {
+      const code = el.textContent ?? "";
+      const body = code.trimStart().replace(/^---[\s\S]*?---\s*/m, "");
+      const fc = /^(flowchart|graph)[\s\n\r]/i.test(body.trimStart());
+      el.dataset.isFlowchart = fc ? "true" : "false";
+    });
+
+    mermaid.run({ querySelector: ".mermaid" }).then(async () => {
+      if (!mermaidHandDrawn) return;
+      // Apply svg2roughjs only to non-flowchart diagrams
+      const svgEls = document.querySelectorAll<SVGSVGElement>(".mermaid svg");
+      for (const svgEl of svgEls) {
+        const container = svgEl.closest(".mermaid") as HTMLElement | null;
+        if (!container || container.dataset.isFlowchart === "true") continue;
+        try {
+          const converter = new Svg2Roughjs(container as HTMLDivElement);
+          converter.svg = svgEl;
+          converter.roughConfig = { roughness: 0.8, bowing: 0.5, fillStyle: "hachure" };
+          converter.seed = 42;
+          await converter.sketch();
+          svgEl.remove();
+          const newSvg = container.querySelector("svg");
+          if (newSvg) {
+            newSvg.style.maxWidth = "100%";
+            newSvg.style.height = "auto";
+          }
+        } catch {
+          // svg2roughjs failed — leave plain SVG
+        }
+      }
+    }).catch(console.error);
   }, [previewHtml, editing, mermaidHandDrawn]);
 
   return (

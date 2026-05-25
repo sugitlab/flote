@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, StyleSheet } from "react-native";
 import { WebView } from "react-native-webview";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system";
@@ -7,25 +7,35 @@ import { useTheme } from "../src/theme";
 import { useSettingsStore } from "../src/store/settingsStore";
 import { getMermaidThemeConfig, type AccentColor } from "../src/mermaidThemes";
 
-// Load JS assets from bundled files once and cache in memory
-let _roughJs: string | null = null;
 let _mermaidJs: string | null = null;
+let _svg2roughJs: string | null = null;
 let _assetsPromise: Promise<void> | null = null;
 
 function loadAssets(): Promise<void> {
-  if (_mermaidJs && _roughJs) return Promise.resolve();
+  if (_mermaidJs && _svg2roughJs) return Promise.resolve();
   if (_assetsPromise) return _assetsPromise;
   _assetsPromise = Promise.all([
-    Asset.fromModule(require("../assets/rough-4.txt"))
-      .downloadAsync()
-      .then((a) => FileSystem.readAsStringAsync(a.localUri!))
-      .then((c) => { _roughJs = c; }),
     Asset.fromModule(require("../assets/mermaid-11.15.0.txt"))
       .downloadAsync()
       .then((a) => FileSystem.readAsStringAsync(a.localUri!))
       .then((c) => { _mermaidJs = c; }),
+    Asset.fromModule(require("../assets/svg2roughjs-3.2.1.txt"))
+      .downloadAsync()
+      .then((a) => FileSystem.readAsStringAsync(a.localUri!))
+      .then((c) => { _svg2roughJs = c; }),
   ]).then(() => {});
   return _assetsPromise;
+}
+
+// flowchart / graph は mermaid native hand-drawn が対応済み
+function isFlowchart(code: string): boolean {
+  // skip optional frontmatter
+  let body = code.trimStart();
+  if (body.startsWith("---")) {
+    const end = body.indexOf("---", 3);
+    body = end >= 0 ? body.slice(end + 3).trimStart() : body;
+  }
+  return /^(flowchart|graph)[\s\n\r]/i.test(body);
 }
 
 function buildHtml(
@@ -33,10 +43,13 @@ function buildHtml(
   isDark: boolean,
   accentColor: AccentColor,
   handDrawn: boolean,
-  roughJs: string,
-  mermaidJs: string
+  mermaidJs: string,
+  svg2roughJs: string
 ): string {
-  const themeConfig = getMermaidThemeConfig(accentColor, isDark, handDrawn);
+  const useNativeHandDrawn = handDrawn && isFlowchart(code);
+  const useSvg2rough = handDrawn && !useNativeHandDrawn;
+
+  const themeConfig = getMermaidThemeConfig(accentColor, isDark, useNativeHandDrawn);
   const bg = isDark ? "#161625" : (themeConfig.themeVariables?.background ?? "#FAFAFE");
   const initConfig = JSON.stringify({
     startOnLoad: false,
@@ -46,15 +59,32 @@ function buildHtml(
     ...(themeConfig.themeVariables ? { themeVariables: themeConfig.themeVariables } : {}),
     securityLevel: "loose",
   });
-  // Inject look:handDrawn via frontmatter when handDrawn is enabled.
-  // This bypasses initialize() config and avoids dynamic import issues on Android WebView.
-  const codeWithLook = handDrawn && !code.trimStart().startsWith("---")
-    ? `---\nconfig:\n  look: handDrawn\n---\n${code}`
-    : code;
-  const safe = codeWithLook.replace(/\\/g, "\\\\").replace(/`/g, "\\`");
-  // Escape </script> inside the inlined JS to prevent early tag close
-  const safeRoughJs = roughJs.replace(/<\/script>/gi, "<\\/script>");
+  const safe = code.replace(/\\/g, "\\\\").replace(/`/g, "\\`");
   const safeMermaidJs = mermaidJs.replace(/<\/script>/gi, "<\\/script>");
+  const safeSvg2roughJs = svg2roughJs.replace(/<\/script>/gi, "<\\/script>");
+
+  const roughScript = useSvg2rough ? `
+    try {
+      const Svg2Roughjs = svg2roughjs.Svg2Roughjs;
+      const svgEl = document.querySelector('#wrap svg');
+      if (svgEl) {
+        const roughConverter = new Svg2Roughjs('#wrap');
+        roughConverter.svg = svgEl;
+        roughConverter.roughConfig = { roughness: 0.8, bowing: 0.5, fillStyle: 'hachure' };
+        roughConverter.seed = 42;
+        await roughConverter.sketch();
+        svgEl.remove(); // remove original; sketch() appended the rough SVG
+        const newSvg = document.querySelector('#wrap svg');
+        if (newSvg) {
+          newSvg.setAttribute('width', '100%');
+          newSvg.style.maxWidth = '100%';
+        }
+      }
+    } catch(re) {
+      // svg2roughjs failed — fall back to plain SVG silently
+    }
+  ` : '';
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -66,41 +96,20 @@ function buildHtml(
   svg { max-width:100%; height:auto; display:block; }
   .error { color:#f03e3e; font-size:13px; font-family:monospace; padding:8px; }
 </style>
-<script>${safeRoughJs}</script>
+<script>${safeSvg2roughJs}</script>
 <script>${safeMermaidJs}</script>
 </head>
 <body>
 <div id="wrap"></div>
 <script>
-// Use mermaidAPI.initialize — the rendering pipeline reads from this config
-var initCfg = ${initConfig};
-mermaid.initialize(initCfg);
-if (mermaid.mermaidAPI && mermaid.mermaidAPI.initialize) {
-  mermaid.mermaidAPI.initialize(initCfg);
-}
+mermaid.initialize(${initConfig});
 setTimeout(async () => {
-  var apiCfg = (mermaid.mermaidAPI && mermaid.mermaidAPI.getConfig) ? mermaid.mermaidAPI.getConfig() : {};
-  var diag = {
-    look: apiCfg.look,
-    theme: apiCfg.theme,
-    version: mermaid.version ?? mermaid.mermaidAPI?.version ?? 'unknown',
-    roughGlobal: typeof rough !== 'undefined',
-    hasMermaidAPI: !!mermaid.mermaidAPI,
-    codePrefix: \`${safe}\`.slice(0,60),
-  };
-  window.ReactNativeWebView.postMessage('DIAG:' + JSON.stringify(diag));
   try {
     const { svg } = await mermaid.render('m', \`${safe}\`);
     document.getElementById('wrap').innerHTML = svg;
-    window.ReactNativeWebView.postMessage('SVG:' + JSON.stringify({
-      len: svg.length,
-      hasRough: svg.includes('rough'),
-      hasTurbulence: svg.includes('feTurbulence'),
-      svgStart: svg.slice(0, 80),
-    }));
+    ${roughScript}
   } catch(e) {
     document.getElementById('wrap').innerHTML = '<div class="error">Diagram error: ' + e.message + '</div>';
-    window.ReactNativeWebView.postMessage('ERR:' + e.message);
   }
   window.ReactNativeWebView.postMessage('HEIGHT:' + String(document.body.scrollHeight));
 }, 50);
@@ -117,7 +126,6 @@ export default function MermaidChart({ code }: Props) {
   const mermaidHandDrawn = useSettingsStore((s) => s.mermaidHandDrawn);
   const [height, setHeight] = useState(160);
   const [assetsLoaded, setAssetsLoaded] = useState(false);
-  const [diagLog, setDiagLog] = useState<string[]>([]);
 
   useEffect(() => {
     loadAssets().then(() => setAssetsLoaded(true)).catch(() => setAssetsLoaded(true));
@@ -128,11 +136,10 @@ export default function MermaidChart({ code }: Props) {
   }
 
   return (
-    <View>
-      <View style={[styles.wrap, { height }]}>
+    <View style={[styles.wrap, { height }]}>
       <WebView
         key={`${isDark}-${accentColor}-${mermaidHandDrawn}`}
-        source={{ html: buildHtml(code, isDark, accentColor, mermaidHandDrawn, _roughJs!, _mermaidJs!) }}
+        source={{ html: buildHtml(code, isDark, accentColor, mermaidHandDrawn, _mermaidJs!, _svg2roughJs!) }}
         style={styles.web}
         scrollEnabled={false}
         originWhitelist={["*"]}
@@ -141,19 +148,9 @@ export default function MermaidChart({ code }: Props) {
           if (msg.startsWith("HEIGHT:")) {
             const h = parseInt(msg.slice(7), 10);
             if (!isNaN(h) && h > 0) setHeight(h + 8);
-          } else {
-            setDiagLog((prev) => [...prev, msg]);
           }
         }}
       />
-      </View>
-      {diagLog.length > 0 && (
-        <View style={styles.diagBox}>
-          {diagLog.map((line, i) => (
-            <Text key={i} selectable style={styles.diagText}>{line}</Text>
-          ))}
-        </View>
-      )}
     </View>
   );
 }
@@ -161,6 +158,4 @@ export default function MermaidChart({ code }: Props) {
 const styles = StyleSheet.create({
   wrap: { width: "100%", marginVertical: 8, borderRadius: 8, overflow: "hidden" },
   web: { flex: 1, backgroundColor: "transparent" },
-  diagBox: { backgroundColor: "#1a1a2e", padding: 8, borderRadius: 6, marginBottom: 8, gap: 2 },
-  diagText: { color: "#00ff88", fontSize: 10, fontFamily: "monospace" },
 });
