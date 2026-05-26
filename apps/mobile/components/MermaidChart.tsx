@@ -88,7 +88,7 @@ function buildHtml(
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body { width:100%; overflow-x:hidden; background:${bg}; }
   #wrap { width:100%; }
-  svg { display:block; width:100% !important; height:auto !important; max-width:100% !important; }
+  svg { display:block; width:auto !important; max-width:100% !important; max-height:80vh !important; height:auto !important; }
   .error { color:#f03e3e; font-size:13px; font-family:monospace; padding:8px; }
 </style>
 <script>${safeSvg2roughJs}</script>
