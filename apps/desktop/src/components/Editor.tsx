@@ -294,8 +294,8 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     mermaidEls.forEach((el) => {
       const code = el.textContent ?? "";
       const body = code.trimStart().replace(/^---[\s\S]*?---\s*/m, "");
-      const fc = /^(flowchart|graph)[\s\n\r]/i.test(body.trimStart());
-      el.dataset.isFlowchart = fc ? "true" : "false";
+      const native = /^(flowchart|graph|erDiagram|classDiagram|stateDiagram(?:-v2)?)[\s\n\r]/i.test(body.trimStart());
+      el.dataset.isFlowchart = native ? "true" : "false";
     });
 
     mermaid.run({ querySelector: ".mermaid" }).then(async () => {

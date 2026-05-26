@@ -27,15 +27,14 @@ function loadAssets(): Promise<void> {
   return _assetsPromise;
 }
 
-// flowchart / graph は mermaid native hand-drawn が対応済み
-function isFlowchart(code: string): boolean {
-  // skip optional frontmatter
+// These diagram types use rough.js natively via mermaid's look:"handDrawn"
+function isNativeHandDrawn(code: string): boolean {
   let body = code.trimStart();
   if (body.startsWith("---")) {
     const end = body.indexOf("---", 3);
     body = end >= 0 ? body.slice(end + 3).trimStart() : body;
   }
-  return /^(flowchart|graph)[\s\n\r]/i.test(body);
+  return /^(flowchart|graph|erDiagram|classDiagram|stateDiagram(?:-v2)?)[\s\n\r]/i.test(body);
 }
 
 function buildHtml(
@@ -46,7 +45,7 @@ function buildHtml(
   mermaidJs: string,
   svg2roughJs: string
 ): string {
-  const useNativeHandDrawn = handDrawn && isFlowchart(code);
+  const useNativeHandDrawn = handDrawn && isNativeHandDrawn(code);
   const useSvg2rough = handDrawn && !useNativeHandDrawn;
 
   const themeConfig = getMermaidThemeConfig(accentColor, isDark, useNativeHandDrawn);
