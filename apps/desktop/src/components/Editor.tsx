@@ -299,15 +299,27 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     });
 
     mermaid.run({ querySelector: ".mermaid" }).then(async () => {
-      // Normalize all mermaid SVGs so CSS width:100% scales content correctly
-      document.querySelectorAll<SVGSVGElement>(".mermaid svg").forEach(normalizeSvgEl);
-
-      if (!mermaidHandDrawn) return;
-      // Apply svg2roughjs only to non-flowchart diagrams
       const svgEls = Array.from(document.querySelectorAll<SVGSVGElement>(".mermaid svg"));
+
+      if (!mermaidHandDrawn) {
+        svgEls.forEach(normalizeSvgEl);
+        return;
+      }
+
       for (const svgEl of svgEls) {
         const container = svgEl.closest(".mermaid") as HTMLElement | null;
-        if (!container || container.dataset.isFlowchart === "true") continue;
+        if (!container) continue;
+
+        if (container.dataset.isFlowchart === "true") {
+          // Flowchart: mermaid native hand-drawn — just normalize
+          normalizeSvgEl(svgEl);
+          continue;
+        }
+
+        // Non-flowchart: run svg2roughjs with original dimensions intact,
+        // then normalize the output. Normalizing before sketch() removes
+        // width/height which causes svg2roughjs to miscalculate dimensions
+        // for sequence, pie, quadrant and other diagram types.
         try {
           const converter = new Svg2Roughjs(container as HTMLDivElement);
           converter.svg = svgEl;
@@ -317,8 +329,9 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
           svgEl.remove();
           const newSvg = container.querySelector("svg");
           if (newSvg) normalizeSvgEl(newSvg);
-        } catch {
-          // svg2roughjs failed — leave plain SVG
+        } catch (e) {
+          console.warn("svg2roughjs failed, falling back to plain SVG:", e);
+          normalizeSvgEl(svgEl);
         }
       }
     }).catch(console.error);

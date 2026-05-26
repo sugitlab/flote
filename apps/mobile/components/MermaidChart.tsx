@@ -114,9 +114,8 @@ setTimeout(async () => {
   try {
     const { svg } = await mermaid.render('m', \`${safe}\`);
     document.getElementById('wrap').innerHTML = svg;
-    normalizeSvg(document.querySelector('#wrap svg'));
-    ${roughScript}
-    normalizeSvg(document.querySelector('#wrap svg'));
+    ${useSvg2rough ? `${roughScript}
+    normalizeSvg(document.querySelector('#wrap svg'));` : `normalizeSvg(document.querySelector('#wrap svg'));`}
   } catch(e) {
     document.getElementById('wrap').innerHTML = '<div class="error">Diagram error: ' + e.message + '</div>';
   }
