@@ -86,6 +86,16 @@ tasks (
 - ネイティブモジュールを追加した場合は `npx expo prebuild` が必要
 - EASでビルド（`eas build`）
 
+## Supabase固有の注意点
+
+- **新テーブル作成時は必ず GRANT を追加する**。2026年10月30日以降、publicスキーマの新規テーブルはデフォルトでData API（PostgREST / supabase-js）に公開されなくなる。
+
+```sql
+-- テーブル作成後に必ず実行
+GRANT ALL ON public.テーブル名 TO authenticated;
+GRANT ALL ON public.テーブル名 TO service_role;
+```
+
 ## よくある作業パターン
 
 ### 新しい機能をdesktop+mobileに追加する場合
