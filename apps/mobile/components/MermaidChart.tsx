@@ -113,7 +113,7 @@ function normalizeSvg(svg) {
     const vw = parts[2], vh = parts[3];
     if (vw > 0 && vh > 0) {
       const maxW = document.body.clientWidth;
-      const maxH = window.innerHeight * 0.6;
+      const maxH = window.innerHeight * 0.5;
       const scale = Math.min(maxW / vw, maxH / vh);
       svg.style.width = (vw * scale) + 'px';
       svg.style.height = (vh * scale) + 'px';
