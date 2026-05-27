@@ -344,6 +344,11 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
           svgEl.remove();
           const newSvg = container.querySelector("svg");
           if (newSvg) normalizeSvgEl(newSvg);
+          // rough.js sets cursive font-family on text elements — reset to normal
+          container.querySelectorAll<Element>("text, tspan").forEach(el => {
+            (el as HTMLElement).style.removeProperty("font-family");
+            (el as HTMLElement).style.removeProperty("font-style");
+          });
         } catch (e) {
           console.warn("svg2roughjs failed, falling back to plain SVG:", e);
           normalizeSvgEl(svgEl);

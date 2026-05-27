@@ -74,6 +74,11 @@ function buildHtml(
         roughConverter.seed = 42;
         await roughConverter.sketch();
         svgEl.remove(); // remove original; sketch() appended the rough SVG
+        // rough.js sets cursive font-family on text elements — reset to normal
+        document.querySelectorAll('#wrap text, #wrap tspan').forEach(el => {
+          el.style.removeProperty('font-family');
+          el.style.removeProperty('font-style');
+        });
       }
     } catch(re) {
       // svg2roughjs failed — fall back to plain SVG silently
