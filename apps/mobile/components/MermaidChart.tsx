@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { View, StyleSheet } from "react-native";
+import { View, StyleSheet, Dimensions } from "react-native";
 import { WebView } from "react-native-webview";
 import { Asset } from "expo-asset";
 import * as FileSystem from "expo-file-system";
@@ -43,7 +43,8 @@ function buildHtml(
   accentColor: AccentColor,
   handDrawn: boolean,
   mermaidJs: string,
-  svg2roughJs: string
+  svg2roughJs: string,
+  maxHeightPx: number
 ): string {
   const useNativeHandDrawn = handDrawn && isNativeHandDrawn(code);
   const useSvg2rough = handDrawn && !useNativeHandDrawn;
@@ -113,7 +114,7 @@ function normalizeSvg(svg) {
     const vw = parts[2], vh = parts[3];
     if (vw > 0 && vh > 0) {
       const maxW = document.body.clientWidth;
-      const maxH = window.innerHeight * 0.5;
+      const maxH = ${maxHeightPx};
       const scale = Math.min(maxW / vw, maxH / vh);
       svg.style.width = (vw * scale) + 'px';
       svg.style.height = (vh * scale) + 'px';
@@ -158,7 +159,7 @@ export default function MermaidChart({ code }: Props) {
     <View style={[styles.wrap, { height }]}>
       <WebView
         key={`${isDark}-${accentColor}-${mermaidHandDrawn}`}
-        source={{ html: buildHtml(code, isDark, accentColor, mermaidHandDrawn, _mermaidJs!, _svg2roughJs!) }}
+        source={{ html: buildHtml(code, isDark, accentColor, mermaidHandDrawn, _mermaidJs!, _svg2roughJs!, Dimensions.get('window').height * 0.5) }}
         style={styles.web}
         scrollEnabled={false}
         originWhitelist={["*"]}
