@@ -22,6 +22,21 @@ function normalizeSvgEl(svgEl: SVGSVGElement) {
   }
   svgEl.removeAttribute("width");
   svgEl.removeAttribute("height");
+  // Contain scaling: fill container width, but cap height at 60vh
+  const vb = svgEl.getAttribute("viewBox");
+  if (vb) {
+    const parts = vb.trim().split(/[\s,]+/).map(Number);
+    const vw = parts[2], vh = parts[3];
+    if (vw > 0 && vh > 0) {
+      const container = (svgEl.closest(".mermaid") ?? svgEl.parentElement) as HTMLElement | null;
+      const maxW = container?.clientWidth ?? window.innerWidth;
+      const maxH = window.innerHeight * 0.6;
+      const scale = Math.min(maxW / vw, maxH / vh);
+      svgEl.style.width = `${vw * scale}px`;
+      svgEl.style.height = `${vh * scale}px`;
+      svgEl.style.maxWidth = "100%";
+    }
+  }
 }
 
 type EditorProps = {

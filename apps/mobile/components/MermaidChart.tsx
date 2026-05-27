@@ -87,7 +87,7 @@ function buildHtml(
   * { margin:0; padding:0; box-sizing:border-box; }
   html, body { width:100%; overflow-x:hidden; background:${bg}; }
   #wrap { width:100%; }
-  svg { display:block; width:auto !important; max-width:100% !important; max-height:80vh !important; height:auto !important; }
+  svg { display:block; max-width:100%; }
   .error { color:#f03e3e; font-size:13px; font-family:monospace; padding:8px; }
 </style>
 <script>${safeSvg2roughJs}</script>
@@ -98,7 +98,6 @@ function buildHtml(
 <script>
 function normalizeSvg(svg) {
   if (!svg) return;
-  // Ensure viewBox is set before removing width so aspect ratio is preserved
   if (!svg.getAttribute('viewBox')) {
     const w = parseFloat(svg.getAttribute('width')) || svg.getBoundingClientRect().width;
     const h = parseFloat(svg.getAttribute('height')) || svg.getBoundingClientRect().height;
@@ -107,6 +106,19 @@ function normalizeSvg(svg) {
   svg.removeAttribute('width');
   svg.removeAttribute('height');
   svg.style.removeProperty('max-width');
+  // Contain scaling: fill width, but cap height at 75vh
+  const vb = svg.getAttribute('viewBox');
+  if (vb) {
+    const parts = vb.trim().split(/[\s,]+/).map(Number);
+    const vw = parts[2], vh = parts[3];
+    if (vw > 0 && vh > 0) {
+      const maxW = document.body.clientWidth;
+      const maxH = window.innerHeight * 0.75;
+      const scale = Math.min(maxW / vw, maxH / vh);
+      svg.style.width = (vw * scale) + 'px';
+      svg.style.height = (vh * scale) + 'px';
+    }
+  }
 }
 mermaid.initialize(${initConfig});
 setTimeout(async () => {
