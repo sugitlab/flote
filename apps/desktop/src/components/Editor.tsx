@@ -14,6 +14,9 @@ import { HLJS_THEME_CSS, renderPreview } from "../previewRenderer";
 import { tagHighlighter } from "../utils/tagHighlighter";
 import { getMermaidThemeConfig, type AccentColor } from "../mermaidThemes";
 
+// Gothic/sans-serif stack covering all platforms (macOS, Windows, Android, iOS)
+const MERMAID_FONT = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Yu Gothic", Arial, sans-serif';
+
 function normalizeSvgEl(svgEl: SVGSVGElement) {
   if (!svgEl.getAttribute("viewBox")) {
     const w = parseFloat(svgEl.getAttribute("width") ?? "") || svgEl.getBoundingClientRect().width;
@@ -300,6 +303,7 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
       startOnLoad: false,
       theme: themeConfig.theme,
       look: themeConfig.look ?? "classic",
+      fontFamily: MERMAID_FONT,
       ...(themeConfig.themeVariables ? { themeVariables: themeConfig.themeVariables } : {}),
       securityLevel: "loose",
     });
@@ -344,9 +348,9 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
           svgEl.remove();
           const newSvg = container.querySelector("svg");
           if (newSvg) normalizeSvgEl(newSvg);
-          // rough.js sets cursive font-family on text elements — reset to normal
+          // rough.js sets cursive font on text elements — override with app font
           container.querySelectorAll<Element>("text, tspan").forEach(el => {
-            (el as HTMLElement).style.removeProperty("font-family");
+            (el as HTMLElement).style.fontFamily = MERMAID_FONT;
             (el as HTMLElement).style.removeProperty("font-style");
           });
         } catch (e) {

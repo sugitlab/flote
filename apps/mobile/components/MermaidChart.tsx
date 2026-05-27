@@ -7,6 +7,9 @@ import { useTheme } from "../src/theme";
 import { useSettingsStore } from "../src/store/settingsStore";
 import { getMermaidThemeConfig, type AccentColor } from "../src/mermaidThemes";
 
+// Gothic/sans-serif stack covering all platforms (macOS, Windows, Android, iOS)
+const MERMAID_FONT = '"Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Yu Gothic", Arial, sans-serif';
+
 let _mermaidJs: string | null = null;
 let _svg2roughJs: string | null = null;
 let _assetsPromise: Promise<void> | null = null;
@@ -55,6 +58,7 @@ function buildHtml(
     startOnLoad: false,
     theme: themeConfig.theme,
     look: themeConfig.look ?? "classic",
+    fontFamily: MERMAID_FONT,
     htmlLabels: false,
     ...(themeConfig.themeVariables ? { themeVariables: themeConfig.themeVariables } : {}),
     securityLevel: "loose",
@@ -74,9 +78,9 @@ function buildHtml(
         roughConverter.seed = 42;
         await roughConverter.sketch();
         svgEl.remove(); // remove original; sketch() appended the rough SVG
-        // rough.js sets cursive font-family on text elements — reset to normal
+        // rough.js sets cursive font on text elements — override with app font
         document.querySelectorAll('#wrap text, #wrap tspan').forEach(el => {
-          el.style.removeProperty('font-family');
+          el.style.fontFamily = '${MERMAID_FONT}';
           el.style.removeProperty('font-style');
         });
       }
@@ -91,7 +95,7 @@ function buildHtml(
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
-  html, body { width:100%; overflow-x:hidden; background:${bg}; }
+  html, body { width:100%; overflow-x:hidden; background:${bg}; font-family:${MERMAID_FONT}; }
   #wrap { width:100%; }
   svg { display:block; max-width:100%; }
   .error { color:#f03e3e; font-size:13px; font-family:monospace; padding:8px; }
