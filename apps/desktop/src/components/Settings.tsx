@@ -14,6 +14,7 @@ import type { DarkEditorTheme, LightEditorTheme } from "../store/uiStore";
 import { getConfig, setConfig } from "../config";
 import type { Language } from "../locales";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { reinitSupabase, getSupabase, exportToMarkdown } from "@flote/api-client";
 import { useNoteStore } from "../store/noteStore";
 import { useTaskStore } from "../store/taskStore";
@@ -1084,7 +1085,7 @@ function AboutTab() {
             {status === "update-available" && (
               <button
                 className={styles.versionUpdateBtn}
-                onClick={() => window.open(releasesUrl, "_blank")}
+                onClick={() => openUrl(releasesUrl).catch(console.error)}
               >
                 {t.settings.about.updateAvailable}
               </button>
