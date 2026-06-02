@@ -17,13 +17,18 @@ export function useAuth() {
     setLoading(true);
     const supabase = getSupabase();
 
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setLoading(false);
-    }).catch((e) => {
-      console.error("[useAuth] getSession failed:", e);
-      setLoading(false);
-    });
+    const sessionTimeout = new Promise<{ data: { session: null } }>((resolve) =>
+      setTimeout(() => resolve({ data: { session: null } }), 10_000)
+    );
+    Promise.race([supabase.auth.getSession(), sessionTimeout])
+      .then(({ data: { session: s } }) => {
+        setSession(s);
+        setLoading(false);
+      })
+      .catch((e) => {
+        console.error("[useAuth] getSession failed:", e);
+        setLoading(false);
+      });
 
     const {
       data: { subscription },
@@ -36,7 +41,13 @@ export function useAuth() {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const supabase = getSupabase();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("接続タイムアウト。Supabase URL / キーを確認してください。")), 15_000)
+    );
+    const { error } = await Promise.race([
+      supabase.auth.signInWithPassword({ email, password }),
+      timeout,
+    ]);
     if (error) throw error;
   }, []);
 

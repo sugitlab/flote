@@ -70,14 +70,10 @@ export class SupabaseTaskRepository implements TaskRepository {
       updated_at: task.updated_at,
       user_id: userId,
     };
-    const { data, error } = await supabase
-      .from("tasks")
-      .upsert(payload)
-      .select()
-      .single();
+    const { error } = await supabase.from("tasks").upsert(payload);
     if (error) {
       // Fallback: status column may not exist yet in Supabase — retry without it
-      const { data: d2, error: e2 } = await supabase
+      const { error: e2 } = await supabase
         .from("tasks")
         .upsert({
           id: task.id,
@@ -88,13 +84,10 @@ export class SupabaseTaskRepository implements TaskRepository {
           pinned: task.pinned,
           updated_at: task.updated_at,
           user_id: userId,
-        })
-        .select()
-        .single();
+        });
       if (e2) throw e2;
-      return toTask(d2);
     }
-    return toTask(data);
+    return task;
   }
 
   async deleteTask(id: string): Promise<void> {

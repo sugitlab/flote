@@ -14,6 +14,7 @@ create table if not exists notes (
 
 -- Migration for existing installations
 alter table notes add column if not exists pinned boolean default false;
+alter table notes add column if not exists note_type text default 'markdown';
 
 alter table notes enable row level security;
 
@@ -91,6 +92,11 @@ export async function checkSchema(supabase: SupabaseClient): Promise<SchemaStatu
     ) {
       return "not_initialized";
     }
+  }
+  // Also check that required columns added by migrations exist
+  const { error: colError } = await supabase.from("notes").select("note_type").limit(0);
+  if (colError) {
+    return "not_initialized";
   }
   return "ok";
 }

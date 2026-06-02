@@ -29,6 +29,7 @@ import { useExpenseStore } from "./store/expenseStore";
 import { useUIStore } from "./store/uiStore";
 import Auth from "./components/Auth";
 import Editor from "./components/Editor";
+import ExcalidrawEditor from "./components/ExcalidrawEditor";
 import NoteList from "./components/NoteList";
 import TaskList from "./components/TaskList";
 import Settings from "./components/Settings";
@@ -206,6 +207,7 @@ function MainApp({
   // Track the display order from NoteList/TaskList to keep Cmd+1..9 in sync
   const visibleNoteIds = useRef<string[]>([]);
   const visibleTaskIds = useRef<string[]>([]);
+  const editorSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ type: "note" | "task"; id: string } | null>(null);
   const [confirmConvert, setConfirmConvert] = useState<{ type: "note" | "task"; id: string } | null>(null);
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
@@ -261,6 +263,7 @@ function MainApp({
         title: extractTitle(text, t.defaults.untitledNote) || text.slice(0, 60),
         body_md: text,
         pinned: false,
+        note_type: "markdown",
         updated_at: new Date().toISOString(),
       };
       saveNote(note, userId);
@@ -356,7 +359,7 @@ function MainApp({
       const id = activeNoteIdRef.current;
       if (!id) return;
       const note = notesRef.current.find((n) => n.id === id);
-      if (note && note.body_md.trim() === "") deleteNoteRef.current(id);
+      if (note && note.note_type !== "excalidraw" && note.body_md.trim() === "") deleteNoteRef.current(id);
     } else if (prevTab === "tasks") {
       const id = activeTaskIdRef.current;
       if (!id) return;
@@ -371,12 +374,29 @@ function MainApp({
       title: t.defaults.untitledNote,
       body_md: "",
       pinned: false,
+      note_type: "markdown",
       updated_at: new Date().toISOString(),
     };
     setActiveNote(note.id);
     setActiveTask(null);
     setActiveTab("notes");
     setIsEditing(true);
+    saveNote(note, userId);
+  }, [userId, saveNote, setActiveNote, setActiveTask, setActiveTab]);
+
+  const handleCreateExcalidrawNote = useCallback(() => {
+    const note: Note = {
+      id: crypto.randomUUID(),
+      title: "新しい図",
+      body_md: JSON.stringify({ elements: [], appState: { viewBackgroundColor: "#ffffff" }, files: {}, svg: "" }),
+      pinned: false,
+      note_type: "excalidraw",
+      updated_at: new Date().toISOString(),
+    };
+    setActiveNote(note.id);
+    setActiveTask(null);
+    setActiveTab("notes");
+    setIsEditing(false);
     saveNote(note, userId);
   }, [userId, saveNote, setActiveNote, setActiveTask, setActiveTab]);
 
@@ -397,6 +417,19 @@ function MainApp({
     saveTask(task, userId);
   }, [userId, saveTask, setActiveTask, setActiveNote, setActiveTab]);
 
+  const handleExcalidrawSave = useCallback(
+    (updates: { title?: string; body_md?: string }) => {
+      if (!activeNoteId) return;
+      const prev = notes.find((n) => n.id === activeNoteId);
+      if (!prev) return;
+      saveNote(
+        { ...prev, ...updates, updated_at: new Date().toISOString() },
+        userId
+      );
+    },
+    [activeNoteId, notes, userId, saveNote]
+  );
+
   const handleEditorChange = useCallback(
     (value: string) => {
       if (activeTab === "notes") {
@@ -407,9 +440,11 @@ function MainApp({
           title: extractTitle(value),
           body_md: value,
           pinned: prev?.pinned ?? false,
+          note_type: prev?.note_type ?? "markdown",
           updated_at: new Date().toISOString(),
         };
-        saveNote(note, userId);
+        if (editorSaveTimerRef.current) clearTimeout(editorSaveTimerRef.current);
+        editorSaveTimerRef.current = setTimeout(() => saveNote(note, userId), 500);
       } else if (activeTab === "tasks") {
         if (!activeTaskId) return;
         const task = tasks.find((t) => t.id === activeTaskId);
@@ -422,7 +457,8 @@ function MainApp({
           body_md: value,
           updated_at: new Date().toISOString(),
         };
-        saveTask(updated, userId);
+        if (editorSaveTimerRef.current) clearTimeout(editorSaveTimerRef.current);
+        editorSaveTimerRef.current = setTimeout(() => saveTask(updated, userId), 500);
       }
     },
     [activeTab, activeNoteId, activeTaskId, tasks, userId, saveNote, saveTask]
@@ -439,6 +475,15 @@ function MainApp({
       );
     },
     [activeTaskId, tasks, userId, saveTask]
+  );
+
+  const handleClearTaskDueDate = useCallback(
+    (id: string) => {
+      const task = tasks.find((t) => t.id === id);
+      if (!task) return;
+      saveTask({ ...task, due_date: null, updated_at: new Date().toISOString() }, userId);
+    },
+    [tasks, userId, saveTask]
   );
 
   // Navigate items with ⌘↑/↓
@@ -609,6 +654,7 @@ function MainApp({
           title: task.title,
           body_md: task.body_md,
           pinned: false,
+          note_type: "markdown",
           updated_at: new Date().toISOString(),
         };
         saveNote(note, userId);
@@ -722,6 +768,7 @@ function MainApp({
                       onDelete={handleDeleteNote}
                       onDeleteMultiple={handleDeleteNotes}
                       onNew={handleCreateNote}
+                      onNewExcalidraw={handleCreateExcalidrawNote}
                       onTagFilter={setActiveNoteTag}
                       onTogglePin={(id) => toggleNotePin(id, userId)}
                       onVisibleChange={(ids) => { visibleNoteIds.current = ids; }}
@@ -739,6 +786,7 @@ function MainApp({
                       onSelectTask={handleSelectTask}
                       onTagFilter={setActiveTaskTag}
                       onTogglePin={(id) => toggleTaskPin(id, userId)}
+                      onClearDueDate={handleClearTaskDueDate}
                       onVisibleChange={(ids) => { visibleTaskIds.current = ids; }}
                     />
                   )}
@@ -774,16 +822,18 @@ function MainApp({
                   >
                     <PinIcon />
                   </button>
-                  <button
-                    className={`${styles.convertBtn} ${styles.convertBtnNote}`}
-                    data-tooltip={t.confirm.convertToTask}
-                    onClick={() => setConfirmConvert({ type: "note", id: selectedNote.id })}
-                  >
-                    ↻
-                  </button>
+                  {selectedNote.note_type !== "excalidraw" && (
+                    <button
+                      className={`${styles.convertBtn} ${styles.convertBtnNote}`}
+                      data-tooltip={t.confirm.convertToTask}
+                      onClick={() => setConfirmConvert({ type: "note", id: selectedNote.id })}
+                    >
+                      ↻
+                    </button>
+                  )}
                 </div>
               </div>
-              {extractTags(selectedNote.body_md).length > 0 && (
+              {selectedNote.note_type !== "excalidraw" && extractTags(selectedNote.body_md).length > 0 && (
                 <div className={styles.noteTags}>
                   {extractTags(selectedNote.body_md).map((tag) => (
                     <button
@@ -800,23 +850,33 @@ function MainApp({
                   ))}
                 </div>
               )}
-              <div
-                className={styles.editorWrap}
-                onDoubleClick={() => setIsEditing(true)}
-              >
-                <Editor
-                  docId={selectedNote.id}
-                  value={selectedNote.body_md}
-                  onChange={handleEditorChange}
-                  editing={isEditing}
-                  onExitEdit={handleExitEditor}
-                  editorTheme={activeEditorTheme}
-                  vimMode={vimMode}
-                  mermaidHandDrawn={mermaidHandDrawn}
-                  placeholderText={t.editor.editorPlaceholder}
-                  emptyNoteText={t.editor.emptyNote}
-                />
-              </div>
+              {selectedNote.note_type === "excalidraw" ? (
+                <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+                  <ExcalidrawEditor
+                    note={selectedNote}
+                    onSave={handleExcalidrawSave}
+                    isDark={uiTheme === "dark" || (uiTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)}
+                  />
+                </div>
+              ) : (
+                <div
+                  className={styles.editorWrap}
+                  onDoubleClick={() => setIsEditing(true)}
+                >
+                  <Editor
+                    docId={selectedNote.id}
+                    value={selectedNote.body_md}
+                    onChange={handleEditorChange}
+                    editing={isEditing}
+                    onExitEdit={handleExitEditor}
+                    editorTheme={activeEditorTheme}
+                    vimMode={vimMode}
+                    mermaidHandDrawn={mermaidHandDrawn}
+                    placeholderText={t.editor.editorPlaceholder}
+                    emptyNoteText={t.editor.emptyNote}
+                  />
+                </div>
+              )}
             </div>
           ) : activeTab === "tasks" && selectedTask ? (
             <div className={styles.taskDetail}>
@@ -1119,7 +1179,12 @@ function App() {
     return (
       <div className={styles.loading}>
         <div data-tauri-drag-region className={styles.loadingDrag} />
-        <div className={styles.loadingContent}>{t.loading}</div>
+        <div className={styles.loadingContent}>
+          <div className={styles.loadingBody}>
+            <FloteLogo size={52} />
+            <div className={styles.loadingSpinner} />
+          </div>
+        </div>
       </div>
     );
   }
@@ -1160,7 +1225,12 @@ function App() {
     return (
       <div className={styles.loading}>
         <div data-tauri-drag-region className={styles.loadingDrag} />
-        <div className={styles.loadingContent}>{t.loading}</div>
+        <div className={styles.loadingContent}>
+          <div className={styles.loadingBody}>
+            <FloteLogo size={52} />
+            <div className={styles.loadingSpinner} />
+          </div>
+        </div>
       </div>
     );
   }
