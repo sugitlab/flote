@@ -10,6 +10,13 @@
   border-bottom: 1px solid var(--border);
 }
 
+.newWrap {
+  flex: 1;
+  display: flex;
+  position: relative;
+  min-width: 0;
+}
+
 .newButton {
   flex: 1;
   display: block;
@@ -22,10 +29,75 @@
   cursor: pointer;
   transition: background 0.15s ease;
   border-bottom: none;
+  min-width: 0;
 }
 
 .newButton:hover {
   background: var(--bg-hover);
+}
+
+.newDropBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  width: 22px;
+  border: none;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 10px;
+  border-left: 1px solid var(--border);
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.newDropBtn:hover {
+  background: var(--bg-hover);
+}
+
+.newDropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 200;
+  min-width: 160px;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  overflow: hidden;
+  padding: 4px;
+}
+
+.newDropItem {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  font-size: 11px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.newDropItem:hover {
+  background: var(--bg-hover);
+}
+
+.excalidrawBadge {
+  display: inline-block;
+  font-size: 9px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--accent) 15%, transparent);
+  color: var(--accent);
+  margin-left: 4px;
+  vertical-align: middle;
+  line-height: 14px;
 }
 
 /* Select mode bar */

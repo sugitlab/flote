@@ -52,6 +52,10 @@ export async function initDb(): Promise<void> {
   try {
     await db.execute(`ALTER TABLE tasks ADD COLUMN pinned INTEGER DEFAULT 0`);
   } catch { /* already exists */ }
+  // Migration: add note_type column
+  try {
+    await db.execute(`ALTER TABLE notes ADD COLUMN note_type TEXT DEFAULT 'markdown'`);
+  } catch { /* already exists */ }
   await db.execute(`
     CREATE TABLE IF NOT EXISTS transactions (
       id          TEXT PRIMARY KEY,
@@ -68,34 +72,37 @@ export async function initDb(): Promise<void> {
 
 // ── notes ─────────────────────────────────────────────────────────────────────
 
-type NoteRow = { id: string; title: string; body_md: string; pinned: number; updated_at: string };
+type NoteRow = { id: string; title: string; body_md: string; pinned: number; note_type: string; updated_at: string };
+
+function toNote(r: NoteRow): Note {
+  return { ...r, pinned: r.pinned === 1, note_type: (r.note_type as Note["note_type"]) ?? "markdown" };
+}
 
 export async function getNotes(): Promise<Note[]> {
   const db = await getDb();
   const rows = await db.select<NoteRow[]>(
-    "SELECT id, title, body_md, COALESCE(pinned, 0) AS pinned, updated_at FROM notes ORDER BY pinned DESC, updated_at DESC"
+    "SELECT id, title, body_md, COALESCE(pinned, 0) AS pinned, COALESCE(note_type, 'markdown') AS note_type, updated_at FROM notes ORDER BY pinned DESC, updated_at DESC"
   );
-  return rows.map((r) => ({ ...r, pinned: r.pinned === 1 }));
+  return rows.map(toNote);
 }
 
 export async function saveNote(note: Note): Promise<void> {
   const db = await getDb();
   await db.execute(
-    `INSERT OR REPLACE INTO notes (id, title, body_md, pinned, updated_at)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [note.id, note.title, note.body_md, note.pinned ? 1 : 0, note.updated_at]
+    `INSERT OR REPLACE INTO notes (id, title, body_md, pinned, note_type, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6)`,
+    [note.id, note.title, note.body_md, note.pinned ? 1 : 0, note.note_type ?? "markdown", note.updated_at]
   );
 }
 
 export async function getNoteById(id: string): Promise<Note | null> {
   const db = await getDb();
   const rows = await db.select<NoteRow[]>(
-    "SELECT id, title, body_md, COALESCE(pinned, 0) AS pinned, updated_at FROM notes WHERE id = $1",
+    "SELECT id, title, body_md, COALESCE(pinned, 0) AS pinned, COALESCE(note_type, 'markdown') AS note_type, updated_at FROM notes WHERE id = $1",
     [id]
   );
   if (rows.length === 0) return null;
-  const r = rows[0];
-  return { ...r, pinned: r.pinned === 1 };
+  return toNote(rows[0]);
 }
 
 export async function deleteNote(id: string): Promise<void> {

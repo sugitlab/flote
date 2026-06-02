@@ -13,6 +13,7 @@ import {
   Modal,
   Pressable,
 } from "react-native";
+import { WebView } from "react-native-webview";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import Markdown from "react-native-markdown-display";
@@ -143,6 +144,18 @@ export default function NoteDetailScreen() {
     }, 300);
   };
 
+  const isExcalidraw = note?.note_type === "excalidraw";
+
+  const excalidrawSvgHtml = (() => {
+    if (!isExcalidraw || !note) return "";
+    try {
+      const body = JSON.parse(note.body_md);
+      const svg: string = body.svg ?? "";
+      if (!svg) return "";
+      return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:0;background:${colors.background};display:flex;align-items:center;justify-content:center;min-height:100vh;}svg{max-width:100%;height:auto;}</style></head><body>${svg}</body></html>`;
+    } catch { return ""; }
+  })();
+
   const markdownStyles = makeMarkdownStyles(colors);
   const markdownRules = makeMarkdownRules(colors);
 
@@ -164,17 +177,19 @@ export default function NoteDetailScreen() {
             <Ionicons name="chevron-back" size={28} color={colors.text} />
           </TouchableOpacity>
           <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
-            <TouchableOpacity
-              onPress={() => setEditing(!editing)}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              style={styles.headerIconBtn}
-            >
-              <Ionicons
-                name={editing ? "checkmark" : "create-outline"}
-                size={22}
-                color={editing ? colors.accent : colors.textSecondary}
-              />
-            </TouchableOpacity>
+            {!isExcalidraw && (
+              <TouchableOpacity
+                onPress={() => setEditing(!editing)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={styles.headerIconBtn}
+              >
+                <Ionicons
+                  name={editing ? "checkmark" : "create-outline"}
+                  size={22}
+                  color={editing ? colors.accent : colors.textSecondary}
+                />
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
               onPress={() => setMenuVisible(true)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
@@ -185,7 +200,22 @@ export default function NoteDetailScreen() {
           </View>
         </View>
 
-        {editing ? (
+        {isExcalidraw ? (
+          excalidrawSvgHtml ? (
+            <WebView
+              source={{ html: excalidrawSvgHtml }}
+              style={{ flex: 1, backgroundColor: colors.background }}
+              scrollEnabled
+              showsVerticalScrollIndicator={false}
+            />
+          ) : (
+            <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                図はデスクトップ版で作成・編集してください
+              </Text>
+            </View>
+          )
+        ) : editing ? (
           <View style={{ flex: 1 }}>
             <TextInput
               ref={inputRef}

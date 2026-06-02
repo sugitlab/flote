@@ -639,6 +639,26 @@
   font-size: 13px;
 }
 
+.loadingBody {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+@keyframes floateSpin {
+  to { transform: rotate(360deg); }
+}
+
+.loadingSpinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: floateSpin 0.8s linear infinite;
+  margin-top: 20px;
+}
+
 /* Supabase unconfigured */
 .supabaseWarning {
   flex: 1;

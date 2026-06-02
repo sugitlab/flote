@@ -17,6 +17,7 @@ type TaskListProps = {
   onSelectTask: (id: string) => void;
   onTagFilter?: (tag: string | null) => void;
   onTogglePin: (id: string) => void;
+  onClearDueDate?: (id: string) => void;
   onVisibleChange?: (orderedIds: string[]) => void;
 };
 
@@ -92,6 +93,7 @@ export default function TaskList({
   onSelectTask,
   onTagFilter,
   onTogglePin,
+  onClearDueDate,
   onVisibleChange,
 }: TaskListProps) {
   const t = useT();
@@ -295,7 +297,16 @@ export default function TaskList({
             {task.title}
           </span>
           {task.due_date && !isDone(task) && (
-            <span className={`text-[10px] shrink-0 whitespace-nowrap ${overdue ? "text-[var(--danger)]" : "text-[var(--text-muted)]"}`}>
+            <span
+              className={`text-[10px] shrink-0 whitespace-nowrap ${overdue ? "text-[var(--danger)]" : "text-[var(--text-muted)]"} ${onClearDueDate ? "cursor-pointer" : ""}`}
+              title={onClearDueDate ? "⌘クリックで期日を削除" : undefined}
+              onClick={(e) => {
+                if (e.metaKey && onClearDueDate) {
+                  e.stopPropagation();
+                  onClearDueDate(task.id);
+                }
+              }}
+            >
               {relativeDate(task.due_date!, t.date)}
             </span>
           )}

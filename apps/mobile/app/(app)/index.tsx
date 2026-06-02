@@ -80,6 +80,7 @@ export default function HomeScreen() {
         title: "",
         body_md: "",
         pinned: false,
+        note_type: "markdown",
         updated_at: now,
       };
       try {

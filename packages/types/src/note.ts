@@ -1,8 +1,11 @@
+export type NoteType = "markdown" | "excalidraw";
+
 export type Note = {
   id: string;
   title: string;
   body_md: string;
   pinned: boolean;
+  note_type: NoteType;
   updated_at: string;
 };
 

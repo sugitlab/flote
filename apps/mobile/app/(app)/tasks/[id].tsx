@@ -121,6 +121,7 @@ export default function TaskDetailScreen() {
             title: task.title,
             body_md: task.body_md,
             pinned: false,
+            note_type: "markdown",
             updated_at: new Date().toISOString(),
           };
           await saveNote(newNote, userId);

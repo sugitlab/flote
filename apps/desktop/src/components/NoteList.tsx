@@ -15,6 +15,7 @@ type Props = {
   onDelete: (id: string) => void;
   onDeleteMultiple: (ids: string[]) => void;
   onNew: () => void;
+  onNewExcalidraw?: () => void;
   onTagFilter?: (tag: string | null) => void;
   onTogglePin: (id: string) => void;
   onVisibleChange?: (orderedIds: string[]) => void;
@@ -28,6 +29,7 @@ export default function NoteList({
   onDelete,
   onDeleteMultiple,
   onNew,
+  onNewExcalidraw,
   onTagFilter,
   onTogglePin,
   onVisibleChange,
@@ -35,6 +37,9 @@ export default function NoteList({
   const t = useT();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const selectMode = selectedIds.size > 0;
+
+  const [newDropOpen, setNewDropOpen] = useState(false);
+  const newWrapRef = useRef<HTMLDivElement>(null);
 
   const [sortOrder, setSortOrder] = useState<SortOrder>("updated");
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
@@ -76,6 +81,17 @@ export default function NoteList({
   useEffect(() => {
     onVisibleChange?.(filteredNotes.map((n) => n.id));
   }, [filteredNotes]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!newDropOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (newWrapRef.current && !newWrapRef.current.contains(e.target as Node)) {
+        setNewDropOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [newDropOpen]);
 
   useEffect(() => {
     if (!sortMenuOpen) return;
@@ -161,9 +177,36 @@ export default function NoteList({
         </div>
       ) : (
         <div className={styles.toolbar}>
-          <button className={styles.newButton} onClick={onNew}>
-            {t.noteList.newNote}
-          </button>
+          <div className={styles.newWrap} ref={newWrapRef}>
+            <button className={styles.newButton} onClick={onNew}>
+              {t.noteList.newNote}
+            </button>
+            {onNewExcalidraw && (
+              <button
+                className={styles.newDropBtn}
+                title="ノートの種類を選択"
+                onClick={() => setNewDropOpen((v) => !v)}
+              >
+                ▾
+              </button>
+            )}
+            {newDropOpen && (
+              <div className={styles.newDropdown}>
+                <button
+                  className={styles.newDropItem}
+                  onClick={() => { onNew(); setNewDropOpen(false); }}
+                >
+                  Markdownノート
+                </button>
+                <button
+                  className={styles.newDropItem}
+                  onClick={() => { onNewExcalidraw?.(); setNewDropOpen(false); }}
+                >
+                  Excalidrawノート
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Sort menu */}
           <div className={styles.sortWrap} data-sort-menu="">
@@ -274,7 +317,12 @@ export default function NoteList({
                 : idx < 9 && <span className={styles.indexBadge}>{idx + 1}</span>
             )}
             <div className={styles.itemContent}>
-              <div className={styles.itemTitle}>{note.title || t.defaults.untitledNote}</div>
+              <div className={styles.itemTitle}>
+                {note.title || t.defaults.untitledNote}
+                {note.note_type === "excalidraw" && (
+                  <span className={styles.excalidrawBadge}>draw</span>
+                )}
+              </div>
               <div className={styles.itemDate}>{relativeDate(note.updated_at, t.date)}</div>
             </div>
             {!selectMode && (

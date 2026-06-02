@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Platform, Text } from "react-native";
+import { ActivityIndicator, Image, Platform, StyleSheet, Text, View, useColorScheme } from "react-native";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { useFonts } from "expo-font";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,6 +19,7 @@ import { setupNotifications } from "../src/lib/notifications";
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null>(null);
   const [initialized, setInitialized] = useState(false);
+  const colorScheme = useColorScheme();
   // Increments each time reinitSupabase is called, causing the auth listener
   // effect below to re-subscribe to the new Supabase client.
   const [clientVersion, setClientVersion] = useState(0);
@@ -92,6 +93,21 @@ export default function RootLayout() {
     }
   }, [session, initialized, segments]);
 
+  const isDark = colorScheme === "dark";
+
+  if (!initialized || !fontsLoaded) {
+    return (
+      <View style={[loadingStyles.container, { backgroundColor: isDark ? "#161625" : "#FAFAFE" }]}>
+        <Image source={require("../assets/logo.png")} style={loadingStyles.logo} />
+        <ActivityIndicator
+          size="small"
+          color={isDark ? "#7B84FC" : "#4A4AEB"}
+          style={loadingStyles.spinner}
+        />
+      </View>
+    );
+  }
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="(auth)" />
@@ -99,3 +115,9 @@ export default function RootLayout() {
     </Stack>
   );
 }
+
+const loadingStyles = StyleSheet.create({
+  container: { flex: 1, alignItems: "center", justifyContent: "center" },
+  logo: { width: 72, height: 72, borderRadius: 16 },
+  spinner: { marginTop: 24 },
+});

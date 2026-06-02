@@ -45,9 +45,10 @@ export function useKeyboard(actions: KeyboardActions) {
         return;
       }
 
-      // ⌘K: toggle command palette
+      // ⌘K: toggle command palette (stopPropagation prevents Excalidraw from consuming it)
       if (meta && e.key === "k") {
         e.preventDefault();
+        e.stopPropagation();
         setCommandPaletteOpen(!isCommandPaletteOpen);
         return;
       }
@@ -154,8 +155,9 @@ export function useKeyboard(actions: KeyboardActions) {
       }
     }
 
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
+    // capture: true so our handler runs before Excalidraw's internal listeners
+    window.addEventListener("keydown", handler, { capture: true });
+    return () => window.removeEventListener("keydown", handler, { capture: true });
   }, [
     isCommandPaletteOpen,
     isSettingsOpen,
