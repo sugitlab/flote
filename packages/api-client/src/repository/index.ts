@@ -7,7 +7,7 @@ import { SupabaseNoteRepository } from "./supabase/noteRepository";
 import { SupabaseTaskRepository } from "./supabase/taskRepository";
 import { SupabaseTransactionRepository } from "./supabase/transactionRepository";
 
-export type { NoteRepository, TaskRepository, TransactionRepository } from "./types";
+export type { NoteRepository, TaskRepository, TransactionRepository, NoteManifest, TaskManifest } from "./types";
 
 export function createNoteRepository(mode: StorageMode): NoteRepository {
   switch (mode) {

@@ -8,4 +8,4 @@ export {
   createTaskRepository,
   createTransactionRepository,
 } from "./repository";
-export type { NoteRepository, TaskRepository, TransactionRepository } from "./repository";
+export type { NoteRepository, TaskRepository, TransactionRepository, NoteManifest, TaskManifest } from "./repository";

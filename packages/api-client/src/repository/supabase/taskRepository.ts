@@ -1,6 +1,8 @@
 import type { Task, TaskStatus } from "@flote/types";
-import type { TaskRepository } from "../types";
+import type { TaskRepository, TaskManifest } from "../types";
 import { getSupabase } from "../../supabase";
+
+const CHUNK_SIZE = 50;
 
 function toTask(row: Record<string, unknown>): Task {
   const status =
@@ -43,6 +45,39 @@ export class SupabaseTaskRepository implements TaskRepository {
     const full = (fullRes.data ?? []).map(toTask);
     const minimal = (minimalRes.data ?? []).map((r) => toTask({ ...r, body_md: "" }));
     return [...full, ...minimal];
+  }
+
+  async getManifest(userId: string): Promise<TaskManifest[]> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("id, title, due_date, status, done, pinned, updated_at")
+      .eq("user_id", userId);
+    if (error) throw error;
+    return (data ?? []).map((r) => ({
+      id: String(r.id ?? ""),
+      title: String(r.title ?? ""),
+      due_date: r.due_date != null ? String(r.due_date) : null,
+      status: String((r.status as string | undefined) ?? (r.done ? "Done" : "Todo")),
+      pinned: r.pinned === true,
+      updated_at: String(r.updated_at ?? ""),
+    }));
+  }
+
+  async getTasksByIds(ids: string[]): Promise<Task[]> {
+    if (ids.length === 0) return [];
+    const supabase = getSupabase();
+    const results: Task[] = [];
+    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+      const chunk = ids.slice(i, i + CHUNK_SIZE);
+      const { data, error } = await supabase
+        .from("tasks")
+        .select("*")
+        .in("id", chunk);
+      if (error) throw error;
+      results.push(...(data ?? []).map(toTask));
+    }
+    return results;
   }
 
   async getTaskById(id: string): Promise<Task | null> {

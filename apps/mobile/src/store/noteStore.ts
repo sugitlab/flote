@@ -14,6 +14,8 @@ type NoteStore = {
   setActiveNote: (id: string | null) => void;
 };
 
+type NoteManifest = { id: string; title: string; pinned: boolean; note_type: Note["note_type"]; updated_at: string };
+
 function toNote(row: Record<string, unknown>): Note {
   return {
     id: row.id as string,
@@ -25,7 +27,27 @@ function toNote(row: Record<string, unknown>): Note {
   };
 }
 
-const BODY_FETCH_LIMIT = 100;
+function manifestToNote(m: NoteManifest): Note {
+  return { id: m.id, title: m.title, pinned: m.pinned, note_type: m.note_type, body_md: "", updated_at: m.updated_at };
+}
+
+const CHUNK_SIZE = 50;
+const INITIAL_BODY_LIMIT = 100;
+
+async function fetchNotesByIds(ids: string[]): Promise<Note[]> {
+  if (ids.length === 0) return [];
+  const results: Note[] = [];
+  for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+    const chunk = ids.slice(i, i + CHUNK_SIZE);
+    const { data, error } = await supabase
+      .from("notes")
+      .select("id, title, body_md, pinned, note_type, updated_at")
+      .in("id", chunk);
+    if (error) throw error;
+    results.push(...(data ?? []).map(toNote));
+  }
+  return results;
+}
 
 export const useNoteStore = create<NoteStore>((set, get) => ({
   notes: [],
@@ -36,29 +58,75 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   fetchNotes: async (userId: string) => {
     set({ loading: true });
     try {
-      const [fullRes, minimalRes] = await Promise.all([
-        supabase
-          .from("notes")
-          .select("id, title, body_md, pinned, note_type, updated_at")
-          .eq("user_id", userId)
-          .order("pinned", { ascending: false })
-          .order("updated_at", { ascending: false })
-          .limit(BODY_FETCH_LIMIT),
-        supabase
-          .from("notes")
-          .select("id, title, pinned, note_type, updated_at")
-          .eq("user_id", userId)
-          .order("pinned", { ascending: false })
-          .order("updated_at", { ascending: false })
-          .range(BODY_FETCH_LIMIT, 1_000_000),
-      ]);
-      if (fullRes.error) throw fullRes.error;
-      if (minimalRes.error) throw minimalRes.error;
-      const full = (fullRes.data ?? []).map(toNote);
-      const minimal = (minimalRes.data ?? []).map((r) => toNote({ ...r, body_md: "" }));
-      const notes = [...full, ...minimal];
-      const loaded = new Set(full.map((n) => n.id));
-      set({ notes, bodyLoadedIds: loaded });
+      // Fetch lightweight manifest — no body_md
+      const { data: manifestData, error: manifestError } = await supabase
+        .from("notes")
+        .select("id, title, pinned, note_type, updated_at")
+        .eq("user_id", userId);
+      if (manifestError) throw manifestError;
+
+      const manifest: NoteManifest[] = (manifestData ?? []).map((r) => ({
+        id: r.id as string,
+        title: (r.title as string) ?? "",
+        pinned: r.pinned === true,
+        note_type: ((r.note_type as string) ?? "markdown") as Note["note_type"],
+        updated_at: r.updated_at as string,
+      }));
+
+      const { notes: cached, bodyLoadedIds } = get();
+      const serverMap = new Map(manifest.map((m) => [m.id, m]));
+      const localMap = new Map(cached.map((n) => [n.id, n]));
+
+      // Detect server-side deletions
+      const toDelete = new Set<string>();
+      for (const id of localMap.keys()) {
+        if (!serverMap.has(id)) toDelete.add(id);
+      }
+
+      // Detect new or updated notes
+      const toFetch: string[] = [];
+      for (const [id, serverEntry] of serverMap) {
+        const local = localMap.get(id);
+        if (!local || local.updated_at < serverEntry.updated_at) {
+          toFetch.push(id);
+        }
+      }
+
+      // Sort by most recently updated; cap full-body fetch to INITIAL_BODY_LIMIT
+      const toFetchSorted = toFetch.slice().sort((a, b) => {
+        const aAt = serverMap.get(a)?.updated_at ?? "";
+        const bAt = serverMap.get(b)?.updated_at ?? "";
+        return bAt.localeCompare(aAt);
+      });
+      const toFetchFull = toFetchSorted.slice(0, INITIAL_BODY_LIMIT);
+      const toFetchMetaOnly = toFetchSorted.slice(INITIAL_BODY_LIMIT);
+
+      const fetched = await fetchNotesByIds(toFetchFull);
+      const fetchedMap = new Map(fetched.map((n) => [n.id, n]));
+
+      const next = new Map<string, Note>();
+
+      for (const [id, note] of localMap) {
+        if (!toDelete.has(id)) next.set(id, note);
+      }
+      for (const note of fetched) {
+        next.set(note.id, note);
+      }
+      for (const id of toFetchMetaOnly) {
+        const serverEntry = serverMap.get(id)!;
+        const local = localMap.get(id);
+        if (local && bodyLoadedIds.has(id)) {
+          next.set(id, { ...local, ...manifestToNote(serverEntry) });
+        } else {
+          next.set(id, manifestToNote(serverEntry));
+        }
+      }
+
+      const newBodyLoadedIds = new Set(bodyLoadedIds);
+      for (const id of toDelete) newBodyLoadedIds.delete(id);
+      for (const note of fetched) newBodyLoadedIds.add(note.id);
+
+      set({ notes: [...next.values()], bodyLoadedIds: newBodyLoadedIds });
     } catch (e) {
       console.error("[noteStore] fetchNotes failed:", e);
       throw e;

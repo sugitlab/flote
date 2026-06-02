@@ -1,6 +1,8 @@
 import type { Note } from "@flote/types";
-import type { NoteRepository } from "../types";
+import type { NoteRepository, NoteManifest } from "../types";
 import { getSupabase } from "../../supabase";
+
+const CHUNK_SIZE = 50;
 
 function toNote(row: Record<string, unknown>): Note {
   return {
@@ -72,6 +74,38 @@ export class SupabaseNoteRepository implements NoteRepository {
     const full = (fullRes.data ?? []).map(toNote);
     const minimal = (minimalRes.data ?? []).map((r) => toNote({ ...r, body_md: "" }));
     return [...full, ...minimal];
+  }
+
+  async getManifest(userId: string): Promise<NoteManifest[]> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("notes")
+      .select("id, title, pinned, note_type, updated_at")
+      .eq("user_id", userId);
+    if (error) throw error;
+    return (data ?? []).map((r) => ({
+      id: String(r.id ?? ""),
+      title: String(r.title ?? ""),
+      pinned: r.pinned === true,
+      note_type: (r.note_type as Note["note_type"]) ?? "markdown",
+      updated_at: String(r.updated_at ?? ""),
+    }));
+  }
+
+  async getNotesByIds(ids: string[]): Promise<Note[]> {
+    if (ids.length === 0) return [];
+    const supabase = getSupabase();
+    const results: Note[] = [];
+    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+      const chunk = ids.slice(i, i + CHUNK_SIZE);
+      const { data, error } = await supabase
+        .from("notes")
+        .select("id, title, body_md, pinned, note_type, updated_at")
+        .in("id", chunk);
+      if (error) throw error;
+      results.push(...(data ?? []).map(toNote));
+    }
+    return results;
   }
 
   async getNoteById(id: string): Promise<Note | null> {

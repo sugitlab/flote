@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type { Task, TaskStatus } from "@flote/types";
-import type { TaskRepository } from "@flote/api-client";
+import type { TaskRepository, TaskManifest } from "@flote/api-client";
+
+const INITIAL_BODY_LIMIT = 100;
 
 type TaskStore = {
   tasks: Task[];
@@ -22,6 +24,18 @@ type TaskStore = {
   ) => void;
 };
 
+function manifestToTask(m: TaskManifest): Task {
+  return {
+    id: m.id,
+    title: m.title,
+    body_md: "",
+    due_date: m.due_date,
+    status: m.status as TaskStatus,
+    pinned: m.pinned,
+    updated_at: m.updated_at,
+  };
+}
+
 export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
   activeTaskId: null,
@@ -33,11 +47,60 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   },
 
   fetchTasks: async (userId?: string) => {
-    const { repo } = get();
+    const { repo, tasks: cached, bodyLoadedIds } = get();
     if (!repo) return;
-    const tasks = await repo.getTasks(userId ?? "");
-    const loaded = new Set(tasks.slice(0, 100).map((t) => t.id));
-    set({ tasks, bodyLoadedIds: loaded });
+
+    const manifest = await repo.getManifest(userId ?? "");
+    const serverMap = new Map(manifest.map((m) => [m.id, m]));
+    const localMap = new Map(cached.map((t) => [t.id, t]));
+
+    const toDelete = new Set<string>();
+    for (const id of localMap.keys()) {
+      if (!serverMap.has(id)) toDelete.add(id);
+    }
+
+    const toFetch: string[] = [];
+    for (const [id, serverEntry] of serverMap) {
+      const local = localMap.get(id);
+      if (!local || local.updated_at < serverEntry.updated_at) {
+        toFetch.push(id);
+      }
+    }
+
+    const toFetchSorted = toFetch.slice().sort((a, b) => {
+      const aAt = serverMap.get(a)?.updated_at ?? "";
+      const bAt = serverMap.get(b)?.updated_at ?? "";
+      return bAt.localeCompare(aAt);
+    });
+    const toFetchFull = toFetchSorted.slice(0, INITIAL_BODY_LIMIT);
+    const toFetchMetaOnly = toFetchSorted.slice(INITIAL_BODY_LIMIT);
+
+    const fetched = await repo.getTasksByIds(toFetchFull);
+    const fetchedMap = new Map(fetched.map((t) => [t.id, t]));
+
+    const next = new Map<string, Task>();
+
+    for (const [id, task] of localMap) {
+      if (!toDelete.has(id)) next.set(id, task);
+    }
+    for (const task of fetched) {
+      next.set(task.id, task);
+    }
+    for (const id of toFetchMetaOnly) {
+      const serverEntry = serverMap.get(id)!;
+      const local = localMap.get(id);
+      if (local && bodyLoadedIds.has(id)) {
+        next.set(id, { ...local, ...manifestToTask(serverEntry) });
+      } else {
+        next.set(id, manifestToTask(serverEntry));
+      }
+    }
+
+    const newBodyLoadedIds = new Set(bodyLoadedIds);
+    for (const id of toDelete) newBodyLoadedIds.delete(id);
+    for (const task of fetched) newBodyLoadedIds.add(task.id);
+
+    set({ tasks: [...next.values()], bodyLoadedIds: newBodyLoadedIds });
   },
 
   ensureBodyMd: async (id: string, userId?: string) => {
@@ -108,12 +171,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   updateStatus: async (id: string, status: TaskStatus, userId?: string) => {
     const task = get().tasks.find((t) => t.id === id);
     if (!task) return;
-    const updated: Task = {
-      ...task,
-      status,
-      updated_at: new Date().toISOString(),
-    };
-    await get().saveTask(updated, userId);
+    await get().saveTask({ ...task, status, updated_at: new Date().toISOString() }, userId);
   },
 
   togglePin: async (id: string, userId?: string) => {
