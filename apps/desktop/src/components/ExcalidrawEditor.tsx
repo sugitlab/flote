@@ -4,6 +4,7 @@ import "@excalidraw/excalidraw/index.css";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
 import type { Note } from "@flote/types";
+import { useUIStore } from "../store/uiStore";
 
 export type ExcalidrawNoteBody = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,6 +42,7 @@ export default function ExcalidrawEditor({ note, onSave, isDark }: Props) {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const apiRef = useRef<any>(null);
+  const setSuppressHideOnBlur = useUIStore((s) => s.setSuppressHideOnBlur);
 
   useEffect(() => {
     setTitle(note.title);
@@ -50,18 +52,23 @@ export default function ExcalidrawEditor({ note, onSave, isDark }: Props) {
     const api = apiRef.current;
     if (!api) return;
     const safeName = (title || "drawing").replace(/[/\\?%*:|"<>]/g, "-");
-    const dest = await saveDialog({
-      defaultPath: `${safeName}.excalidraw`,
-      filters: [{ name: "Excalidraw", extensions: ["excalidraw"] }],
-    }).catch(() => null);
-    if (!dest) return;
-    const json = serializeAsJSON(
-      api.getSceneElements(),
-      api.getAppState(),
-      api.getFiles(),
-      "local"
-    );
-    await writeTextFile(dest, json);
+    setSuppressHideOnBlur(true);
+    try {
+      const dest = await saveDialog({
+        defaultPath: `${safeName}.excalidraw`,
+        filters: [{ name: "Excalidraw", extensions: ["excalidraw"] }],
+      }).catch(() => null);
+      if (!dest) return;
+      const json = serializeAsJSON(
+        api.getSceneElements(),
+        api.getAppState(),
+        api.getFiles(),
+        "local"
+      );
+      await writeTextFile(dest, json);
+    } finally {
+      setSuppressHideOnBlur(false);
+    }
   };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
