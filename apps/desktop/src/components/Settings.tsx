@@ -16,7 +16,6 @@ import type { Language } from "../locales";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { reinitSupabase, getSupabase, exportToMarkdown } from "@flote/api-client";
-import { exportToSvg } from "@excalidraw/excalidraw";
 import { parseExcalidrawBody } from "./ExcalidrawEditor";
 import { useNoteStore } from "../store/noteStore";
 import { useTaskStore } from "../store/taskStore";
@@ -612,14 +611,12 @@ function DataTab({ currentMode }: { currentMode: StorageMode }) {
           scrollX: appState.scrollX,
           scrollY: appState.scrollY,
         };
-        let svg = "";
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const svgEl = await exportToSvg({ elements, appState: safeAppState, files: files_ } as any);
-          svg = new XMLSerializer().serializeToString(svgEl);
-        } catch { /* proceed without SVG */ }
         const title = (parsed.name as string) || file.name.replace(/\.excalidraw$/i, "");
-        const body = JSON.stringify({ elements, appState: safeAppState, files: files_, svg });
+        // SVG is intentionally omitted here — it will be generated and saved the first
+        // time the note is opened in the Excalidraw editor. Storing SVG at import time
+        // would double the persisted size (large embedded images in files{} are already
+        // significant) and quickly exhaust Supabase IO budget.
+        const body = JSON.stringify({ elements, appState: safeAppState, files: files_, svg: "" });
         await saveNote(
           { id: crypto.randomUUID(), title, body_md: body, pinned: false, note_type: "excalidraw" as const, updated_at: new Date().toISOString() },
           userId

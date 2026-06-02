@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Excalidraw, exportToSvg, serializeAsJSON, MainMenu } from "@excalidraw/excalidraw";
+import { Excalidraw, serializeAsJSON, MainMenu } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
@@ -84,7 +84,7 @@ export default function ExcalidrawEditor({ note, onSave, isDark }: Props) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (elements: any, appState: any, files: any) => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-      saveTimerRef.current = setTimeout(async () => {
+      saveTimerRef.current = setTimeout(() => {
         // AppState contains non-serializable values (Map, functions, etc.)
         // so only persist the safe subset needed to restore the view.
         const safeAppState = {
@@ -93,17 +93,10 @@ export default function ExcalidrawEditor({ note, onSave, isDark }: Props) {
           scrollX: appState.scrollX,
           scrollY: appState.scrollY,
         };
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const svgEl = await exportToSvg({ elements, appState: safeAppState, files } as any);
-          const svg = new XMLSerializer().serializeToString(svgEl);
-          const body: ExcalidrawNoteBody = { elements, appState: safeAppState, files, svg };
-          onSave({ body_md: JSON.stringify(body) });
-        } catch (e) {
-          console.warn("[ExcalidrawEditor] exportToSvg failed:", e);
-          const body: ExcalidrawNoteBody = { elements, appState: safeAppState, files, svg: "" };
-          onSave({ body_md: JSON.stringify(body) });
-        }
+        // SVG is not stored to keep body_md size small (especially for drawings
+        // with embedded images). Mobile shows a "desktop only" message instead.
+        const body: ExcalidrawNoteBody = { elements, appState: safeAppState, files, svg: "" };
+        onSave({ body_md: JSON.stringify(body) });
       }, 600);
     },
     [onSave]

@@ -59,6 +59,9 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
       const notes = [...full, ...minimal];
       const loaded = new Set(full.map((n) => n.id));
       set({ notes, bodyLoadedIds: loaded });
+    } catch (e) {
+      console.error("[noteStore] fetchNotes failed:", e);
+      throw e;
     } finally {
       set({ loading: false });
     }

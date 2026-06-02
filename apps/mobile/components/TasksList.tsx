@@ -86,8 +86,16 @@ export default function TasksList({ userId }: Props) {
   const [sortOrder, setSortOrder] = useState<"updated" | "due">("due");
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  useEffect(() => { if (userId) fetchTasks(userId); }, [userId]);
+  useEffect(() => {
+    if (!userId) return;
+    setFetchError(null);
+    fetchTasks(userId).catch((e) => {
+      console.error("[TasksList] fetchTasks failed:", e);
+      setFetchError(String(e?.message ?? e));
+    });
+  }, [userId]);
 
   const tags = useMemo(() => allTags(tasks), [tasks]);
 

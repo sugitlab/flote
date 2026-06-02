@@ -51,8 +51,16 @@ export default function NotesList({ userId }: Props) {
   const [sortOrder, setSortOrder] = useState<"updated" | "title">("updated");
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
-  useEffect(() => { if (userId) fetchNotes(userId); }, [userId]);
+  useEffect(() => {
+    if (!userId) return;
+    setFetchError(null);
+    fetchNotes(userId).catch((e) => {
+      console.error("[NotesList] fetchNotes failed:", e);
+      setFetchError(String(e?.message ?? e));
+    });
+  }, [userId]);
 
   const tags = useMemo(() => allTags(notes), [notes]);
 
