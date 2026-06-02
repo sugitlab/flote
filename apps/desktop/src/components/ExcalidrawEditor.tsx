@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Excalidraw, exportToSvg, serializeAsJSON } from "@excalidraw/excalidraw";
+import { Excalidraw, exportToSvg, serializeAsJSON, MainMenu } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
@@ -109,9 +109,6 @@ export default function ExcalidrawEditor({ note, onSave, isDark }: Props) {
           padding: "6px 12px",
           borderBottom: "1px solid var(--border)",
           flexShrink: 0,
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
         }}
       >
         <input
@@ -119,7 +116,7 @@ export default function ExcalidrawEditor({ note, onSave, isDark }: Props) {
           onChange={handleTitleChange}
           placeholder="タイトルを入力..."
           style={{
-            flex: 1,
+            width: "100%",
             background: "none",
             border: "none",
             outline: "none",
@@ -127,26 +124,8 @@ export default function ExcalidrawEditor({ note, onSave, isDark }: Props) {
             fontWeight: 600,
             color: "var(--text-primary)",
             fontFamily: "inherit",
-            minWidth: 0,
           }}
         />
-        <button
-          onClick={handleExport}
-          title=".excalidraw 形式でエクスポート"
-          style={{
-            flexShrink: 0,
-            fontSize: 11,
-            padding: "2px 8px",
-            borderRadius: 4,
-            border: "1px solid var(--border)",
-            background: "var(--bg-input)",
-            color: "var(--text-secondary)",
-            cursor: "pointer",
-            whiteSpace: "nowrap",
-          }}
-        >
-          Export ↓
-        </button>
       </div>
       <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
         <Excalidraw
@@ -164,7 +143,23 @@ export default function ExcalidrawEditor({ note, onSave, isDark }: Props) {
               saveToActiveFile: false,
             },
           }}
-        />
+        >
+          <MainMenu>
+            <MainMenu.DefaultItems.SaveAsImage />
+            <MainMenu.DefaultItems.SearchMenu />
+            <MainMenu.Separator />
+            <MainMenu.Item
+              onSelect={handleExport}
+            >
+              Export as .excalidraw
+            </MainMenu.Item>
+            <MainMenu.Separator />
+            <MainMenu.DefaultItems.Help />
+            <MainMenu.DefaultItems.ClearCanvas />
+            <MainMenu.DefaultItems.Socials />
+            <MainMenu.DefaultItems.ChangeCanvasBackground />
+          </MainMenu>
+        </Excalidraw>
       </div>
     </div>
   );
