@@ -16,6 +16,8 @@ import type { Language } from "../locales";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { reinitSupabase, getSupabase, exportToMarkdown } from "@flote/api-client";
+import { exportToSvg } from "@excalidraw/excalidraw";
+import { parseExcalidrawBody } from "./ExcalidrawEditor";
 import { useNoteStore } from "../store/noteStore";
 import { useTaskStore } from "../store/taskStore";
 import { SCHEMA_SQL } from "../migrations";
@@ -555,8 +557,10 @@ function DataTab({ currentMode }: { currentMode: StorageMode }) {
   const setSuppressHideOnBlur = useUIStore((s) => s.setSuppressHideOnBlur);
   const { session } = useAuth();
   const [importing, setImporting] = useState(false);
+  const [importingExcalidraw, setImportingExcalidraw] = useState(false);
   const [exporting, setExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const excalidrawFileInputRef = useRef<HTMLInputElement>(null);
 
   const modeLabel = {
     local: t.settings.nav.storage + " → " + t.settings.storage.local,
@@ -573,7 +577,7 @@ function DataTab({ currentMode }: { currentMode: StorageMode }) {
         const text = await file.text();
         const { title, body_md } = parseMarkdownNote(text, file.name);
         await saveNote(
-          { id: crypto.randomUUID(), title, body_md, pinned: false, updated_at: new Date().toISOString() },
+          { id: crypto.randomUUID(), title, body_md, pinned: false, note_type: "markdown" as const, updated_at: new Date().toISOString() },
           userId
         );
         count++;
@@ -584,6 +588,47 @@ function DataTab({ currentMode }: { currentMode: StorageMode }) {
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const handleExcalidrawFiles = async (files: FileList) => {
+    setImportingExcalidraw(true);
+    let count = 0;
+    try {
+      const userId = session?.user.id ?? "";
+      for (const file of Array.from(files)) {
+        const text = await file.text();
+        let parsed: Record<string, unknown>;
+        try { parsed = JSON.parse(text); } catch { continue; }
+        const elements = (parsed.elements as unknown[]) ?? [];
+        const appState = (parsed.appState as Record<string, unknown>) ?? {};
+        const files_ = (parsed.files as Record<string, unknown>) ?? {};
+        const safeAppState = {
+          viewBackgroundColor: (appState.viewBackgroundColor as string) ?? "#ffffff",
+          zoom: appState.zoom,
+          scrollX: appState.scrollX,
+          scrollY: appState.scrollY,
+        };
+        let svg = "";
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const svgEl = await exportToSvg({ elements, appState: safeAppState, files: files_ } as any);
+          svg = new XMLSerializer().serializeToString(svgEl);
+        } catch { /* proceed without SVG */ }
+        const title = (parsed.name as string) || file.name.replace(/\.excalidraw$/i, "");
+        const body = JSON.stringify({ elements, appState: safeAppState, files: files_, svg });
+        await saveNote(
+          { id: crypto.randomUUID(), title, body_md: body, pinned: false, note_type: "excalidraw" as const, updated_at: new Date().toISOString() },
+          userId
+        );
+        count++;
+      }
+      addToast("success", t.settings.storage.importExcalidrawDone(count));
+    } catch {
+      addToast("error", t.settings.storage.importNoteError);
+    } finally {
+      setImportingExcalidraw(false);
+      if (excalidrawFileInputRef.current) excalidrawFileInputRef.current.value = "";
     }
   };
 
@@ -629,6 +674,28 @@ function DataTab({ currentMode }: { currentMode: StorageMode }) {
           {importing ? t.settings.storage.importingNote : t.settings.storage.importNote}
         </button>
         <div className={styles.fieldHint}>{t.settings.storage.importNoteHint}</div>
+        <div className={styles.fieldHint}>{t.settings.storage.importNoteDestination(modeLabel)}</div>
+      </div>
+
+      <h3 className={styles.sectionTitle}>{t.settings.storage.importExcalidraw}</h3>
+      <div className={styles.field}>
+        <input
+          ref={excalidrawFileInputRef}
+          type="file"
+          accept=".excalidraw"
+          multiple
+          style={{ display: "none" }}
+          onChange={(e) => { if (e.target.files?.length) handleExcalidrawFiles(e.target.files); }}
+        />
+        <button
+          className={styles.useModeBtn}
+          onClick={() => { setSuppressHideOnBlur(true); excalidrawFileInputRef.current?.click(); }}
+          disabled={importingExcalidraw}
+          style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
+        >
+          {importingExcalidraw ? t.settings.storage.importingNote : t.settings.storage.importExcalidraw}
+        </button>
+        <div className={styles.fieldHint}>{t.settings.storage.importExcalidrawHint}</div>
         <div className={styles.fieldHint}>{t.settings.storage.importNoteDestination(modeLabel)}</div>
       </div>
 
