@@ -39,14 +39,16 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
       const [fullRes, minimalRes] = await Promise.all([
         supabase
           .from("notes")
-          .select("id, title, body_md, updated_at")
+          .select("id, title, body_md, pinned, note_type, updated_at")
           .eq("user_id", userId)
+          .order("pinned", { ascending: false })
           .order("updated_at", { ascending: false })
           .limit(BODY_FETCH_LIMIT),
         supabase
           .from("notes")
-          .select("id, title, updated_at")
+          .select("id, title, pinned, note_type, updated_at")
           .eq("user_id", userId)
+          .order("pinned", { ascending: false })
           .order("updated_at", { ascending: false })
           .range(BODY_FETCH_LIMIT, 1_000_000),
       ]);
@@ -67,7 +69,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
     if (bodyLoadedIds.has(id)) return;
     const { data, error } = await supabase
       .from("notes")
-      .select("id, title, body_md, updated_at")
+      .select("id, title, body_md, pinned, note_type, updated_at")
       .eq("id", id)
       .single();
     if (error || !data) return;

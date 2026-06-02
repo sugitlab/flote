@@ -62,9 +62,10 @@ export default function NoteDetailScreen() {
   useEffect(() => {
     if (note) {
       noteRef.current = note;
-      if (!editing) setContent(note.body_md);
+      // Don't load Excalidraw JSON into text content — it would be rendered as Markdown
+      if (!editing && note.note_type !== "excalidraw") setContent(note.body_md);
     }
-  }, [note?.id, note?.body_md]);
+  }, [note?.id, note?.body_md, note?.note_type]);
 
   const debouncedSave = useCallback(
     (text: string) => {
