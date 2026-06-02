@@ -52,12 +52,16 @@ async function fetchTasksByIds(ids: string[]): Promise<Task[]> {
   return results;
 }
 
+let isSyncingTasks = false;
+
 export const useTaskStore = create<TaskStore>((set, get) => ({
   tasks: [],
   loading: false,
   bodyLoadedIds: new Set<string>(),
 
   fetchTasks: async (userId: string) => {
+    if (isSyncingTasks) return;
+    isSyncingTasks = true;
     set({ loading: true });
     try {
       const { data: manifestData, error: manifestError } = await supabase
@@ -134,6 +138,7 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       console.error("[taskStore] fetchTasks failed:", e);
       throw e;
     } finally {
+      isSyncingTasks = false;
       set({ loading: false });
     }
   },

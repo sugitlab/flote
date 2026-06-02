@@ -3,6 +3,11 @@ import type { NoteRepository, NoteManifest } from "../types";
 import { getSupabase } from "../../supabase";
 
 const CHUNK_SIZE = 50;
+const BODY_FETCH_LIMIT = 100;
+const FILES_BUCKET = "note-files";
+// Upload files to Storage when their JSON exceeds this size (bytes).
+// Below this threshold they stay embedded in body_md.
+const FILES_STORAGE_THRESHOLD = 50_000;
 
 function toNote(row: Record<string, unknown>): Note {
   return {
@@ -15,7 +20,45 @@ function toNote(row: Record<string, unknown>): Note {
   };
 }
 
-const BODY_FETCH_LIMIT = 100;
+function filesStoragePath(userId: string, noteId: string): string {
+  return `${userId}/${noteId}.json`;
+}
+
+function hasStorageRef(body_md: string): boolean {
+  try { return !!JSON.parse(body_md)?.files?.__ref; } catch { return false; }
+}
+
+async function uploadFiles(userId: string, noteId: string, files: Record<string, unknown>): Promise<string> {
+  const supabase = getSupabase();
+  const path = filesStoragePath(userId, noteId);
+  const blob = new Blob([JSON.stringify(files)], { type: "application/json" });
+  const { error } = await supabase.storage.from(FILES_BUCKET).upload(path, blob, {
+    upsert: true,
+    contentType: "application/json",
+  });
+  if (error) throw error;
+  return path;
+}
+
+async function downloadFiles(path: string): Promise<Record<string, unknown>> {
+  const supabase = getSupabase();
+  const { data, error } = await supabase.storage.from(FILES_BUCKET).download(path);
+  if (error) throw error;
+  return JSON.parse(await data.text());
+}
+
+async function resolveStorageRef(note: Note): Promise<Note> {
+  if (note.note_type !== "excalidraw") return note;
+  try {
+    const parsed = JSON.parse(note.body_md);
+    const ref = parsed?.files?.__ref as string | undefined;
+    if (!ref) return note;
+    const files = await downloadFiles(ref);
+    return { ...note, body_md: JSON.stringify({ ...parsed, files }) };
+  } catch {
+    return note;
+  }
+}
 
 export class SupabaseNoteRepository implements NoteRepository {
   async getNotes(userId: string): Promise<Note[]> {
@@ -37,8 +80,6 @@ export class SupabaseNoteRepository implements NoteRepository {
         .range(BODY_FETCH_LIMIT, 1_000_000),
     ]);
 
-    // If note_type column is missing (migration not yet applied), fall back to queries without it
-    // PostgREST: PGRST204 = column not found in schema cache; PG: 42703 = undefined_column
     const columnMissing =
       fullRes.error &&
       ((fullRes.error.code === "PGRST204") ||
@@ -106,6 +147,8 @@ export class SupabaseNoteRepository implements NoteRepository {
       results.push(...(data ?? []).map(toNote));
     }
     return results;
+    // Note: storage refs (__ref) are intentionally not resolved here.
+    // They are resolved lazily in getNoteById (called via ensureBodyMd when a note is opened).
   }
 
   async getNoteById(id: string): Promise<Note | null> {
@@ -116,24 +159,45 @@ export class SupabaseNoteRepository implements NoteRepository {
       .eq("id", id)
       .single();
     if (error) return null;
-    return toNote(data);
+    const note = toNote(data);
+    // Resolve storage ref if files were offloaded to Supabase Storage
+    return resolveStorageRef(note);
   }
 
   async saveNote(note: Note, userId: string): Promise<Note> {
     const supabase = getSupabase();
+    let body_md = note.body_md;
+
+    if (note.note_type === "excalidraw") {
+      try {
+        const parsed = JSON.parse(body_md);
+        const files = (parsed.files ?? {}) as Record<string, unknown>;
+        const filesJson = JSON.stringify(files);
+        const hasFiles = Object.keys(files).length > 0 && !files.__ref;
+        if (hasFiles && filesJson.length > FILES_STORAGE_THRESHOLD) {
+          const path = await uploadFiles(userId, note.id, files);
+          parsed.files = { __ref: path };
+          body_md = JSON.stringify(parsed);
+        }
+      } catch {
+        // Parsing failed — save body_md as-is
+      }
+    }
+
     const { error } = await supabase
       .from("notes")
       .upsert({
         id: note.id,
         title: note.title,
-        body_md: note.body_md,
+        body_md,
         pinned: note.pinned,
         note_type: note.note_type ?? "markdown",
         updated_at: note.updated_at,
         user_id: userId,
       });
     if (error) throw error;
-    return note;
+    // Return the note with the (possibly slimmed) body_md so the store stays consistent
+    return { ...note, body_md };
   }
 
   async deleteNote(id: string): Promise<void> {
@@ -149,3 +213,4 @@ export class SupabaseNoteRepository implements NoteRepository {
     if (error) throw error;
   }
 }
+

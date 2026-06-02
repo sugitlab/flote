@@ -49,6 +49,8 @@ async function fetchNotesByIds(ids: string[]): Promise<Note[]> {
   return results;
 }
 
+let isSyncingNotes = false;
+
 export const useNoteStore = create<NoteStore>((set, get) => ({
   notes: [],
   loading: false,
@@ -56,6 +58,8 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   bodyLoadedIds: new Set<string>(),
 
   fetchNotes: async (userId: string) => {
+    if (isSyncingNotes) return;
+    isSyncingNotes = true;
     set({ loading: true });
     try {
       // Fetch lightweight manifest — no body_md
@@ -131,6 +135,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
       console.error("[noteStore] fetchNotes failed:", e);
       throw e;
     } finally {
+      isSyncingNotes = false;
       set({ loading: false });
     }
   },
