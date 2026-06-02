@@ -557,7 +557,7 @@ function DataTab({ currentMode }: { currentMode: StorageMode }) {
   const setSuppressHideOnBlur = useUIStore((s) => s.setSuppressHideOnBlur);
   const { session } = useAuth();
   const [importing, setImporting] = useState(false);
-  const [importingExcalidraw, setImportingExcalidraw] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
   const [exporting, setExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const excalidrawFileInputRef = useRef<HTMLInputElement>(null);
@@ -592,11 +592,14 @@ function DataTab({ currentMode }: { currentMode: StorageMode }) {
   };
 
   const handleExcalidrawFiles = async (files: FileList) => {
-    setImportingExcalidraw(true);
+    const fileList = Array.from(files);
+    setImportProgress({ current: 0, total: fileList.length });
     let count = 0;
     try {
       const userId = session?.user.id ?? "";
-      for (const file of Array.from(files)) {
+      for (let i = 0; i < fileList.length; i++) {
+        setImportProgress({ current: i + 1, total: fileList.length });
+        const file = fileList[i];
         const text = await file.text();
         let parsed: Record<string, unknown>;
         try { parsed = JSON.parse(text); } catch { continue; }
@@ -627,7 +630,7 @@ function DataTab({ currentMode }: { currentMode: StorageMode }) {
     } catch {
       addToast("error", t.settings.storage.importNoteError);
     } finally {
-      setImportingExcalidraw(false);
+      setImportProgress(null);
       if (excalidrawFileInputRef.current) excalidrawFileInputRef.current.value = "";
     }
   };
@@ -654,7 +657,57 @@ function DataTab({ currentMode }: { currentMode: StorageMode }) {
   };
 
   return (
-    <>
+    <div style={{ position: "relative" }}>
+      {importProgress !== null && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 200,
+          background: "rgba(0,0,0,0.45)",
+          backdropFilter: "blur(4px)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 16,
+          pointerEvents: "all",
+        }}>
+          <div style={{
+            background: "var(--bg-window)",
+            border: "1px solid var(--border)",
+            borderRadius: 12,
+            padding: "28px 36px",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: 16,
+            minWidth: 260,
+          }}>
+            <div className={styles.importSpinner} />
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+              {t.settings.storage.importingNote}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              {importProgress.current} / {importProgress.total}
+            </div>
+            <div style={{
+              width: "100%",
+              height: 4,
+              borderRadius: 2,
+              background: "var(--border)",
+              overflow: "hidden",
+            }}>
+              <div style={{
+                height: "100%",
+                borderRadius: 2,
+                background: "var(--accent)",
+                width: `${(importProgress.current / importProgress.total) * 100}%`,
+                transition: "width 0.2s ease",
+              }} />
+            </div>
+          </div>
+        </div>
+      )}
       <h3 className={styles.sectionTitle}>{t.settings.storage.importNote}</h3>
       <div className={styles.field}>
         <input
@@ -690,10 +743,10 @@ function DataTab({ currentMode }: { currentMode: StorageMode }) {
         <button
           className={styles.useModeBtn}
           onClick={() => { setSuppressHideOnBlur(true); excalidrawFileInputRef.current?.click(); }}
-          disabled={importingExcalidraw}
+          disabled={importProgress !== null}
           style={{ background: "var(--bg-input)", color: "var(--text-primary)", border: "1px solid var(--border)" }}
         >
-          {importingExcalidraw ? t.settings.storage.importingNote : t.settings.storage.importExcalidraw}
+          {t.settings.storage.importExcalidraw}
         </button>
         <div className={styles.fieldHint}>{t.settings.storage.importExcalidrawHint}</div>
         <div className={styles.fieldHint}>{t.settings.storage.importNoteDestination(modeLabel)}</div>
@@ -711,7 +764,7 @@ function DataTab({ currentMode }: { currentMode: StorageMode }) {
         </button>
         <div className={styles.fieldHint}>{t.settings.storage.exportNoteHint}</div>
       </div>
-    </>
+    </div>
   );
 }
 
