@@ -62,7 +62,9 @@ export default function NotesList({ userId }: Props) {
     });
   }, [userId]);
 
-  const tags = useMemo(() => allTags(notes), [notes]);
+  // Exclude excalidraw notes from tag collection — their body_md is JSON and
+  // produces meaningless color-code matches (e.g. #ffffff, #3b82f6).
+  const tags = useMemo(() => allTags(notes.filter((n) => n.note_type !== "excalidraw")), [notes]);
 
   const filtered = useMemo(() => {
     let result = notes;
@@ -111,7 +113,10 @@ export default function NotesList({ userId }: Props) {
   const renderItem = useCallback(({ item }: { item: Note }) => {
     const title = extractTitle(item, t.notes.untitled);
     const isSelected = selectedIds.has(item.id);
-    const itemTags = extractTags((item.title ?? "") + " " + item.body_md);
+    const isExcalidraw = item.note_type === "excalidraw";
+    // Don't extract tags from excalidraw notes — body_md is JSON and produces
+    // false matches on color codes like #ffffff, #3b82f6, etc.
+    const itemTags = isExcalidraw ? [] : extractTags((item.title ?? "") + " " + item.body_md);
 
     if (selectMode) {
       return (
@@ -137,7 +142,8 @@ export default function NotesList({ userId }: Props) {
 
     const q = search.trim();
     const titleMatches = q ? extractTitle(item, t.notes.untitled).toLowerCase().includes(q.toLowerCase()) : false;
-    const snippet = searchFullText && q && !titleMatches ? bodySnippet(item.body_md, q) : "";
+    // Skip full-text search inside excalidraw body_md (it's JSON, not readable text)
+    const snippet = searchFullText && q && !titleMatches && !isExcalidraw ? bodySnippet(item.body_md, q) : "";
 
     return (
       <TouchableOpacity
@@ -153,7 +159,13 @@ export default function NotesList({ userId }: Props) {
           <Text style={[styles.itemDate, { color: colors.textSecondary }]}>{relativeDate(item.updated_at, t.date)}</Text>
         </View>
         {snippet ? <Text style={[styles.itemSnippet, { color: colors.textSecondary }]} numberOfLines={2}>{snippet}</Text> : null}
-        <TagChips tags={itemTags} accentColor={colors.accent} />
+        {isExcalidraw ? (
+          <View style={[styles.drawBadge, { backgroundColor: colors.accent + "22", borderColor: colors.accent + "55" }]}>
+            <Text style={[styles.drawBadgeText, { color: colors.accent }]}>draw</Text>
+          </View>
+        ) : (
+          <TagChips tags={itemTags} accentColor={colors.accent} />
+        )}
       </TouchableOpacity>
     );
   }, [colors, selectMode, selectedIds, search, searchFullText, toggleSelect, enterSelectMode, t]);
@@ -252,4 +264,6 @@ const styles = StyleSheet.create({
   itemSnippet: { fontSize: 13, marginTop: 4, lineHeight: 18 },
   empty: { alignItems: "center", marginTop: 80 },
   emptyText: { fontSize: 16 },
+  drawBadge: { alignSelf: "flex-start", marginTop: 6, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, borderWidth: 1 },
+  drawBadgeText: { fontSize: 11, fontWeight: "600" },
 });
