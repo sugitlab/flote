@@ -612,10 +612,9 @@ function DataTab({ currentMode }: { currentMode: StorageMode }) {
           scrollY: appState.scrollY,
         };
         const title = (parsed.name as string) || file.name.replace(/\.excalidraw$/i, "");
-        // SVG is intentionally omitted here — it will be generated and saved the first
-        // time the note is opened in the Excalidraw editor. Storing SVG at import time
-        // would double the persisted size (large embedded images in files{} are already
-        // significant) and quickly exhaust Supabase IO budget.
+        // SVG cannot be generated here (no mounted Excalidraw component).
+        // The editor's onChange will generate and save SVG on first open,
+        // but only for drawings without embedded images (see ExcalidrawEditor.tsx).
         const body = JSON.stringify({ elements, appState: safeAppState, files: files_, svg: "" });
         await saveNote(
           { id: crypto.randomUUID(), title, body_md: body, pinned: false, note_type: "excalidraw" as const, updated_at: new Date().toISOString() },

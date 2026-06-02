@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Excalidraw, serializeAsJSON, MainMenu } from "@excalidraw/excalidraw";
+import { Excalidraw, exportToSvg, serializeAsJSON, MainMenu } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeTextFile } from "@tauri-apps/plugin-fs";
@@ -93,10 +93,24 @@ export default function ExcalidrawEditor({ note, onSave, isDark }: Props) {
           scrollX: appState.scrollX,
           scrollY: appState.scrollY,
         };
-        // SVG is not stored to keep body_md size small (especially for drawings
-        // with embedded images). Mobile shows a "desktop only" message instead.
-        const body: ExcalidrawNoteBody = { elements, appState: safeAppState, files, svg: "" };
-        onSave({ body_md: JSON.stringify(body) });
+        const hasEmbeddedImages = Object.keys(files ?? {}).length > 0;
+        const doSave = async () => {
+          let svg = "";
+          if (!hasEmbeddedImages) {
+            // Drawings without embedded images: generate SVG for mobile preview.
+            // Drawings with images: SVG would duplicate all base64 data (doubling
+            // storage size), so skip SVG — mobile shows a "desktop only" message.
+            try {
+              const svgEl = await exportToSvg({ elements, appState, files: {} });
+              svg = svgEl.outerHTML;
+            } catch {
+              // ignore — mobile preview falls back to "desktop only"
+            }
+          }
+          const body: ExcalidrawNoteBody = { elements, appState: safeAppState, files, svg };
+          onSave({ body_md: JSON.stringify(body) });
+        };
+        doSave();
       }, 600);
     },
     [onSave]
