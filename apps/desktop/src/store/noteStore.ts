@@ -6,6 +6,7 @@ type NoteStore = {
   notes: Note[];
   activeNoteId: string | null;
   bodyLoadedIds: Set<string>;
+  deletedIds: Set<string>;
   repo: NoteRepository | null;
   initStore: (repo: NoteRepository) => void;
   fetchNotes: (userId?: string) => Promise<void>;
@@ -25,6 +26,7 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   notes: [],
   activeNoteId: null,
   bodyLoadedIds: new Set<string>(),
+  deletedIds: new Set<string>(),
   repo: null,
 
   initStore: (repo: NoteRepository) => {
@@ -53,8 +55,10 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   },
 
   saveNote: async (note: Note, userId?: string) => {
-    const { repo } = get();
+    const { repo, deletedIds } = get();
     if (!repo) return;
+    // If this note was deleted locally, discard any stale in-flight save
+    if (deletedIds.has(note.id)) return;
     const prev = get().notes;
     const exists = prev.some((n) => n.id === note.id);
     const optimistic = exists
@@ -77,44 +81,69 @@ export const useNoteStore = create<NoteStore>((set, get) => ({
   },
 
   deleteNote: async (id: string) => {
-    const { repo } = get();
+    const { repo, deletedIds } = get();
     if (!repo) return;
     const prev = get().notes;
+    // Register as deleted immediately so any concurrent saveNote calls are dropped
+    const nextDeletedIds = new Set([...deletedIds, id]);
     set({
       notes: prev.filter((n) => n.id !== id),
       activeNoteId: get().activeNoteId === id ? null : get().activeNoteId,
+      deletedIds: nextDeletedIds,
     });
 
     try {
       await repo.deleteNote(id);
     } catch (e) {
       console.error("[noteStore] deleteNote failed:", e);
-      set({ notes: prev });
+      // Rollback: restore note and remove from deletedIds
+      set({ notes: prev, deletedIds });
+      return;
     }
+    // Expire the guard after 10 s — long enough for any in-flight save to resolve
+    setTimeout(() => {
+      set((s) => {
+        const d = new Set(s.deletedIds);
+        d.delete(id);
+        return { deletedIds: d };
+      });
+    }, 10_000);
   },
 
   deleteNotesBatch: async (ids: string[]) => {
-    const { repo } = get();
+    const { repo, deletedIds } = get();
     if (!repo) return;
     const prev = get().notes;
     const idSet = new Set(ids);
+    const nextDeletedIds = new Set([...deletedIds, ...ids]);
     set({
       notes: prev.filter((n) => !idSet.has(n.id)),
       activeNoteId: idSet.has(get().activeNoteId ?? "") ? null : get().activeNoteId,
+      deletedIds: nextDeletedIds,
     });
 
     try {
       await repo.deleteNotesBatch(ids);
     } catch (e) {
       console.error("[noteStore] deleteNotesBatch failed:", e);
-      set({ notes: prev });
+      set({ notes: prev, deletedIds });
+      return;
     }
+    setTimeout(() => {
+      set((s) => {
+        const d = new Set(s.deletedIds);
+        ids.forEach((id) => d.delete(id));
+        return { deletedIds: d };
+      });
+    }, 10_000);
   },
 
   setActiveNote: (id: string | null) => set({ activeNoteId: id }),
 
   applyRemoteChange: (eventType, note) => {
-    const { notes } = get();
+    const { notes, deletedIds } = get();
+    // Ignore remote inserts/updates for notes we've already deleted locally
+    if (eventType !== "DELETE" && deletedIds.has(note.id)) return;
     switch (eventType) {
       case "INSERT":
         if (!notes.some((n) => n.id === note.id)) {
