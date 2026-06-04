@@ -73,7 +73,7 @@ export default function NotesList({ userId }: Props) {
       const q = search.toLowerCase();
       result = result.filter((n) => {
         if (extractTitle(n, t.notes.untitled).toLowerCase().includes(q)) return true;
-        if (searchFullText && n.body_md.toLowerCase().includes(q)) return true;
+        if (searchFullText && n.note_type !== "excalidraw" && n.body_md.toLowerCase().includes(q)) return true;
         return false;
       });
     }
