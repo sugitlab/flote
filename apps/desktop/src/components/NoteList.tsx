@@ -50,7 +50,7 @@ export default function NoteList({
   const tagBtnRef = useRef<HTMLDivElement>(null);
   const tagSearchRef = useRef<HTMLInputElement>(null);
 
-  const allTags = useMemo(() => allTagsFromNotes(notes), [notes]);
+  const allTags = useMemo(() => allTagsFromNotes(notes.filter((n) => n.note_type !== "excalidraw")), [notes]);
 
   const filteredTagOptions = useMemo(
     () =>
@@ -62,7 +62,7 @@ export default function NoteList({
 
   const filteredNotes = useMemo(() => {
     const arr = activeTag
-      ? notes.filter((n) => extractTags(n.body_md).includes(activeTag))
+      ? notes.filter((n) => n.note_type !== "excalidraw" && extractTags(n.body_md).includes(activeTag))
       : [...notes];
     if (sortOrder === "title") {
       arr.sort((a, b) => {

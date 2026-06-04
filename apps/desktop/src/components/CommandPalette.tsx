@@ -184,12 +184,13 @@ export default function CommandPalette({
       if (!q) return true;
       if (n.title.toLowerCase().includes(q)) return true;
       if (relativeDate(n.updated_at, t.date).includes(q)) return true;
-      if (searchFullText && n.body_md.toLowerCase().includes(q)) return true;
+      if (searchFullText && n.note_type !== "excalidraw" && n.body_md.toLowerCase().includes(q)) return true;
       return false;
     });
     for (const n of matchedNotes.slice(0, 8)) {
       const inBody =
         searchFullText &&
+        n.note_type !== "excalidraw" &&
         q &&
         !n.title.toLowerCase().includes(q) &&
         n.body_md.toLowerCase().includes(q);
