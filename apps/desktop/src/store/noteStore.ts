@@ -109,7 +109,18 @@ export const useNoteStore = create<NoteStore>()(
             if (!hasStorageRef(note.body_md)) newBodyLoadedIds.add(note.id);
           }
 
-          set({ notes: [...next.values()], bodyLoadedIds: newBodyLoadedIds });
+          // Use functional set so we can read the live state and re-add any
+          // notes that were optimistically inserted by saveNote *after* we took
+          // the `cached` snapshot at the top of this function.
+          set((s) => {
+            for (const id of pendingSaveNoteIds) {
+              if (!next.has(id)) {
+                const pending = s.notes.find((n) => n.id === id);
+                if (pending) next.set(id, pending);
+              }
+            }
+            return { notes: [...next.values()], bodyLoadedIds: newBodyLoadedIds };
+          });
         } finally {
           isSyncingNotes = false;
         }

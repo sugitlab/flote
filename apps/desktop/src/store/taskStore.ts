@@ -107,7 +107,15 @@ export const useTaskStore = create<TaskStore>()(
           for (const id of toDelete) newBodyLoadedIds.delete(id);
           for (const task of fetched) newBodyLoadedIds.add(task.id);
 
-          set({ tasks: [...next.values()], bodyLoadedIds: newBodyLoadedIds });
+          set((s) => {
+            for (const id of pendingSaveTaskIds) {
+              if (!next.has(id)) {
+                const pending = s.tasks.find((t) => t.id === id);
+                if (pending) next.set(id, pending);
+              }
+            }
+            return { tasks: [...next.values()], bodyLoadedIds: newBodyLoadedIds };
+          });
         } finally {
           isSyncingTasks = false;
         }
