@@ -119,8 +119,6 @@ function ensureVimExCommands(onExit: () => void) {
   Vim.defineEx("wq", "", () => onExit());
   Vim.defineEx("x", "", () => onExit());
   Vim.defineEx("write", "w", () => { /* auto-saved */ });
-  // ESC in normal mode → exit to preview
-  Vim.map("<Esc>", ":q<CR>", "normal");
 }
 
 export default function Editor({ docId, value, onChange, editing, onExitEdit, editorTheme, vimMode = false, mermaidHandDrawn = false, placeholderText = "# タイトルを入力...", emptyNoteText = "ノートが空です" }: EditorProps) {
@@ -151,6 +149,25 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     }])
   );
 
+  // In vim mode: intercept ESC only when already in normal mode so that
+  // INSERT→NORMAL is handled by vim itself, and a subsequent ESC exits to preview.
+  const vimEscExt = useRef(
+    keymap.of([{
+      key: "Escape",
+      run: (view) => {
+        const cm = getCM(view);
+        if (!cm) return false;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const vs = (cm as any).state?.vim;
+        if (vs && !vs.insertMode && !vs.visualMode && !vs.visualLine && !vs.visualBlock) {
+          onExitEditRef.current?.();
+          return true;
+        }
+        return false;
+      },
+    }])
+  );
+
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -161,7 +178,7 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
       doc: value,
       extensions: [
         vimCompartment.of(vimMode ? vim() : []),
-        escCompartment.of(vimMode ? [] : escExt.current),
+        escCompartment.of(vimMode ? vimEscExt.current : escExt.current),
         EditorState.allowMultipleSelections.of(true),
         keymap.of([...defaultKeymap, ...historyKeymap]),
         history(),
@@ -202,7 +219,7 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     view.dispatch({
       effects: [
         vimCompartment.reconfigure(vimMode ? vim() : []),
-        escCompartment.reconfigure(vimMode ? [] : escExt.current),
+        escCompartment.reconfigure(vimMode ? vimEscExt.current : escExt.current),
       ],
     });
     if (!vimMode) {
