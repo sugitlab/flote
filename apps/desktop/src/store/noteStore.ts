@@ -11,6 +11,8 @@ const INITIAL_BODY_LIMIT = 100;
 
 // Module-level flag: prevents concurrent fetchNotes calls from running in parallel
 let isSyncingNotes = false;
+// Tracks IDs currently being saved so fetchNotes doesn't delete them before save completes
+const pendingSaveNoteIds = new Set<string>();
 
 type NoteStore = {
   notes: Note[];
@@ -62,7 +64,7 @@ export const useNoteStore = create<NoteStore>()(
 
           const toDelete = new Set<string>();
           for (const id of localMap.keys()) {
-            if (!serverMap.has(id) && !deletedIds.has(id)) toDelete.add(id);
+            if (!serverMap.has(id) && !deletedIds.has(id) && !pendingSaveNoteIds.has(id)) toDelete.add(id);
           }
 
           const toFetch: string[] = [];
@@ -144,15 +146,24 @@ export const useNoteStore = create<NoteStore>()(
           : [note, ...prev];
         set({ notes: optimistic });
 
+        pendingSaveNoteIds.add(note.id);
         try {
           const saved = await repo.saveNote(note, userId ?? "");
-          // If saveNote slimmed body_md (files moved to Storage), update the store
-          if (saved.body_md !== note.body_md) {
-            set({ notes: get().notes.map((n) => (n.id === note.id ? saved : n)) });
-          }
+          // Always upsert after save — a concurrent fetchNotes may have removed the note
+          set((s) => {
+            if (s.deletedIds.has(saved.id)) return {};
+            const present = s.notes.some((n) => n.id === saved.id);
+            return {
+              notes: present
+                ? s.notes.map((n) => (n.id === saved.id ? saved : n))
+                : [saved, ...s.notes],
+            };
+          });
         } catch (e) {
           console.error("[noteStore] saveNote failed:", e);
           set({ notes: prev });
+        } finally {
+          pendingSaveNoteIds.delete(note.id);
         }
       },
 

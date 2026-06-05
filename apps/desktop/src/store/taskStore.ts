@@ -6,6 +6,7 @@ import type { TaskRepository, TaskManifest } from "@flote/api-client";
 const INITIAL_BODY_LIMIT = 100;
 
 let isSyncingTasks = false;
+const pendingSaveTaskIds = new Set<string>();
 
 type TaskStore = {
   tasks: Task[];
@@ -64,7 +65,7 @@ export const useTaskStore = create<TaskStore>()(
 
           const toDelete = new Set<string>();
           for (const id of localMap.keys()) {
-            if (!serverMap.has(id)) toDelete.add(id);
+            if (!serverMap.has(id) && !pendingSaveTaskIds.has(id)) toDelete.add(id);
           }
 
           const toFetch: string[] = [];
@@ -133,11 +134,23 @@ export const useTaskStore = create<TaskStore>()(
           ? prev.map((t) => (t.id === task.id ? task : t))
           : [task, ...prev];
         set({ tasks: optimistic });
+        pendingSaveTaskIds.add(task.id);
         try {
-          await repo.saveTask(task, userId ?? "");
+          const saved = await repo.saveTask(task, userId ?? "");
+          // Always upsert after save — a concurrent fetchTasks may have removed the task
+          set((s) => {
+            const present = s.tasks.some((t) => t.id === saved.id);
+            return {
+              tasks: present
+                ? s.tasks.map((t) => (t.id === saved.id ? saved : t))
+                : [saved, ...s.tasks],
+            };
+          });
         } catch (e) {
           console.error("[taskStore] saveTask failed:", e);
           set({ tasks: prev });
+        } finally {
+          pendingSaveTaskIds.delete(task.id);
         }
       },
 
