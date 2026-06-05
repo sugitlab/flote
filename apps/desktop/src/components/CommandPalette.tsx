@@ -276,7 +276,7 @@ export default function CommandPalette({
         e.preventDefault();
         setKeyboardNav(true);
         setFocusIndex((i) => Math.max(i - 1, 0));
-      } else if (e.key === "Enter" && items[focusIndex] && !composingRef.current) {
+      } else if (e.key === "Enter" && items[focusIndex] && !composingRef.current && !e.nativeEvent.isComposing) {
         e.preventDefault();
         execute(items[focusIndex]);
       } else if (e.key === "Escape") {
@@ -330,7 +330,7 @@ export default function CommandPalette({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onCompositionStart={() => { composingRef.current = true; }}
-            onCompositionEnd={() => { setTimeout(() => { composingRef.current = false; }, 0); }}
+            onCompositionEnd={() => { setTimeout(() => { composingRef.current = false; }, 50); }}
             placeholder={t.palette.placeholder}
           />
         </div>
