@@ -253,6 +253,28 @@ export default function Editor({ docId, value, onChange, editing, onExitEdit, ed
     });
   }, [editorTheme]);
 
+  // Global ESC handler for vim normal mode when the editor doesn't have focus.
+  // CodeMirror's keymap only fires when the editor is focused, so if the user
+  // clicks outside the editor while still in editing mode, ESC is swallowed.
+  useEffect(() => {
+    if (!editing || !vimMode) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      const view = viewRef.current;
+      if (!view || view.hasFocus) return; // focused case is handled by vimEscExt
+      const cm = getCM(view);
+      if (!cm) return;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const vs = (cm as any).state?.vim;
+      if (vs && !vs.insertMode && !vs.visualMode && !vs.visualLine && !vs.visualBlock) {
+        e.preventDefault();
+        onExitEditRef.current?.();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [editing, vimMode]);
+
   // Inject highlight.js CSS for preview code blocks
   useEffect(() => {
     const id = "hljs-theme";
