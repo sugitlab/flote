@@ -123,7 +123,21 @@ export class SupabaseNoteRepository implements NoteRepository {
       .from("notes")
       .select("id, title, pinned, note_type, updated_at")
       .eq("user_id", userId);
-    if (error) throw error;
+    if (error) {
+      // Fallback: pinned / note_type columns may not exist yet (migration not applied)
+      const { data: data2, error: e2 } = await supabase
+        .from("notes")
+        .select("id, title, updated_at")
+        .eq("user_id", userId);
+      if (e2) throw e2;
+      return (data2 ?? []).map((r) => ({
+        id: String(r.id ?? ""),
+        title: String(r.title ?? ""),
+        pinned: false,
+        note_type: "markdown" as Note["note_type"],
+        updated_at: String(r.updated_at ?? ""),
+      }));
+    }
     return (data ?? []).map((r) => ({
       id: String(r.id ?? ""),
       title: String(r.title ?? ""),
@@ -143,7 +157,16 @@ export class SupabaseNoteRepository implements NoteRepository {
         .from("notes")
         .select("id, title, body_md, pinned, note_type, updated_at")
         .in("id", chunk);
-      if (error) throw error;
+      if (error) {
+        // Fallback: pinned / note_type columns may not exist yet
+        const { data: data2, error: e2 } = await supabase
+          .from("notes")
+          .select("id, title, body_md, updated_at")
+          .in("id", chunk);
+        if (e2) throw e2;
+        results.push(...(data2 ?? []).map((r) => toNote({ ...r, pinned: false, note_type: "markdown" })));
+        continue;
+      }
       results.push(...(data ?? []).map(toNote));
     }
     return results;
@@ -195,7 +218,19 @@ export class SupabaseNoteRepository implements NoteRepository {
         updated_at: note.updated_at,
         user_id: userId,
       });
-    if (error) throw error;
+    if (error) {
+      // Fallback: pinned / note_type columns may not exist yet (migration not applied)
+      const { error: e2 } = await supabase
+        .from("notes")
+        .upsert({
+          id: note.id,
+          title: note.title,
+          body_md,
+          updated_at: note.updated_at,
+          user_id: userId,
+        });
+      if (e2) throw e2;
+    }
     // Return the note with the (possibly slimmed) body_md so the store stays consistent
     return { ...note, body_md };
   }

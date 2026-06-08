@@ -53,7 +53,22 @@ export class SupabaseTaskRepository implements TaskRepository {
       .from("tasks")
       .select("id, title, due_date, status, done, pinned, updated_at")
       .eq("user_id", userId);
-    if (error) throw error;
+    if (error) {
+      // Fallback: status / pinned columns may not exist yet (migration not applied)
+      const { data: data2, error: e2 } = await supabase
+        .from("tasks")
+        .select("id, title, due_date, done, updated_at")
+        .eq("user_id", userId);
+      if (e2) throw e2;
+      return (data2 ?? []).map((r) => ({
+        id: String(r.id ?? ""),
+        title: String(r.title ?? ""),
+        due_date: r.due_date != null ? String(r.due_date) : null,
+        status: (r.done ? "Done" : "Todo") as string,
+        pinned: false,
+        updated_at: String(r.updated_at ?? ""),
+      }));
+    }
     return (data ?? []).map((r) => ({
       id: String(r.id ?? ""),
       title: String(r.title ?? ""),
@@ -74,7 +89,16 @@ export class SupabaseTaskRepository implements TaskRepository {
         .from("tasks")
         .select("*")
         .in("id", chunk);
-      if (error) throw error;
+      if (error) {
+        // Fallback: some columns (pinned, status) may not exist yet
+        const { data: data2, error: e2 } = await supabase
+          .from("tasks")
+          .select("id, title, body_md, due_date, done, updated_at")
+          .in("id", chunk);
+        if (e2) throw e2;
+        results.push(...(data2 ?? []).map((r) => toTask({ ...r, pinned: false, status: undefined })));
+        continue;
+      }
       results.push(...(data ?? []).map(toTask));
     }
     return results;
@@ -93,8 +117,8 @@ export class SupabaseTaskRepository implements TaskRepository {
 
   async saveTask(task: Task, userId: string): Promise<Task> {
     const supabase = getSupabase();
-    // Try with status column first; fall back to done-only if status column doesn't exist yet
-    const payload = {
+    // Try with all columns first
+    const { error } = await supabase.from("tasks").upsert({
       id: task.id,
       title: task.title,
       body_md: task.body_md,
@@ -104,23 +128,32 @@ export class SupabaseTaskRepository implements TaskRepository {
       pinned: task.pinned,
       updated_at: task.updated_at,
       user_id: userId,
-    };
-    const { error } = await supabase.from("tasks").upsert(payload);
+    });
     if (error) {
-      // Fallback: status column may not exist yet in Supabase — retry without it
-      const { error: e2 } = await supabase
-        .from("tasks")
-        .upsert({
+      // Fallback 1: status column may not exist yet — retry without it (but keep pinned)
+      const { error: e2 } = await supabase.from("tasks").upsert({
+        id: task.id,
+        title: task.title,
+        body_md: task.body_md,
+        due_date: task.due_date,
+        done: task.status === "Done",
+        pinned: task.pinned,
+        updated_at: task.updated_at,
+        user_id: userId,
+      });
+      if (e2) {
+        // Fallback 2: pinned column also missing — retry with minimal payload
+        const { error: e3 } = await supabase.from("tasks").upsert({
           id: task.id,
           title: task.title,
           body_md: task.body_md,
           due_date: task.due_date,
           done: task.status === "Done",
-          pinned: task.pinned,
           updated_at: task.updated_at,
           user_id: userId,
         });
-      if (e2) throw e2;
+        if (e3) throw e3;
+      }
     }
     return task;
   }
