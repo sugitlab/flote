@@ -238,21 +238,20 @@ export const useTaskStore = create<TaskStore>()(
       },
     }),
     {
-      name: "flote-tasks-v1",
+      name: "flote-tasks-v2",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        tasks: state.tasks,
-        bodyLoadedIds: [...state.bodyLoadedIds],
+        tasks: state.tasks.map((t) => ({ ...t, body_md: "" })),
       }),
       merge: (persisted, current) => {
-        const p = persisted as { tasks?: Task[]; bodyLoadedIds?: string[] };
+        const p = persisted as { tasks?: Task[] };
         return {
           ...current,
           tasks: p.tasks ?? [],
-          bodyLoadedIds: new Set(p.bodyLoadedIds ?? []),
+          bodyLoadedIds: new Set<string>(),
         };
       },
-      version: 1,
+      version: 2,
     }
   )
 );

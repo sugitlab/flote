@@ -261,23 +261,24 @@ export const useNoteStore = create<NoteStore>()(
       },
     }),
     {
-      name: "flote-notes-v1",
+      name: "flote-notes-v2",
       storage: createJSONStorage(() => localStorage),
-      // Persist notes and bodyLoadedIds (Set → Array for JSON serialization).
-      // Exclude: repo (not serializable), deletedIds (transient), activeNoteId (UI state).
+      // Persist note metadata only — body_md is intentionally excluded.
+      // body_md can be megabytes (especially Excalidraw SVG/base64 data) and would
+      // quickly exhaust the ~10 MB WebKit localStorage quota.
+      // Bodies are re-fetched from the server on startup via fetchNotes/ensureBodyMd.
       partialize: (state) => ({
-        notes: state.notes,
-        bodyLoadedIds: [...state.bodyLoadedIds],
+        notes: state.notes.map((n) => ({ ...n, body_md: "" })),
       }),
       merge: (persisted, current) => {
-        const p = persisted as { notes?: Note[]; bodyLoadedIds?: string[] };
+        const p = persisted as { notes?: Note[] };
         return {
           ...current,
           notes: p.notes ?? [],
-          bodyLoadedIds: new Set(p.bodyLoadedIds ?? []),
+          bodyLoadedIds: new Set<string>(),
         };
       },
-      version: 1,
+      version: 2,
     }
   )
 );
