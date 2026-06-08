@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Task, TaskStatus } from "@flote/types";
 import type { TaskRepository, TaskManifest } from "@flote/api-client";
+import { useUIStore } from "./uiStore";
 
 const INITIAL_BODY_LIMIT = 100;
 
@@ -116,6 +117,10 @@ export const useTaskStore = create<TaskStore>()(
             }
             return { tasks: [...next.values()], bodyLoadedIds: newBodyLoadedIds };
           });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error("[taskStore] fetchTasks failed:", e);
+          useUIStore.getState().addToast("error", `タスク同期エラー: ${msg}`);
         } finally {
           isSyncingTasks = false;
         }
@@ -155,7 +160,9 @@ export const useTaskStore = create<TaskStore>()(
             };
           });
         } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
           console.error("[taskStore] saveTask failed:", e);
+          useUIStore.getState().addToast("error", `タスク保存エラー: ${msg}`);
           set({ tasks: prev });
         } finally {
           pendingSaveTaskIds.delete(task.id);

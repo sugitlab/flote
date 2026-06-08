@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { Note } from "@flote/types";
 import type { NoteRepository, NoteManifest } from "@flote/api-client";
+import { useUIStore } from "./uiStore";
 
 function hasStorageRef(body_md: string): boolean {
   try { return !!JSON.parse(body_md)?.files?.__ref; } catch { return false; }
@@ -121,6 +122,10 @@ export const useNoteStore = create<NoteStore>()(
             }
             return { notes: [...next.values()], bodyLoadedIds: newBodyLoadedIds };
           });
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error("[noteStore] fetchNotes failed:", e);
+          useUIStore.getState().addToast("error", `ノート同期エラー: ${msg}`);
         } finally {
           isSyncingNotes = false;
         }
@@ -171,7 +176,9 @@ export const useNoteStore = create<NoteStore>()(
             };
           });
         } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
           console.error("[noteStore] saveNote failed:", e);
+          useUIStore.getState().addToast("error", `ノート保存エラー: ${msg}`);
           set({ notes: prev });
         } finally {
           pendingSaveNoteIds.delete(note.id);

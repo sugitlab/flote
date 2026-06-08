@@ -1,6 +1,6 @@
 [package]
 name = "flote"
-version = "0.3.24"
+version = "0.3.25"
 description = "Flote – Floating Note and Task Manager"
 authors = []
 edition = "2021"
