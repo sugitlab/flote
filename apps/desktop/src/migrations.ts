@@ -94,7 +94,10 @@ export async function checkSchema(supabase: SupabaseClient): Promise<SchemaStatu
     }
   }
   // Also check that required columns added by migrations exist
-  const { error: colError } = await supabase.from("notes").select("note_type").limit(0);
+  const { error: colError } = await supabase
+    .from("notes")
+    .select("note_type, pinned")
+    .limit(0);
   if (colError) {
     return "not_initialized";
   }
