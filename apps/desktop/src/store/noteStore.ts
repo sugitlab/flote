@@ -142,12 +142,12 @@ export const useNoteStore = create<NoteStore>()(
         if (!full) return;
         // After resolving storage ref, mark as loaded only if files are now inline
         const isFullyResolved = !hasStorageRef(full.body_md);
-        set({
-          notes: notes.map((n) => (n.id === id ? full : n)),
+        set((s) => ({
+          notes: s.notes.map((n) => (n.id === id ? full : n)),
           bodyLoadedIds: isFullyResolved
-            ? new Set([...bodyLoadedIds, id])
-            : bodyLoadedIds,
-        });
+            ? new Set([...s.bodyLoadedIds, id])
+            : s.bodyLoadedIds,
+        }));
         void userId;
       },
 

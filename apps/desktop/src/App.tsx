@@ -853,6 +853,7 @@ function MainApp({
               {selectedNote.note_type === "excalidraw" ? (
                 <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
                   <ExcalidrawEditor
+                    key={`${selectedNote.id}_${!!selectedNote.body_md}`}
                     note={selectedNote}
                     onSave={handleExcalidrawSave}
                     isDark={uiTheme === "dark" || (uiTheme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches)}
