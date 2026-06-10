@@ -5,7 +5,9 @@ import type { TaskRepository, TaskManifest } from "@flote/api-client";
 import { useUIStore } from "./uiStore";
 import { taskBodyCache } from "../lib/bodyCache";
 
-const INITIAL_BODY_LIMIT = 100;
+// Max bodies fetched from the server per sync. Bodies beyond this limit stay
+// metadata-only and are picked up by the next sync or by ensureBodyMd on open.
+const SERVER_BODY_FETCH_LIMIT = 100;
 
 let isSyncingTasks = false;
 const pendingSaveTaskIds = new Set<string>();
@@ -13,6 +15,8 @@ const pendingSaveTaskIds = new Set<string>();
 type TaskStore = {
   tasks: Task[];
   activeTaskId: string | null;
+  // IDs whose body_md in memory is the full, current content.
+  // Only these tasks may be treated as "genuinely empty" by the auto-cleanup logic.
   bodyLoadedIds: Set<string>;
   repo: TaskRepository | null;
   initStore: (repo: TaskRepository) => void;
@@ -58,103 +62,90 @@ export const useTaskStore = create<TaskStore>()(
         if (isSyncingTasks) return;
         isSyncingTasks = true;
         try {
-          const { repo, tasks: cached, bodyLoadedIds } = get();
+          const { repo, tasks: snapshot, bodyLoadedIds } = get();
           if (!repo) return;
 
           const manifest = await repo.getManifest(userId ?? "");
           const serverMap = new Map(manifest.map((m) => [m.id, m]));
-          const localMap = new Map(cached.map((t) => [t.id, t]));
+          const localMap = new Map(snapshot.map((t) => [t.id, t]));
 
           const toDelete = new Set<string>();
           for (const id of localMap.keys()) {
             if (!serverMap.has(id) && !pendingSaveTaskIds.has(id)) toDelete.add(id);
           }
 
-          const toFetch: string[] = [];
+          // Classify every server task (same strategy as noteStore.fetchNotes):
+          // changed revisions and missing bodies are resolved from IndexedDB
+          // first; only cache misses hit the server.
+          const changed: string[] = [];
+          const bodyMissing: string[] = [];
           for (const [id, serverEntry] of serverMap) {
             const local = localMap.get(id);
             if (!local || local.updated_at < serverEntry.updated_at) {
-              toFetch.push(id);
+              changed.push(id);
+            } else if (!local.body_md && !bodyLoadedIds.has(id)) {
+              bodyMissing.push(id);
             }
           }
+          const byUpdatedAtDesc = (a: string, b: string) =>
+            (serverMap.get(b)?.updated_at ?? "").localeCompare(serverMap.get(a)?.updated_at ?? "");
+          changed.sort(byUpdatedAtDesc);
+          bodyMissing.sort(byUpdatedAtDesc);
 
-          const toFetchSorted = toFetch.slice().sort((a, b) => {
-            const aAt = serverMap.get(a)?.updated_at ?? "";
-            const bAt = serverMap.get(b)?.updated_at ?? "";
-            return bAt.localeCompare(aAt);
-          });
-          const toFetchFull = toFetchSorted.slice(0, INITIAL_BODY_LIMIT);
-          const toFetchMetaOnly = toFetchSorted.slice(INITIAL_BODY_LIMIT);
-
-          // Tasks unchanged on server but with empty body_md (stripped by partialize)
-          const unchangedEmptyIds = [...serverMap.keys()].filter(
-            id => !new Set(toFetch).has(id) && !toDelete.has(id) && !localMap.get(id)?.body_md
-          );
-
-          const cacheResult = await taskBodyCache.get([...toFetchFull, ...unchangedEmptyIds]);
-
-          // Split toFetchFull: cache hits vs server fetch
-          const needServerFetch: string[] = [];
-          const fromCacheBody = new Map<string, string>();
-          for (const id of toFetchFull) {
+          const candidates = [...changed, ...bodyMissing];
+          const cacheEntries = await taskBodyCache.get(candidates);
+          const hydrated = new Map<string, string>();
+          const needServer: string[] = [];
+          for (const id of candidates) {
+            const entry = cacheEntries.get(id);
             const serverEntry = serverMap.get(id)!;
-            const cached = cacheResult.get(id);
-            if (cached && cached.updated_at === serverEntry.updated_at) {
-              fromCacheBody.set(id, cached.body_md);
+            if (entry && entry.updated_at === serverEntry.updated_at) {
+              hydrated.set(id, entry.body_md);
             } else {
-              needServerFetch.push(id);
+              needServer.push(id);
             }
           }
 
-          const fetched = await repo.getTasksByIds(needServerFetch);
+          const toFetchFull = needServer.slice(0, SERVER_BODY_FETCH_LIMIT);
+          const fetched = await repo.getTasksByIds(toFetchFull);
+          const fetchedMap = new Map(fetched.map((t) => [t.id, t]));
           void taskBodyCache.put(
-            fetched.map(t => ({ id: t.id, body_md: t.body_md, updated_at: t.updated_at }))
+            fetched.map((t) => ({ id: t.id, body_md: t.body_md, updated_at: t.updated_at }))
           );
 
           const next = new Map<string, Task>();
-          for (const [id, task] of localMap) {
-            if (!toDelete.has(id)) next.set(id, task);
-          }
-          for (const task of fetched) {
-            next.set(task.id, task);
-          }
-          for (const [id, body_md] of fromCacheBody) {
-            next.set(id, { ...manifestToTask(serverMap.get(id)!), body_md });
-          }
-          for (const id of toFetchMetaOnly) {
-            const serverEntry = serverMap.get(id)!;
-            const local = localMap.get(id);
-            if (local && bodyLoadedIds.has(id)) {
-              next.set(id, { ...manifestToTask(serverEntry), body_md: local.body_md });
-            } else {
-              next.set(id, manifestToTask(serverEntry));
-            }
-          }
-          for (const id of unchangedEmptyIds) {
-            const serverEntry = serverMap.get(id);
-            const cached = cacheResult.get(id);
-            if (!serverEntry || !cached) continue;
-            if (cached.updated_at !== serverEntry.updated_at) continue;
-            const task = next.get(id);
-            if (task && !task.body_md) next.set(id, { ...task, body_md: cached.body_md });
-          }
-
           const newBodyLoadedIds = new Set(bodyLoadedIds);
           for (const id of toDelete) newBodyLoadedIds.delete(id);
-          for (const task of fetched) newBodyLoadedIds.add(task.id);
-          for (const id of fromCacheBody.keys()) newBodyLoadedIds.add(id);
-          for (const id of unchangedEmptyIds) {
-            if (cacheResult.has(id)) newBodyLoadedIds.add(id);
+
+          for (const [id, serverEntry] of serverMap) {
+            const local = localMap.get(id);
+            const fetchedTask = fetchedMap.get(id);
+            const cacheBody = hydrated.get(id);
+            if (fetchedTask) {
+              next.set(id, fetchedTask);
+              newBodyLoadedIds.add(id);
+            } else if (cacheBody !== undefined) {
+              next.set(id, { ...manifestToTask(serverEntry), body_md: cacheBody });
+              newBodyLoadedIds.add(id);
+            } else if (local && local.updated_at >= serverEntry.updated_at) {
+              next.set(id, local);
+            } else {
+              next.set(id, manifestToTask(serverEntry));
+              newBodyLoadedIds.delete(id);
+            }
+          }
+          // Keep local-only tasks that are still being created on the server
+          for (const [id, task] of localMap) {
+            if (!serverMap.has(id) && !toDelete.has(id)) next.set(id, task);
           }
 
           void taskBodyCache.delete([...toDelete]);
 
+          // In-flight saves always win over fetched data.
           set((s) => {
             for (const id of pendingSaveTaskIds) {
-              if (!next.has(id)) {
-                const pending = s.tasks.find((t) => t.id === id);
-                if (pending) next.set(id, pending);
-              }
+              const pending = s.tasks.find((t) => t.id === id);
+              if (pending) next.set(id, pending);
             }
             return { tasks: [...next.values()], bodyLoadedIds: newBodyLoadedIds };
           });
@@ -170,6 +161,20 @@ export const useTaskStore = create<TaskStore>()(
       ensureBodyMd: async (id: string, userId?: string) => {
         const { repo, bodyLoadedIds, tasks } = get();
         if (!repo || bodyLoadedIds.has(id)) return;
+
+        // Cache first — avoids a server round-trip when the revision matches
+        const task = tasks.find((t) => t.id === id);
+        if (task) {
+          const entry = (await taskBodyCache.get([id])).get(id);
+          if (entry && entry.updated_at === task.updated_at) {
+            set((s) => ({
+              tasks: s.tasks.map((t) => (t.id === id ? { ...t, body_md: entry.body_md } : t)),
+              bodyLoadedIds: new Set([...s.bodyLoadedIds, id]),
+            }));
+            return;
+          }
+        }
+
         const full = await repo.getTaskById(id);
         if (!full) return;
         void taskBodyCache.put([{ id: full.id, body_md: full.body_md, updated_at: full.updated_at }]);
@@ -200,6 +205,8 @@ export const useTaskStore = create<TaskStore>()(
               tasks: present
                 ? s.tasks.map((t) => (t.id === saved.id ? saved : t))
                 : [saved, ...s.tasks],
+              // A body we just saved is by definition fully known
+              bodyLoadedIds: new Set([...s.bodyLoadedIds, saved.id]),
             };
           });
         } catch (e) {
@@ -263,21 +270,49 @@ export const useTaskStore = create<TaskStore>()(
 
       applyRemoteChange: (eventType, task) => {
         const { tasks } = get();
+        // Realtime payloads can omit large columns — an empty body_md may mean
+        // "truncated", not "cleared". Never overwrite a local body with an
+        // empty remote one; mark stale so ensureBodyMd re-fetches the truth.
+        const bodyUsable = task.body_md !== "";
         switch (eventType) {
           case "INSERT":
-            if (!tasks.some((t) => t.id === task.id)) set({ tasks: [task, ...tasks] });
+            if (!tasks.some((t) => t.id === task.id)) {
+              set((s) => ({
+                tasks: [task, ...s.tasks],
+                bodyLoadedIds: bodyUsable ? new Set([...s.bodyLoadedIds, task.id]) : s.bodyLoadedIds,
+              }));
+              if (bodyUsable) void taskBodyCache.put([{ id: task.id, body_md: task.body_md, updated_at: task.updated_at }]);
+            }
             break;
           case "UPDATE": {
             const local = tasks.find((t) => t.id === task.id);
             if (local && local.updated_at >= task.updated_at) break;
-            set({ tasks: tasks.map((t) => (t.id === task.id ? task : t)) });
+            const merged = !bodyUsable && local && local.body_md
+              ? { ...task, body_md: local.body_md }
+              : task;
+            set((s) => {
+              const loaded = new Set(s.bodyLoadedIds);
+              if (bodyUsable) loaded.add(task.id);
+              else loaded.delete(task.id);
+              return {
+                tasks: s.tasks.map((t) => (t.id === task.id ? merged : t)),
+                bodyLoadedIds: loaded,
+              };
+            });
+            if (bodyUsable) void taskBodyCache.put([{ id: task.id, body_md: task.body_md, updated_at: task.updated_at }]);
             break;
           }
           case "DELETE":
-            set({
-              tasks: tasks.filter((t) => t.id !== task.id),
-              activeTaskId: get().activeTaskId === task.id ? null : get().activeTaskId,
+            set((s) => {
+              const loaded = new Set(s.bodyLoadedIds);
+              loaded.delete(task.id);
+              return {
+                tasks: s.tasks.filter((t) => t.id !== task.id),
+                activeTaskId: s.activeTaskId === task.id ? null : s.activeTaskId,
+                bodyLoadedIds: loaded,
+              };
             });
+            void taskBodyCache.delete([task.id]);
             break;
         }
       },

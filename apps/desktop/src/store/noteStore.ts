@@ -9,7 +9,9 @@ function hasStorageRef(body_md: string): boolean {
   try { return !!JSON.parse(body_md)?.files?.__ref; } catch { return false; }
 }
 
-const INITIAL_BODY_LIMIT = 100;
+// Max bodies fetched from the server per sync. Bodies beyond this limit stay
+// metadata-only and are picked up by the next sync or by ensureBodyMd on open.
+const SERVER_BODY_FETCH_LIMIT = 100;
 
 // Module-level flag: prevents concurrent fetchNotes calls from running in parallel
 let isSyncingNotes = false;
@@ -19,6 +21,8 @@ const pendingSaveNoteIds = new Set<string>();
 type NoteStore = {
   notes: Note[];
   activeNoteId: string | null;
+  // IDs whose body_md in memory is the full, current content (inline, no storage ref).
+  // Only these notes may be treated as "genuinely empty" by the auto-cleanup logic.
   bodyLoadedIds: Set<string>;
   deletedIds: Set<string>;
   repo: NoteRepository | null;
@@ -57,121 +61,101 @@ export const useNoteStore = create<NoteStore>()(
         if (isSyncingNotes) return;
         isSyncingNotes = true;
         try {
-          const { repo, notes: cached, bodyLoadedIds, deletedIds } = get();
+          const { repo, notes: snapshot, bodyLoadedIds, deletedIds } = get();
           if (!repo) return;
 
           const manifest = await repo.getManifest(userId ?? "");
           const serverMap = new Map(manifest.map((m) => [m.id, m]));
-          const localMap = new Map(cached.map((n) => [n.id, n]));
+          const localMap = new Map(snapshot.map((n) => [n.id, n]));
 
           const toDelete = new Set<string>();
           for (const id of localMap.keys()) {
             if (!serverMap.has(id) && !deletedIds.has(id) && !pendingSaveNoteIds.has(id)) toDelete.add(id);
           }
 
-          const toFetch: string[] = [];
+          // Classify every server note:
+          //  - changed: server has a newer revision than local → body must be re-resolved
+          //  - bodyMissing: revision unchanged but body is not in memory (stripped by
+          //    partialize on restart, or beyond a previous fetch limit)
+          //  - otherwise: local copy is current → keep as-is
+          const changed: string[] = [];
+          const bodyMissing: string[] = [];
           for (const [id, serverEntry] of serverMap) {
             const local = localMap.get(id);
             if (!local || local.updated_at < serverEntry.updated_at) {
-              toFetch.push(id);
+              changed.push(id);
+            } else if (!local.body_md && !bodyLoadedIds.has(id)) {
+              bodyMissing.push(id);
             }
           }
+          const byUpdatedAtDesc = (a: string, b: string) =>
+            (serverMap.get(b)?.updated_at ?? "").localeCompare(serverMap.get(a)?.updated_at ?? "");
+          changed.sort(byUpdatedAtDesc);
+          bodyMissing.sort(byUpdatedAtDesc);
 
-          const toFetchSorted = toFetch.slice().sort((a, b) => {
-            const aAt = serverMap.get(a)?.updated_at ?? "";
-            const bAt = serverMap.get(b)?.updated_at ?? "";
-            return bAt.localeCompare(aAt);
-          });
-          const toFetchFull = toFetchSorted.slice(0, INITIAL_BODY_LIMIT);
-          const toFetchMetaOnly = toFetchSorted.slice(INITIAL_BODY_LIMIT);
-
-          // IDs whose body_md is empty in localStorage but haven't changed on server —
-          // we may be able to serve them from IndexedDB without a network round-trip.
-          const unchangedEmptyIds = [...serverMap.keys()].filter(
-            id => !new Set(toFetch).has(id) && !toDelete.has(id) && !localMap.get(id)?.body_md
-          );
-
-          // Check IndexedDB cache for toFetchFull and unchanged-but-empty notes
-          const cacheResult = await noteBodyCache.get([...toFetchFull, ...unchangedEmptyIds]);
-
-          // Split toFetchFull into cache hits (updated_at matches) and server-fetch needed
-          const needServerFetch: string[] = [];
-          const fromCacheBody = new Map<string, string>(); // id -> body_md
-          for (const id of toFetchFull) {
+          // Resolve bodies from IndexedDB first; only cache misses hit the server.
+          // A cache entry is valid only when its updated_at matches the manifest exactly.
+          const candidates = [...changed, ...bodyMissing];
+          const cacheEntries = await noteBodyCache.get(candidates);
+          const hydrated = new Map<string, string>();
+          const needServer: string[] = [];
+          for (const id of candidates) {
+            const entry = cacheEntries.get(id);
             const serverEntry = serverMap.get(id)!;
-            const cached = cacheResult.get(id);
-            if (cached && cached.updated_at === serverEntry.updated_at && !hasStorageRef(cached.body_md)) {
-              fromCacheBody.set(id, cached.body_md);
+            if (entry && entry.updated_at === serverEntry.updated_at && !hasStorageRef(entry.body_md)) {
+              hydrated.set(id, entry.body_md);
             } else {
-              needServerFetch.push(id);
+              needServer.push(id);
             }
           }
 
-          const fetched = await repo.getNotesByIds(needServerFetch);
-          // Write freshly fetched bodies to IndexedDB for future startups
+          const toFetchFull = needServer.slice(0, SERVER_BODY_FETCH_LIMIT);
+          const fetched = await repo.getNotesByIds(toFetchFull);
+          const fetchedMap = new Map(fetched.map((n) => [n.id, n]));
           void noteBodyCache.put(
-            fetched.filter(n => !hasStorageRef(n.body_md)).map(n => ({ id: n.id, body_md: n.body_md, updated_at: n.updated_at }))
+            fetched
+              .filter((n) => !hasStorageRef(n.body_md))
+              .map((n) => ({ id: n.id, body_md: n.body_md, updated_at: n.updated_at }))
           );
 
           const next = new Map<string, Note>();
-          for (const [id, note] of localMap) {
-            if (!toDelete.has(id)) next.set(id, note);
-          }
-          // Apply server-fetched notes
-          for (const note of fetched) {
-            next.set(note.id, note);
-          }
-          // Apply cache-hit notes (same shape as server-fetched)
-          for (const [id, body_md] of fromCacheBody) {
-            const serverEntry = serverMap.get(id)!;
-            const local = localMap.get(id);
-            next.set(id, local
-              ? { ...manifestToNote(serverEntry), body_md }
-              : { ...manifestToNote(serverEntry), body_md }
-            );
-          }
-          for (const id of toFetchMetaOnly) {
-            const serverEntry = serverMap.get(id)!;
-            const local = localMap.get(id);
-            if (local && bodyLoadedIds.has(id) && !hasStorageRef(local.body_md)) {
-              next.set(id, { ...local, ...manifestToNote(serverEntry) });
-            } else {
-              next.set(id, manifestToNote(serverEntry));
-            }
-          }
-          // Populate unchanged-but-empty notes from IndexedDB cache
-          for (const id of unchangedEmptyIds) {
-            const serverEntry = serverMap.get(id);
-            const cached = cacheResult.get(id);
-            if (!serverEntry || !cached) continue;
-            if (cached.updated_at !== serverEntry.updated_at || hasStorageRef(cached.body_md)) continue;
-            const note = next.get(id);
-            if (note && !note.body_md) next.set(id, { ...note, body_md: cached.body_md });
-          }
-
           const newBodyLoadedIds = new Set(bodyLoadedIds);
           for (const id of toDelete) newBodyLoadedIds.delete(id);
-          for (const note of fetched) {
-            if (!hasStorageRef(note.body_md)) newBodyLoadedIds.add(note.id);
+
+          for (const [id, serverEntry] of serverMap) {
+            const local = localMap.get(id);
+            const fetchedNote = fetchedMap.get(id);
+            const cacheBody = hydrated.get(id);
+            if (fetchedNote) {
+              next.set(id, fetchedNote);
+              if (hasStorageRef(fetchedNote.body_md)) newBodyLoadedIds.delete(id);
+              else newBodyLoadedIds.add(id);
+            } else if (cacheBody !== undefined) {
+              next.set(id, { ...manifestToNote(serverEntry), body_md: cacheBody });
+              newBodyLoadedIds.add(id);
+            } else if (local && local.updated_at >= serverEntry.updated_at) {
+              next.set(id, local);
+            } else {
+              // changed but beyond the fetch limit (or the fetch missed it):
+              // metadata only, body resolved later — must NOT count as loaded
+              next.set(id, manifestToNote(serverEntry));
+              newBodyLoadedIds.delete(id);
+            }
           }
-          for (const id of fromCacheBody.keys()) newBodyLoadedIds.add(id);
-          for (const id of unchangedEmptyIds) {
-            const cached = cacheResult.get(id);
-            if (cached) newBodyLoadedIds.add(id);
+          // Keep local-only notes that are still being created on the server
+          for (const [id, note] of localMap) {
+            if (!serverMap.has(id) && !toDelete.has(id)) next.set(id, note);
           }
 
-          // Evict deleted notes from IndexedDB
           void noteBodyCache.delete([...toDelete]);
 
-          // Use functional set so we can read the live state and re-add any
-          // notes that were optimistically inserted by saveNote *after* we took
-          // the `cached` snapshot at the top of this function.
+          // Use functional set so we can read the live state: in-flight saves
+          // always win over fetched data (their content is newer than both the
+          // snapshot taken above and whatever the server returned).
           set((s) => {
             for (const id of pendingSaveNoteIds) {
-              if (!next.has(id)) {
-                const pending = s.notes.find((n) => n.id === id);
-                if (pending) next.set(id, pending);
-              }
+              const pending = s.notes.find((n) => n.id === id);
+              if (pending) next.set(id, pending);
             }
             return { notes: [...next.values()], bodyLoadedIds: newBodyLoadedIds };
           });
@@ -191,6 +175,19 @@ export const useNoteStore = create<NoteStore>()(
         // Re-fetch if not yet loaded, or if files were offloaded to Storage (needs resolution)
         const needsResolution = note?.note_type === "excalidraw" && hasStorageRef(note.body_md);
         if (!needsResolution && bodyLoadedIds.has(id)) return;
+
+        // Cache first — avoids a server round-trip when the revision matches
+        if (note) {
+          const entry = (await noteBodyCache.get([id])).get(id);
+          if (entry && entry.updated_at === note.updated_at && !hasStorageRef(entry.body_md)) {
+            set((s) => ({
+              notes: s.notes.map((n) => (n.id === id ? { ...n, body_md: entry.body_md } : n)),
+              bodyLoadedIds: new Set([...s.bodyLoadedIds, id]),
+            }));
+            return;
+          }
+        }
+
         const full = await repo.getNoteById(id);
         if (!full) return;
         // After resolving storage ref, mark as loaded only if files are now inline
@@ -219,8 +216,11 @@ export const useNoteStore = create<NoteStore>()(
         pendingSaveNoteIds.add(note.id);
         try {
           const saved = await repo.saveNote(note, userId ?? "");
-          if (!hasStorageRef(saved.body_md)) {
-            void noteBodyCache.put([{ id: saved.id, body_md: saved.body_md, updated_at: saved.updated_at }]);
+          // Cache the inline body: if the repo offloaded files to Storage,
+          // `note.body_md` still holds the full inline content we just saved.
+          const inlineBody = hasStorageRef(saved.body_md) ? note.body_md : saved.body_md;
+          if (!hasStorageRef(inlineBody)) {
+            void noteBodyCache.put([{ id: saved.id, body_md: inlineBody, updated_at: saved.updated_at }]);
           }
           // Always upsert after save — a concurrent fetchNotes may have removed the note
           set((s) => {
@@ -230,6 +230,10 @@ export const useNoteStore = create<NoteStore>()(
               notes: present
                 ? s.notes.map((n) => (n.id === saved.id ? saved : n))
                 : [saved, ...s.notes],
+              // A body we just saved is by definition fully known
+              bodyLoadedIds: hasStorageRef(saved.body_md)
+                ? s.bodyLoadedIds
+                : new Set([...s.bodyLoadedIds, saved.id]),
             };
           });
         } catch (e) {
@@ -300,21 +304,50 @@ export const useNoteStore = create<NoteStore>()(
       applyRemoteChange: (eventType, note) => {
         const { notes, deletedIds } = get();
         if (eventType !== "DELETE" && deletedIds.has(note.id)) return;
+        // Realtime payloads can omit large columns (~1MB limit), so an empty
+        // body_md may mean "truncated", not "cleared". Never overwrite a local
+        // body with an empty remote one — keep the local body and mark it
+        // stale so ensureBodyMd re-fetches the truth on next open.
+        const bodyUsable = note.body_md !== "" && !hasStorageRef(note.body_md);
         switch (eventType) {
           case "INSERT":
-            if (!notes.some((n) => n.id === note.id)) set({ notes: [note, ...notes] });
+            if (!notes.some((n) => n.id === note.id)) {
+              set((s) => ({
+                notes: [note, ...s.notes],
+                bodyLoadedIds: bodyUsable ? new Set([...s.bodyLoadedIds, note.id]) : s.bodyLoadedIds,
+              }));
+              if (bodyUsable) void noteBodyCache.put([{ id: note.id, body_md: note.body_md, updated_at: note.updated_at }]);
+            }
             break;
           case "UPDATE": {
             const local = notes.find((n) => n.id === note.id);
             if (local && local.updated_at >= note.updated_at) break;
-            set({ notes: notes.map((n) => (n.id === note.id ? note : n)) });
+            const merged = !bodyUsable && local && local.body_md
+              ? { ...note, body_md: local.body_md }
+              : note;
+            set((s) => {
+              const loaded = new Set(s.bodyLoadedIds);
+              if (bodyUsable) loaded.add(note.id);
+              else loaded.delete(note.id);
+              return {
+                notes: s.notes.map((n) => (n.id === note.id ? merged : n)),
+                bodyLoadedIds: loaded,
+              };
+            });
+            if (bodyUsable) void noteBodyCache.put([{ id: note.id, body_md: note.body_md, updated_at: note.updated_at }]);
             break;
           }
           case "DELETE":
-            set({
-              notes: notes.filter((n) => n.id !== note.id),
-              activeNoteId: get().activeNoteId === note.id ? null : get().activeNoteId,
+            set((s) => {
+              const loaded = new Set(s.bodyLoadedIds);
+              loaded.delete(note.id);
+              return {
+                notes: s.notes.filter((n) => n.id !== note.id),
+                activeNoteId: s.activeNoteId === note.id ? null : s.activeNoteId,
+                bodyLoadedIds: loaded,
+              };
             });
+            void noteBodyCache.delete([note.id]);
             break;
         }
       },

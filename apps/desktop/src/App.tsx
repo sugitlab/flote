@@ -328,13 +328,15 @@ function MainApp({
   activeTaskIdRef.current = activeTaskId;
 
   // Auto-cleanup: when activeNoteId changes away from a note, delete it if body is empty.
+  // Guard with bodyLoadedIds: an empty body_md can also mean "not fetched yet"
+  // (bodies are no longer persisted locally) — deleting those would destroy real notes.
   const prevNoteIdRef = useRef<string | null>(null);
   useEffect(() => {
     const prevId = prevNoteIdRef.current;
     prevNoteIdRef.current = activeNoteId;
     if (!prevId || prevId === activeNoteId) return;
     const prev = notesRef.current.find((n) => n.id === prevId);
-    if (prev && prev.body_md.trim() === "") deleteNoteRef.current(prevId);
+    if (prev && prev.body_md.trim() === "" && useNoteStore.getState().bodyLoadedIds.has(prevId)) deleteNoteRef.current(prevId);
   }, [activeNoteId]);
 
   // Auto-cleanup: when activeTaskId changes away from a task, delete it if untouched.
@@ -345,7 +347,7 @@ function MainApp({
     setStatusDropdownOpen(false);
     if (!prevId || prevId === activeTaskId) return;
     const prev = tasksRef.current.find((t) => t.id === prevId);
-    if (prev && prev.body_md.trim() === "" && (prev.title === "新しいタスク" || prev.title === "New Task")) deleteTaskRef.current(prevId);
+    if (prev && prev.body_md.trim() === "" && useTaskStore.getState().bodyLoadedIds.has(prevId) && (prev.title === "新しいタスク" || prev.title === "New Task")) deleteTaskRef.current(prevId);
   }, [activeTaskId]);
 
   // Auto-cleanup on tab switch: covers the case where the active ID itself doesn't change
@@ -359,12 +361,12 @@ function MainApp({
       const id = activeNoteIdRef.current;
       if (!id) return;
       const note = notesRef.current.find((n) => n.id === id);
-      if (note && note.note_type !== "excalidraw" && note.body_md.trim() === "") deleteNoteRef.current(id);
+      if (note && note.note_type !== "excalidraw" && note.body_md.trim() === "" && useNoteStore.getState().bodyLoadedIds.has(id)) deleteNoteRef.current(id);
     } else if (prevTab === "tasks") {
       const id = activeTaskIdRef.current;
       if (!id) return;
       const task = tasksRef.current.find((t) => t.id === id);
-      if (task && task.body_md.trim() === "" && (task.title === "新しいタスク" || task.title === "New Task")) deleteTaskRef.current(id);
+      if (task && task.body_md.trim() === "" && useTaskStore.getState().bodyLoadedIds.has(id) && (task.title === "新しいタスク" || task.title === "New Task")) deleteTaskRef.current(id);
     }
   }, [activeTab]);
 
