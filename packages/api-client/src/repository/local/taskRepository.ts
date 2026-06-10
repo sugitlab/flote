@@ -11,7 +11,8 @@ export class LocalTaskRepository implements TaskRepository {
     return getTaskById(id);
   }
 
-  async getManifest(_userId: string): Promise<TaskManifest[]> {
+  async getManifest(_userId: string, _since?: string): Promise<TaskManifest[]> {
+    // Local SQLite is cheap to scan — always return the full manifest
     const tasks = await getTasks();
     return tasks.map((t) => ({
       id: t.id,
@@ -21,6 +22,11 @@ export class LocalTaskRepository implements TaskRepository {
       pinned: t.pinned,
       updated_at: t.updated_at,
     }));
+  }
+
+  async getDeletions(_userId: string, _since: string): Promise<string[] | null> {
+    // No tombstones locally — signal "unsupported" so the store uses full sync
+    return null;
   }
 
   async getTasksByIds(ids: string[]): Promise<Task[]> {

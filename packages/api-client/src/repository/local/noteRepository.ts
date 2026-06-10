@@ -11,7 +11,8 @@ export class LocalNoteRepository implements NoteRepository {
     return getNoteById(id);
   }
 
-  async getManifest(_userId: string): Promise<NoteManifest[]> {
+  async getManifest(_userId: string, _since?: string): Promise<NoteManifest[]> {
+    // Local SQLite is cheap to scan — always return the full manifest
     const notes = await getNotes();
     return notes.map((n) => ({
       id: n.id,
@@ -20,6 +21,11 @@ export class LocalNoteRepository implements NoteRepository {
       note_type: n.note_type,
       updated_at: n.updated_at,
     }));
+  }
+
+  async getDeletions(_userId: string, _since: string): Promise<string[] | null> {
+    // No tombstones locally — signal "unsupported" so the store uses full sync
+    return null;
   }
 
   async getNotesByIds(ids: string[]): Promise<Note[]> {

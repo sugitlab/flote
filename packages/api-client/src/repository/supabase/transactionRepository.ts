@@ -20,7 +20,7 @@ export class SupabaseTransactionRepository implements TransactionRepository {
     const supabase = getSupabase();
     let query = supabase
       .from("transactions")
-      .select("*")
+      .select("id, date, amount, type, description, category, account, updated_at")
       .eq("user_id", userId);
     if (from) query = query.gte("date", from);
     if (to) query = query.lte("date", to);

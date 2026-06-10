@@ -1,6 +1,7 @@
 import type { Note } from "@flote/types";
 import type { NoteRepository, NoteManifest } from "../types";
 import { getSupabase } from "../../supabase";
+import { isColumnMissingError } from "./errors";
 
 const CHUNK_SIZE = 50;
 const BODY_FETCH_LIMIT = 100;
@@ -24,20 +25,31 @@ function filesStoragePath(userId: string, noteId: string): string {
   return `${userId}/${noteId}.json`;
 }
 
+function svgStoragePath(userId: string, noteId: string): string {
+  return `${userId}/${noteId}.svg`;
+}
+
 function hasStorageRef(body_md: string): boolean {
   try { return !!JSON.parse(body_md)?.files?.__ref; } catch { return false; }
 }
 
-async function uploadFiles(userId: string, noteId: string, files: Record<string, unknown>): Promise<string> {
+// Cheap content digest so repeated saves skip re-uploading unchanged blobs.
+function digest(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return `${s.length}:${h}`;
+}
+// `${noteId}:files` / `${noteId}:svg` → digest of last successful upload
+const lastUploadedDigests = new Map<string, string>();
+
+async function uploadToBucket(path: string, content: string, contentType: string): Promise<void> {
   const supabase = getSupabase();
-  const path = filesStoragePath(userId, noteId);
-  const blob = new Blob([JSON.stringify(files)], { type: "application/json" });
+  const blob = new Blob([content], { type: contentType });
   const { error } = await supabase.storage.from(FILES_BUCKET).upload(path, blob, {
     upsert: true,
-    contentType: "application/json",
+    contentType,
   });
   if (error) throw error;
-  return path;
 }
 
 async function downloadFiles(path: string): Promise<Record<string, unknown>> {
@@ -80,13 +92,7 @@ export class SupabaseNoteRepository implements NoteRepository {
         .range(BODY_FETCH_LIMIT, 1_000_000),
     ]);
 
-    const columnMissing =
-      fullRes.error &&
-      ((fullRes.error.code === "PGRST204") ||
-        (fullRes.error.code === "42703") ||
-        (fullRes.error.message ?? "").toLowerCase().includes("note_type") ||
-        (fullRes.error.message ?? "").toLowerCase().includes("schema cache"));
-    if (columnMissing) {
+    if (isColumnMissingError(fullRes.error)) {
       const [fullFallback, minimalFallback] = await Promise.all([
         supabase
           .from("notes")
@@ -117,18 +123,20 @@ export class SupabaseNoteRepository implements NoteRepository {
     return [...full, ...minimal];
   }
 
-  async getManifest(userId: string): Promise<NoteManifest[]> {
+  async getManifest(userId: string, since?: string): Promise<NoteManifest[]> {
     const supabase = getSupabase();
-    const { data, error } = await supabase
+    let query = supabase
       .from("notes")
       .select("id, title, pinned, note_type, updated_at")
       .eq("user_id", userId);
+    if (since) query = query.gte("updated_at", since);
+    const { data, error } = await query;
     if (error) {
+      if (!isColumnMissingError(error)) throw error;
       // Fallback: pinned / note_type columns may not exist yet (migration not applied)
-      const { data: data2, error: e2 } = await supabase
-        .from("notes")
-        .select("id, title, updated_at")
-        .eq("user_id", userId);
+      let q2 = supabase.from("notes").select("id, title, updated_at").eq("user_id", userId);
+      if (since) q2 = q2.gte("updated_at", since);
+      const { data: data2, error: e2 } = await q2;
       if (e2) throw e2;
       return (data2 ?? []).map((r) => ({
         id: String(r.id ?? ""),
@@ -147,6 +155,19 @@ export class SupabaseNoteRepository implements NoteRepository {
     }));
   }
 
+  async getDeletions(userId: string, since: string): Promise<string[] | null> {
+    const supabase = getSupabase();
+    const { data, error } = await supabase
+      .from("deletions")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("kind", "notes")
+      .gte("deleted_at", since);
+    // Table missing (migration not applied) — caller must fall back to full sync
+    if (error) return null;
+    return (data ?? []).map((r) => String(r.id));
+  }
+
   async getNotesByIds(ids: string[]): Promise<Note[]> {
     if (ids.length === 0) return [];
     const supabase = getSupabase();
@@ -158,6 +179,7 @@ export class SupabaseNoteRepository implements NoteRepository {
         .select("id, title, body_md, pinned, note_type, updated_at")
         .in("id", chunk);
       if (error) {
+        if (!isColumnMissingError(error)) throw error;
         // Fallback: pinned / note_type columns may not exist yet
         const { data: data2, error: e2 } = await supabase
           .from("notes")
@@ -194,14 +216,44 @@ export class SupabaseNoteRepository implements NoteRepository {
     if (note.note_type === "excalidraw") {
       try {
         const parsed = JSON.parse(body_md);
-        const files = (parsed.files ?? {}) as Record<string, unknown>;
-        const filesJson = JSON.stringify(files);
-        const hasFiles = Object.keys(files).length > 0 && !files.__ref;
-        if (hasFiles && filesJson.length > FILES_STORAGE_THRESHOLD) {
-          const path = await uploadFiles(userId, note.id, files);
-          parsed.files = { __ref: path };
-          body_md = JSON.stringify(parsed);
+        let mutated = false;
+
+        // Offload the SVG preview to Storage. Keeping it inline duplicates the
+        // elements data and roughly doubles the row size written on every save.
+        const svg = typeof parsed.svg === "string" ? parsed.svg : "";
+        if (svg) {
+          const svgPath = svgStoragePath(userId, note.id);
+          const svgKey = `${note.id}:svg`;
+          const svgDigest = digest(svg);
+          if (lastUploadedDigests.get(svgKey) !== svgDigest) {
+            await uploadToBucket(svgPath, svg, "image/svg+xml");
+            lastUploadedDigests.set(svgKey, svgDigest);
+          }
+          parsed.svg = "";
+          parsed.svg_ref = svgPath;
+          mutated = true;
         }
+
+        // Offload embedded image files to Storage when large. Skip the upload
+        // entirely when the files blob hasn't changed since the last save.
+        const files = (parsed.files ?? {}) as Record<string, unknown>;
+        const hasFiles = Object.keys(files).length > 0 && !files.__ref;
+        if (hasFiles) {
+          const filesJson = JSON.stringify(files);
+          if (filesJson.length > FILES_STORAGE_THRESHOLD) {
+            const path = filesStoragePath(userId, note.id);
+            const filesKey = `${note.id}:files`;
+            const filesDigest = digest(filesJson);
+            if (lastUploadedDigests.get(filesKey) !== filesDigest) {
+              await uploadToBucket(path, filesJson, "application/json");
+              lastUploadedDigests.set(filesKey, filesDigest);
+            }
+            parsed.files = { __ref: path };
+            mutated = true;
+          }
+        }
+
+        if (mutated) body_md = JSON.stringify(parsed);
       } catch {
         // Parsing failed — save body_md as-is
       }
@@ -219,6 +271,7 @@ export class SupabaseNoteRepository implements NoteRepository {
         user_id: userId,
       });
     if (error) {
+      if (!isColumnMissingError(error)) throw error;
       // Fallback: pinned / note_type columns may not exist yet (migration not applied)
       const { error: e2 } = await supabase
         .from("notes")
@@ -248,4 +301,3 @@ export class SupabaseNoteRepository implements NoteRepository {
     if (error) throw error;
   }
 }
-
