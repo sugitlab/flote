@@ -28,6 +28,14 @@ export const useExpenseStore = create<ExpenseStore>((set, get) => ({
     if (!repo) return;
     set({ loading: true, error: null });
     try {
+      // Default to the last 12 months — an unbounded fetch reads the entire
+      // (ever-growing) transactions table on every sync. Screens that need
+      // older data pass an explicit range.
+      if (!from) {
+        const now = new Date();
+        const past = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+        from = `${past.getFullYear()}-${String(past.getMonth() + 1).padStart(2, "0")}-01`;
+      }
       const transactions = await repo.getTransactions(userId ?? "", from, to);
       set({ transactions, loading: false });
     } catch (e) {

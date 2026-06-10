@@ -4,6 +4,9 @@ import type { Note } from "@flote/types";
 import type { NoteRepository, NoteManifest } from "@flote/api-client";
 import { useUIStore } from "./uiStore";
 import { noteBodyCache } from "../lib/bodyCache";
+import { getSince, advanceCursor } from "../lib/syncCursor";
+
+const SYNC_CURSOR_KEY = "flote-sync-cursor-notes";
 
 function hasStorageRef(body_md: string): boolean {
   try { return !!JSON.parse(body_md)?.files?.__ref; } catch { return false; }
@@ -64,20 +67,37 @@ export const useNoteStore = create<NoteStore>()(
           const { repo, notes: snapshot, bodyLoadedIds, deletedIds } = get();
           if (!repo) return;
 
-          const manifest = await repo.getManifest(userId ?? "");
+          // Delta sync: ask only for rows changed since the last sync, plus
+          // tombstones for deletions. Falls back to a full-manifest sync when
+          // no cursor exists, tombstones are unsupported, or 24h have passed.
+          let since = getSince(SYNC_CURSOR_KEY, userId ?? "");
+          let tombstones: string[] = [];
+          if (since) {
+            const d = await repo.getDeletions(userId ?? "", since);
+            if (d === null) since = null;
+            else tombstones = d;
+          }
+          const isFullSync = since === null;
+
+          const manifest = await repo.getManifest(userId ?? "", since ?? undefined);
           const serverMap = new Map(manifest.map((m) => [m.id, m]));
           const localMap = new Map(snapshot.map((n) => [n.id, n]));
 
           const toDelete = new Set<string>();
-          for (const id of localMap.keys()) {
-            if (!serverMap.has(id) && !deletedIds.has(id) && !pendingSaveNoteIds.has(id)) toDelete.add(id);
+          if (isFullSync) {
+            for (const id of localMap.keys()) {
+              if (!serverMap.has(id) && !deletedIds.has(id) && !pendingSaveNoteIds.has(id)) toDelete.add(id);
+            }
+          } else {
+            for (const id of tombstones) {
+              if (!serverMap.has(id) && !deletedIds.has(id) && !pendingSaveNoteIds.has(id)) toDelete.add(id);
+            }
           }
 
-          // Classify every server note:
+          // Classify what needs a body:
           //  - changed: server has a newer revision than local → body must be re-resolved
           //  - bodyMissing: revision unchanged but body is not in memory (stripped by
           //    partialize on restart, or beyond a previous fetch limit)
-          //  - otherwise: local copy is current → keep as-is
           const changed: string[] = [];
           const bodyMissing: string[] = [];
           for (const [id, serverEntry] of serverMap) {
@@ -88,21 +108,32 @@ export const useNoteStore = create<NoteStore>()(
               bodyMissing.push(id);
             }
           }
+          // In delta mode unchanged notes are absent from the manifest, so the
+          // body backfill must also scan local notes directly.
+          if (!isFullSync) {
+            for (const [id, local] of localMap) {
+              if (serverMap.has(id) || toDelete.has(id)) continue;
+              if (!local.body_md && !bodyLoadedIds.has(id)) bodyMissing.push(id);
+            }
+          }
+          // Expected revision for cache validation: manifest entry if present,
+          // otherwise the local (unchanged) revision.
+          const expectedRev = (id: string) =>
+            serverMap.get(id)?.updated_at ?? localMap.get(id)?.updated_at ?? "";
           const byUpdatedAtDesc = (a: string, b: string) =>
-            (serverMap.get(b)?.updated_at ?? "").localeCompare(serverMap.get(a)?.updated_at ?? "");
+            expectedRev(b).localeCompare(expectedRev(a));
           changed.sort(byUpdatedAtDesc);
           bodyMissing.sort(byUpdatedAtDesc);
 
           // Resolve bodies from IndexedDB first; only cache misses hit the server.
-          // A cache entry is valid only when its updated_at matches the manifest exactly.
+          // A cache entry is valid only when its updated_at matches exactly.
           const candidates = [...changed, ...bodyMissing];
           const cacheEntries = await noteBodyCache.get(candidates);
           const hydrated = new Map<string, string>();
           const needServer: string[] = [];
           for (const id of candidates) {
             const entry = cacheEntries.get(id);
-            const serverEntry = serverMap.get(id)!;
-            if (entry && entry.updated_at === serverEntry.updated_at && !hasStorageRef(entry.body_md)) {
+            if (entry && entry.updated_at === expectedRev(id) && !hasStorageRef(entry.body_md)) {
               hydrated.set(id, entry.body_md);
             } else {
               needServer.push(id);
@@ -122,6 +153,11 @@ export const useNoteStore = create<NoteStore>()(
           const newBodyLoadedIds = new Set(bodyLoadedIds);
           for (const id of toDelete) newBodyLoadedIds.delete(id);
 
+          // Base: current local notes minus deletions
+          for (const [id, note] of localMap) {
+            if (!toDelete.has(id)) next.set(id, note);
+          }
+          // Overlay: server changes with resolved bodies
           for (const [id, serverEntry] of serverMap) {
             const local = localMap.get(id);
             const fetchedNote = fetchedMap.get(id);
@@ -142,12 +178,32 @@ export const useNoteStore = create<NoteStore>()(
               newBodyLoadedIds.delete(id);
             }
           }
-          // Keep local-only notes that are still being created on the server
-          for (const [id, note] of localMap) {
-            if (!serverMap.has(id) && !toDelete.has(id)) next.set(id, note);
+          // Body backfill for unchanged local notes (delta mode)
+          for (const id of bodyMissing) {
+            if (serverMap.has(id)) continue;
+            const local = localMap.get(id);
+            if (!local || toDelete.has(id)) continue;
+            const fetchedNote = fetchedMap.get(id);
+            const cacheBody = hydrated.get(id);
+            if (fetchedNote) {
+              next.set(id, fetchedNote);
+              if (hasStorageRef(fetchedNote.body_md)) newBodyLoadedIds.delete(id);
+              else newBodyLoadedIds.add(id);
+            } else if (cacheBody !== undefined) {
+              next.set(id, { ...local, body_md: cacheBody });
+              newBodyLoadedIds.add(id);
+            }
           }
 
           void noteBodyCache.delete([...toDelete]);
+
+          // Sync succeeded — advance the delta cursor
+          advanceCursor(
+            SYNC_CURSOR_KEY,
+            userId ?? "",
+            manifest.map((m) => m.updated_at),
+            isFullSync
+          );
 
           // Use functional set so we can read the live state: in-flight saves
           // always win over fetched data (their content is newer than both the

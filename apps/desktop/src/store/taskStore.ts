@@ -4,6 +4,9 @@ import type { Task, TaskStatus } from "@flote/types";
 import type { TaskRepository, TaskManifest } from "@flote/api-client";
 import { useUIStore } from "./uiStore";
 import { taskBodyCache } from "../lib/bodyCache";
+import { getSince, advanceCursor } from "../lib/syncCursor";
+
+const SYNC_CURSOR_KEY = "flote-sync-cursor-tasks";
 
 // Max bodies fetched from the server per sync. Bodies beyond this limit stay
 // metadata-only and are picked up by the next sync or by ensureBodyMd on open.
@@ -65,17 +68,33 @@ export const useTaskStore = create<TaskStore>()(
           const { repo, tasks: snapshot, bodyLoadedIds } = get();
           if (!repo) return;
 
-          const manifest = await repo.getManifest(userId ?? "");
+          // Delta sync (same strategy as noteStore.fetchNotes): changed rows +
+          // tombstones since the cursor; full sync as fallback / every 24h.
+          let since = getSince(SYNC_CURSOR_KEY, userId ?? "");
+          let tombstones: string[] = [];
+          if (since) {
+            const d = await repo.getDeletions(userId ?? "", since);
+            if (d === null) since = null;
+            else tombstones = d;
+          }
+          const isFullSync = since === null;
+
+          const manifest = await repo.getManifest(userId ?? "", since ?? undefined);
           const serverMap = new Map(manifest.map((m) => [m.id, m]));
           const localMap = new Map(snapshot.map((t) => [t.id, t]));
 
           const toDelete = new Set<string>();
-          for (const id of localMap.keys()) {
-            if (!serverMap.has(id) && !pendingSaveTaskIds.has(id)) toDelete.add(id);
+          if (isFullSync) {
+            for (const id of localMap.keys()) {
+              if (!serverMap.has(id) && !pendingSaveTaskIds.has(id)) toDelete.add(id);
+            }
+          } else {
+            for (const id of tombstones) {
+              if (!serverMap.has(id) && !pendingSaveTaskIds.has(id)) toDelete.add(id);
+            }
           }
 
-          // Classify every server task (same strategy as noteStore.fetchNotes):
-          // changed revisions and missing bodies are resolved from IndexedDB
+          // Changed revisions and missing bodies are resolved from IndexedDB
           // first; only cache misses hit the server.
           const changed: string[] = [];
           const bodyMissing: string[] = [];
@@ -87,8 +106,18 @@ export const useTaskStore = create<TaskStore>()(
               bodyMissing.push(id);
             }
           }
+          // In delta mode unchanged tasks are absent from the manifest, so the
+          // body backfill must also scan local tasks directly.
+          if (!isFullSync) {
+            for (const [id, local] of localMap) {
+              if (serverMap.has(id) || toDelete.has(id)) continue;
+              if (!local.body_md && !bodyLoadedIds.has(id)) bodyMissing.push(id);
+            }
+          }
+          const expectedRev = (id: string) =>
+            serverMap.get(id)?.updated_at ?? localMap.get(id)?.updated_at ?? "";
           const byUpdatedAtDesc = (a: string, b: string) =>
-            (serverMap.get(b)?.updated_at ?? "").localeCompare(serverMap.get(a)?.updated_at ?? "");
+            expectedRev(b).localeCompare(expectedRev(a));
           changed.sort(byUpdatedAtDesc);
           bodyMissing.sort(byUpdatedAtDesc);
 
@@ -98,8 +127,7 @@ export const useTaskStore = create<TaskStore>()(
           const needServer: string[] = [];
           for (const id of candidates) {
             const entry = cacheEntries.get(id);
-            const serverEntry = serverMap.get(id)!;
-            if (entry && entry.updated_at === serverEntry.updated_at) {
+            if (entry && entry.updated_at === expectedRev(id)) {
               hydrated.set(id, entry.body_md);
             } else {
               needServer.push(id);
@@ -117,6 +145,11 @@ export const useTaskStore = create<TaskStore>()(
           const newBodyLoadedIds = new Set(bodyLoadedIds);
           for (const id of toDelete) newBodyLoadedIds.delete(id);
 
+          // Base: current local tasks minus deletions
+          for (const [id, task] of localMap) {
+            if (!toDelete.has(id)) next.set(id, task);
+          }
+          // Overlay: server changes with resolved bodies
           for (const [id, serverEntry] of serverMap) {
             const local = localMap.get(id);
             const fetchedTask = fetchedMap.get(id);
@@ -134,12 +167,31 @@ export const useTaskStore = create<TaskStore>()(
               newBodyLoadedIds.delete(id);
             }
           }
-          // Keep local-only tasks that are still being created on the server
-          for (const [id, task] of localMap) {
-            if (!serverMap.has(id) && !toDelete.has(id)) next.set(id, task);
+          // Body backfill for unchanged local tasks (delta mode)
+          for (const id of bodyMissing) {
+            if (serverMap.has(id)) continue;
+            const local = localMap.get(id);
+            if (!local || toDelete.has(id)) continue;
+            const fetchedTask = fetchedMap.get(id);
+            const cacheBody = hydrated.get(id);
+            if (fetchedTask) {
+              next.set(id, fetchedTask);
+              newBodyLoadedIds.add(id);
+            } else if (cacheBody !== undefined) {
+              next.set(id, { ...local, body_md: cacheBody });
+              newBodyLoadedIds.add(id);
+            }
           }
 
           void taskBodyCache.delete([...toDelete]);
+
+          // Sync succeeded — advance the delta cursor
+          advanceCursor(
+            SYNC_CURSOR_KEY,
+            userId ?? "",
+            manifest.map((m) => m.updated_at),
+            isFullSync
+          );
 
           // In-flight saves always win over fetched data.
           set((s) => {

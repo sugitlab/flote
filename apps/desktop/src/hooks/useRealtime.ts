@@ -2,90 +2,81 @@ import { useEffect } from "react";
 import { getSupabase } from "@flote/api-client";
 import { useNoteStore } from "../store/noteStore";
 import { useTaskStore } from "../store/taskStore";
-import type { Note, Task, TaskStatus, StorageMode } from "@flote/types";
+import type { Note, Task, StorageMode } from "@flote/types";
 
-function toNote(row: Record<string, unknown>): Note {
-  return {
-    id: row.id as string,
-    title: (row.title as string) ?? "",
-    body_md: (row.body_md as string) ?? "",
-    pinned: row.pinned === true || row.pinned === 1,
-    note_type: (row.note_type as Note["note_type"]) ?? "markdown",
-    updated_at: row.updated_at as string,
-  };
+// Slim sync events sent by the notify_sync database trigger (migration 009).
+// postgres_changes streamed every column — including megabyte-scale body_md —
+// to every connected client on each save. The broadcast carries only ids;
+// the client fetches the single changed row on demand.
+type SyncPayload = {
+  kind: "notes" | "tasks";
+  event: "INSERT" | "UPDATE" | "DELETE";
+  id: string;
+  updated_at: string;
+};
+
+function isNewer(remote: string, local: string | undefined): boolean {
+  if (!local) return true;
+  const r = Date.parse(remote);
+  const l = Date.parse(local);
+  if (Number.isNaN(r) || Number.isNaN(l)) return remote > local;
+  return r > l;
 }
 
-function toTask(row: Record<string, unknown>): Task {
-  const status =
-    (row.status as TaskStatus | undefined) ??
-    (row.done ? "Done" : "Todo");
-  return {
-    id: row.id as string,
-    title: row.title as string,
-    body_md: (row.body_md as string) ?? "",
-    due_date: row.due_date as string | null,
-    status,
-    pinned: row.pinned === true || row.pinned === 1,
-    updated_at: row.updated_at as string,
-  };
+function deletedNoteStub(id: string, updated_at: string): Note {
+  return { id, title: "", body_md: "", pinned: false, note_type: "markdown", updated_at };
+}
+
+function deletedTaskStub(id: string, updated_at: string): Task {
+  return { id, title: "", body_md: "", due_date: null, status: "Todo", pinned: false, updated_at };
+}
+
+async function handleSyncEvent(p: SyncPayload): Promise<void> {
+  if (p.kind === "notes") {
+    const s = useNoteStore.getState();
+    if (p.event === "DELETE") {
+      s.applyRemoteChange("DELETE", deletedNoteStub(p.id, p.updated_at ?? ""));
+      return;
+    }
+    const local = s.notes.find((n) => n.id === p.id);
+    // Skip own echoes and stale events without any fetch
+    if (local && !isNewer(p.updated_at, local.updated_at)) return;
+    const note = await s.repo?.getNoteById(p.id);
+    if (note) useNoteStore.getState().applyRemoteChange(local ? "UPDATE" : "INSERT", note);
+  } else if (p.kind === "tasks") {
+    const s = useTaskStore.getState();
+    if (p.event === "DELETE") {
+      s.applyRemoteChange("DELETE", deletedTaskStub(p.id, p.updated_at ?? ""));
+      return;
+    }
+    const local = s.tasks.find((t) => t.id === p.id);
+    if (local && !isNewer(p.updated_at, local.updated_at)) return;
+    const task = await s.repo?.getTaskById(p.id);
+    if (task) useTaskStore.getState().applyRemoteChange(local ? "UPDATE" : "INSERT", task);
+  }
 }
 
 export function useRealtime(
   userId: string | undefined,
   storageMode: StorageMode
 ) {
-  const applyNoteChange = useNoteStore((s) => s.applyRemoteChange);
-  const applyTaskChange = useTaskStore((s) => s.applyRemoteChange);
-
   useEffect(() => {
-    if (storageMode !== "supabase" || !userId) return;
+    if (storageMode === "local" || !userId) return;
 
     const supabase = getSupabase();
-
     const channel = supabase
-      .channel("db-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "notes",
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          const eventType = payload.eventType as "INSERT" | "UPDATE" | "DELETE";
-          if (eventType === "DELETE") {
-            const old = payload.old as Record<string, unknown>;
-            applyNoteChange("DELETE", toNote(old));
-          } else {
-            const row = payload.new as Record<string, unknown>;
-            applyNoteChange(eventType, toNote(row));
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "tasks",
-          filter: `user_id=eq.${userId}`,
-        },
-        (payload) => {
-          const eventType = payload.eventType as "INSERT" | "UPDATE" | "DELETE";
-          if (eventType === "DELETE") {
-            const old = payload.old as Record<string, unknown>;
-            applyTaskChange("DELETE", toTask(old));
-          } else {
-            const row = payload.new as Record<string, unknown>;
-            applyTaskChange(eventType, toTask(row));
-          }
-        }
-      )
+      .channel(`sync:${userId}`, { config: { private: true } })
+      .on("broadcast", { event: "change" }, ({ payload }) => {
+        const p = payload as SyncPayload | undefined;
+        if (!p || !p.kind || !p.id) return;
+        handleSyncEvent(p).catch((e) => {
+          console.error("[useRealtime] failed to apply sync event:", e);
+        });
+      })
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, storageMode, applyNoteChange, applyTaskChange]);
+  }, [userId, storageMode]);
 }
