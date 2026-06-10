@@ -3,12 +3,13 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import type { Note } from "@flote/types";
 import type { NoteRepository, NoteManifest } from "@flote/api-client";
 import { useUIStore } from "./uiStore";
+import { noteBodyCache } from "../lib/bodyCache";
 
 function hasStorageRef(body_md: string): boolean {
   try { return !!JSON.parse(body_md)?.files?.__ref; } catch { return false; }
 }
 
-const INITIAL_BODY_LIMIT = 30;
+const INITIAL_BODY_LIMIT = 100;
 
 // Module-level flag: prevents concurrent fetchNotes calls from running in parallel
 let isSyncingNotes = false;
@@ -84,15 +85,50 @@ export const useNoteStore = create<NoteStore>()(
           const toFetchFull = toFetchSorted.slice(0, INITIAL_BODY_LIMIT);
           const toFetchMetaOnly = toFetchSorted.slice(INITIAL_BODY_LIMIT);
 
-          const fetched = await repo.getNotesByIds(toFetchFull);
-          const fetchedMap = new Map(fetched.map((n) => [n.id, n]));
+          // IDs whose body_md is empty in localStorage but haven't changed on server —
+          // we may be able to serve them from IndexedDB without a network round-trip.
+          const unchangedEmptyIds = [...serverMap.keys()].filter(
+            id => !new Set(toFetch).has(id) && !toDelete.has(id) && !localMap.get(id)?.body_md
+          );
+
+          // Check IndexedDB cache for toFetchFull and unchanged-but-empty notes
+          const cacheResult = await noteBodyCache.get([...toFetchFull, ...unchangedEmptyIds]);
+
+          // Split toFetchFull into cache hits (updated_at matches) and server-fetch needed
+          const needServerFetch: string[] = [];
+          const fromCacheBody = new Map<string, string>(); // id -> body_md
+          for (const id of toFetchFull) {
+            const serverEntry = serverMap.get(id)!;
+            const cached = cacheResult.get(id);
+            if (cached && cached.updated_at === serverEntry.updated_at && !hasStorageRef(cached.body_md)) {
+              fromCacheBody.set(id, cached.body_md);
+            } else {
+              needServerFetch.push(id);
+            }
+          }
+
+          const fetched = await repo.getNotesByIds(needServerFetch);
+          // Write freshly fetched bodies to IndexedDB for future startups
+          void noteBodyCache.put(
+            fetched.filter(n => !hasStorageRef(n.body_md)).map(n => ({ id: n.id, body_md: n.body_md, updated_at: n.updated_at }))
+          );
 
           const next = new Map<string, Note>();
           for (const [id, note] of localMap) {
             if (!toDelete.has(id)) next.set(id, note);
           }
+          // Apply server-fetched notes
           for (const note of fetched) {
             next.set(note.id, note);
+          }
+          // Apply cache-hit notes (same shape as server-fetched)
+          for (const [id, body_md] of fromCacheBody) {
+            const serverEntry = serverMap.get(id)!;
+            const local = localMap.get(id);
+            next.set(id, local
+              ? { ...manifestToNote(serverEntry), body_md }
+              : { ...manifestToNote(serverEntry), body_md }
+            );
           }
           for (const id of toFetchMetaOnly) {
             const serverEntry = serverMap.get(id)!;
@@ -103,12 +139,29 @@ export const useNoteStore = create<NoteStore>()(
               next.set(id, manifestToNote(serverEntry));
             }
           }
+          // Populate unchanged-but-empty notes from IndexedDB cache
+          for (const id of unchangedEmptyIds) {
+            const serverEntry = serverMap.get(id);
+            const cached = cacheResult.get(id);
+            if (!serverEntry || !cached) continue;
+            if (cached.updated_at !== serverEntry.updated_at || hasStorageRef(cached.body_md)) continue;
+            const note = next.get(id);
+            if (note && !note.body_md) next.set(id, { ...note, body_md: cached.body_md });
+          }
 
           const newBodyLoadedIds = new Set(bodyLoadedIds);
           for (const id of toDelete) newBodyLoadedIds.delete(id);
           for (const note of fetched) {
             if (!hasStorageRef(note.body_md)) newBodyLoadedIds.add(note.id);
           }
+          for (const id of fromCacheBody.keys()) newBodyLoadedIds.add(id);
+          for (const id of unchangedEmptyIds) {
+            const cached = cacheResult.get(id);
+            if (cached) newBodyLoadedIds.add(id);
+          }
+
+          // Evict deleted notes from IndexedDB
+          void noteBodyCache.delete([...toDelete]);
 
           // Use functional set so we can read the live state and re-add any
           // notes that were optimistically inserted by saveNote *after* we took
@@ -142,6 +195,7 @@ export const useNoteStore = create<NoteStore>()(
         if (!full) return;
         // After resolving storage ref, mark as loaded only if files are now inline
         const isFullyResolved = !hasStorageRef(full.body_md);
+        if (isFullyResolved) void noteBodyCache.put([{ id: full.id, body_md: full.body_md, updated_at: full.updated_at }]);
         set((s) => ({
           notes: s.notes.map((n) => (n.id === id ? full : n)),
           bodyLoadedIds: isFullyResolved
@@ -165,6 +219,9 @@ export const useNoteStore = create<NoteStore>()(
         pendingSaveNoteIds.add(note.id);
         try {
           const saved = await repo.saveNote(note, userId ?? "");
+          if (!hasStorageRef(saved.body_md)) {
+            void noteBodyCache.put([{ id: saved.id, body_md: saved.body_md, updated_at: saved.updated_at }]);
+          }
           // Always upsert after save — a concurrent fetchNotes may have removed the note
           set((s) => {
             if (s.deletedIds.has(saved.id)) return {};
@@ -203,6 +260,7 @@ export const useNoteStore = create<NoteStore>()(
         });
         try {
           await repo.deleteNote(id);
+          void noteBodyCache.delete([id]);
         } catch (e) {
           console.error("[noteStore] deleteNote failed:", e);
           set({ notes: prev, deletedIds });
@@ -226,6 +284,7 @@ export const useNoteStore = create<NoteStore>()(
         });
         try {
           await repo.deleteNotesBatch(ids);
+          void noteBodyCache.delete(ids);
         } catch (e) {
           console.error("[noteStore] deleteNotesBatch failed:", e);
           set({ notes: prev, deletedIds });
@@ -266,7 +325,7 @@ export const useNoteStore = create<NoteStore>()(
       // Persist note metadata only — body_md is intentionally excluded.
       // body_md can be megabytes (especially Excalidraw SVG/base64 data) and would
       // quickly exhaust the ~10 MB WebKit localStorage quota.
-      // Bodies are re-fetched from the server on startup via fetchNotes/ensureBodyMd.
+      // Bodies are cached in IndexedDB (bodyCache.ts) and re-hydrated on startup.
       partialize: (state) => ({
         notes: state.notes.map((n) => ({ ...n, body_md: "" })),
       }),

@@ -3,8 +3,9 @@ import { persist, createJSONStorage } from "zustand/middleware";
 import type { Task, TaskStatus } from "@flote/types";
 import type { TaskRepository, TaskManifest } from "@flote/api-client";
 import { useUIStore } from "./uiStore";
+import { taskBodyCache } from "../lib/bodyCache";
 
-const INITIAL_BODY_LIMIT = 30;
+const INITIAL_BODY_LIMIT = 100;
 
 let isSyncingTasks = false;
 const pendingSaveTaskIds = new Set<string>();
@@ -85,7 +86,30 @@ export const useTaskStore = create<TaskStore>()(
           const toFetchFull = toFetchSorted.slice(0, INITIAL_BODY_LIMIT);
           const toFetchMetaOnly = toFetchSorted.slice(INITIAL_BODY_LIMIT);
 
-          const fetched = await repo.getTasksByIds(toFetchFull);
+          // Tasks unchanged on server but with empty body_md (stripped by partialize)
+          const unchangedEmptyIds = [...serverMap.keys()].filter(
+            id => !new Set(toFetch).has(id) && !toDelete.has(id) && !localMap.get(id)?.body_md
+          );
+
+          const cacheResult = await taskBodyCache.get([...toFetchFull, ...unchangedEmptyIds]);
+
+          // Split toFetchFull: cache hits vs server fetch
+          const needServerFetch: string[] = [];
+          const fromCacheBody = new Map<string, string>();
+          for (const id of toFetchFull) {
+            const serverEntry = serverMap.get(id)!;
+            const cached = cacheResult.get(id);
+            if (cached && cached.updated_at === serverEntry.updated_at) {
+              fromCacheBody.set(id, cached.body_md);
+            } else {
+              needServerFetch.push(id);
+            }
+          }
+
+          const fetched = await repo.getTasksByIds(needServerFetch);
+          void taskBodyCache.put(
+            fetched.map(t => ({ id: t.id, body_md: t.body_md, updated_at: t.updated_at }))
+          );
 
           const next = new Map<string, Task>();
           for (const [id, task] of localMap) {
@@ -93,6 +117,9 @@ export const useTaskStore = create<TaskStore>()(
           }
           for (const task of fetched) {
             next.set(task.id, task);
+          }
+          for (const [id, body_md] of fromCacheBody) {
+            next.set(id, { ...manifestToTask(serverMap.get(id)!), body_md });
           }
           for (const id of toFetchMetaOnly) {
             const serverEntry = serverMap.get(id)!;
@@ -103,10 +130,24 @@ export const useTaskStore = create<TaskStore>()(
               next.set(id, manifestToTask(serverEntry));
             }
           }
+          for (const id of unchangedEmptyIds) {
+            const serverEntry = serverMap.get(id);
+            const cached = cacheResult.get(id);
+            if (!serverEntry || !cached) continue;
+            if (cached.updated_at !== serverEntry.updated_at) continue;
+            const task = next.get(id);
+            if (task && !task.body_md) next.set(id, { ...task, body_md: cached.body_md });
+          }
 
           const newBodyLoadedIds = new Set(bodyLoadedIds);
           for (const id of toDelete) newBodyLoadedIds.delete(id);
           for (const task of fetched) newBodyLoadedIds.add(task.id);
+          for (const id of fromCacheBody.keys()) newBodyLoadedIds.add(id);
+          for (const id of unchangedEmptyIds) {
+            if (cacheResult.has(id)) newBodyLoadedIds.add(id);
+          }
+
+          void taskBodyCache.delete([...toDelete]);
 
           set((s) => {
             for (const id of pendingSaveTaskIds) {
@@ -131,10 +172,11 @@ export const useTaskStore = create<TaskStore>()(
         if (!repo || bodyLoadedIds.has(id)) return;
         const full = await repo.getTaskById(id);
         if (!full) return;
-        set({
-          tasks: tasks.map((t) => (t.id === id ? full : t)),
-          bodyLoadedIds: new Set([...bodyLoadedIds, id]),
-        });
+        void taskBodyCache.put([{ id: full.id, body_md: full.body_md, updated_at: full.updated_at }]);
+        set((s) => ({
+          tasks: s.tasks.map((t) => (t.id === id ? full : t)),
+          bodyLoadedIds: new Set([...s.bodyLoadedIds, id]),
+        }));
         void userId;
       },
 
@@ -150,6 +192,7 @@ export const useTaskStore = create<TaskStore>()(
         pendingSaveTaskIds.add(task.id);
         try {
           const saved = await repo.saveTask(task, userId ?? "");
+          void taskBodyCache.put([{ id: saved.id, body_md: saved.body_md, updated_at: saved.updated_at }]);
           // Always upsert after save — a concurrent fetchTasks may have removed the task
           set((s) => {
             const present = s.tasks.some((t) => t.id === saved.id);
@@ -179,6 +222,7 @@ export const useTaskStore = create<TaskStore>()(
         });
         try {
           await repo.deleteTask(id);
+          void taskBodyCache.delete([id]);
         } catch (e) {
           console.error("[taskStore] deleteTask failed:", e);
           set({ tasks: prev });
@@ -196,6 +240,7 @@ export const useTaskStore = create<TaskStore>()(
         });
         try {
           await repo.deleteTasksBatch(ids);
+          void taskBodyCache.delete(ids);
         } catch (e) {
           console.error("[taskStore] deleteTasksBatch failed:", e);
           set({ tasks: prev });

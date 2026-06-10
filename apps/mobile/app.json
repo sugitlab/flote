@@ -2,7 +2,7 @@
   "expo": {
     "name": "Flote",
     "slug": "flote",
-    "version": "0.3.28",
+    "version": "0.3.29",
     "orientation": "portrait",
     "icon": "./assets/logo.png",
     "userInterfaceStyle": "automatic",
@@ -21,7 +21,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.flote.app",
-      "versionCode": 25
+      "versionCode": 26
     },
     "plugins": [
       "expo-router",
