@@ -1,6 +1,6 @@
 {
   "productName": "flote",
-  "version": "0.3.27",
+  "version": "0.3.28",
   "identifier": "com.flote.app",
   "build": {
     "frontendDist": "../dist",

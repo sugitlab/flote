@@ -4,7 +4,7 @@ import type { Task, TaskStatus } from "@flote/types";
 import type { TaskRepository, TaskManifest } from "@flote/api-client";
 import { useUIStore } from "./uiStore";
 
-const INITIAL_BODY_LIMIT = 100;
+const INITIAL_BODY_LIMIT = 30;
 
 let isSyncingTasks = false;
 const pendingSaveTaskIds = new Set<string>();

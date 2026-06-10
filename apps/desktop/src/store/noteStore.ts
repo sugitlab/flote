@@ -8,7 +8,7 @@ function hasStorageRef(body_md: string): boolean {
   try { return !!JSON.parse(body_md)?.files?.__ref; } catch { return false; }
 }
 
-const INITIAL_BODY_LIMIT = 100;
+const INITIAL_BODY_LIMIT = 30;
 
 // Module-level flag: prevents concurrent fetchNotes calls from running in parallel
 let isSyncingNotes = false;

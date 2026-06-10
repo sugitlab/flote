@@ -444,7 +444,7 @@ function MainApp({
           updated_at: new Date().toISOString(),
         };
         if (editorSaveTimerRef.current) clearTimeout(editorSaveTimerRef.current);
-        editorSaveTimerRef.current = setTimeout(() => saveNote(note, userId), 500);
+        editorSaveTimerRef.current = setTimeout(() => saveNote(note, userId), 2000);
       } else if (activeTab === "tasks") {
         if (!activeTaskId) return;
         const task = tasks.find((t) => t.id === activeTaskId);
@@ -458,7 +458,7 @@ function MainApp({
           updated_at: new Date().toISOString(),
         };
         if (editorSaveTimerRef.current) clearTimeout(editorSaveTimerRef.current);
-        editorSaveTimerRef.current = setTimeout(() => saveTask(updated, userId), 500);
+        editorSaveTimerRef.current = setTimeout(() => saveTask(updated, userId), 2000);
       }
     },
     [activeTab, activeNoteId, activeTaskId, tasks, userId, saveNote, saveTask]

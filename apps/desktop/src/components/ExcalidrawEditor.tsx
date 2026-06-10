@@ -75,7 +75,7 @@ export default function ExcalidrawEditor({ note, onSave, isDark }: Props) {
     const v = e.target.value;
     setTitle(v);
     if (titleTimerRef.current) clearTimeout(titleTimerRef.current);
-    titleTimerRef.current = setTimeout(() => onSave({ title: v }), 500);
+    titleTimerRef.current = setTimeout(() => onSave({ title: v }), 2000);
   };
 
   const initialData = parseExcalidrawBody(note.body_md);
@@ -111,7 +111,7 @@ export default function ExcalidrawEditor({ note, onSave, isDark }: Props) {
           onSave({ body_md: JSON.stringify(body) });
         };
         doSave();
-      }, 600);
+      }, 2000);
     },
     [onSave]
   );
