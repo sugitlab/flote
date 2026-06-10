@@ -29,9 +29,16 @@ export const useExpenseStore = create<ExpenseStore>((set) => ({
   fetchTransactions: async (userId: string, from?: string, to?: string) => {
     set({ loading: true });
     try {
+      // Default to the last 12 months — an unbounded fetch reads the entire
+      // (ever-growing) transactions table on every sync.
+      if (!from) {
+        const now = new Date();
+        const past = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+        from = `${past.getFullYear()}-${String(past.getMonth() + 1).padStart(2, "0")}-01`;
+      }
       let query = supabase
         .from("transactions")
-        .select("*")
+        .select("id, user_id, date, amount, type, description, category, account, updated_at")
         .eq("user_id", userId)
         .order("date", { ascending: false });
       if (from) query = query.gte("date", from);

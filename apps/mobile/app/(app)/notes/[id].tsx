@@ -26,6 +26,7 @@ import { supabase } from "../../../src/lib/supabase";
 import { generateId } from "../../../src/utils";
 import { useT } from "../../../src/hooks/useT";
 import { useMarkdownInput } from "../../../src/hooks/useMarkdownInput";
+import { fetchSvgPreview } from "../../../src/lib/svgPreview";
 import MarkdownToolbar from "../../../components/MarkdownToolbar";
 import type { Note, Task } from "@flote/types";
 
@@ -147,11 +148,28 @@ export default function NoteDetailScreen() {
 
   const isExcalidraw = note?.note_type === "excalidraw";
 
+  // SVG preview: inline `svg` (legacy notes) or downloaded from Storage via
+  // `svg_ref` (new notes — the preview no longer bloats body_md).
+  const [remoteSvg, setRemoteSvg] = useState("");
+  useEffect(() => {
+    setRemoteSvg("");
+    if (!isExcalidraw || !note) return;
+    try {
+      const body = JSON.parse(note.body_md);
+      if (body.svg || !body.svg_ref) return;
+      let cancelled = false;
+      fetchSvgPreview(note.id, String(body.svg_ref), note.updated_at).then((svg) => {
+        if (!cancelled && svg) setRemoteSvg(svg);
+      });
+      return () => { cancelled = true; };
+    } catch { /* body not parseable — fall through to empty preview */ }
+  }, [isExcalidraw, note?.id, note?.body_md, note?.updated_at]);
+
   const excalidrawSvgHtml = (() => {
     if (!isExcalidraw || !note) return "";
     try {
       const body = JSON.parse(note.body_md);
-      const svg: string = body.svg ?? "";
+      const svg: string = (body.svg as string) || remoteSvg;
       if (!svg) return "";
       return `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:0;background:${colors.background};display:flex;align-items:center;justify-content:center;min-height:100vh;}svg{max-width:100%;height:auto;}</style></head><body>${svg}</body></html>`;
     } catch { return ""; }
