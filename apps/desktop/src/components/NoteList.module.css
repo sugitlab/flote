@@ -559,7 +559,7 @@
 }
 
 .cardBody {
-  font-size: 12px;
+  font-size: 11px;
   line-height: 1.45;
   color: var(--text-secondary);
   display: -webkit-box;
