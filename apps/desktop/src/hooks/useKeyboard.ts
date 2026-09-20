@@ -93,13 +93,6 @@ export function useKeyboard(actions: KeyboardActions) {
         return;
       }
 
-      // ⌘3: expenses tab
-      if (meta && e.key === "3") {
-        e.preventDefault();
-        setActiveTab("expenses");
-        return;
-      }
-
       // ⌘↑: prev item
       if (meta && e.key === "ArrowUp") {
         e.preventDefault();

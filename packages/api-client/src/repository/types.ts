@@ -1,4 +1,4 @@
-import type { Note, Task, Transaction } from "@flote/types";
+import type { Note, Task } from "@flote/types";
 
 export type NoteManifest = {
   id: string;
@@ -57,10 +57,4 @@ export interface TaskRepository {
   saveTask(task: Task, userId: string): Promise<Task>;
   deleteTask(id: string): Promise<void>;
   deleteTasksBatch(ids: string[]): Promise<void>;
-}
-
-export interface TransactionRepository {
-  getTransactions(userId: string, from?: string, to?: string): Promise<Transaction[]>;
-  saveTransaction(t: Transaction, userId: string): Promise<Transaction>;
-  deleteTransaction(id: string): Promise<void>;
 }

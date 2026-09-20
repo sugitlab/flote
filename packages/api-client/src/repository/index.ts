@@ -1,13 +1,11 @@
 import type { StorageMode } from "@flote/types";
-import type { NoteRepository, TaskRepository, TransactionRepository } from "./types";
+import type { NoteRepository, TaskRepository } from "./types";
 import { LocalNoteRepository } from "./local/noteRepository";
 import { LocalTaskRepository } from "./local/taskRepository";
-import { LocalTransactionRepository } from "./local/transactionRepository";
 import { SupabaseNoteRepository } from "./supabase/noteRepository";
 import { SupabaseTaskRepository } from "./supabase/taskRepository";
-import { SupabaseTransactionRepository } from "./supabase/transactionRepository";
 
-export type { NoteRepository, TaskRepository, TransactionRepository, NoteManifest, TaskManifest } from "./types";
+export type { NoteRepository, TaskRepository, NoteManifest, TaskManifest } from "./types";
 
 export function createNoteRepository(mode: StorageMode): NoteRepository {
   switch (mode) {
@@ -26,15 +24,5 @@ export function createTaskRepository(mode: StorageMode): TaskRepository {
     case "supabase":
     case "selfhost":
       return new SupabaseTaskRepository();
-  }
-}
-
-export function createTransactionRepository(mode: StorageMode): TransactionRepository {
-  switch (mode) {
-    case "local":
-      return new LocalTransactionRepository();
-    case "supabase":
-    case "selfhost":
-      return new SupabaseTransactionRepository();
   }
 }

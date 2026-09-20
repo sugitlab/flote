@@ -6,6 +6,5 @@ export { initDb, exportToMarkdown } from "./sqlite-storage";
 export {
   createNoteRepository,
   createTaskRepository,
-  createTransactionRepository,
 } from "./repository";
-export type { NoteRepository, TaskRepository, TransactionRepository, NoteManifest, TaskManifest } from "./repository";
+export type { NoteRepository, TaskRepository, NoteManifest, TaskManifest } from "./repository";

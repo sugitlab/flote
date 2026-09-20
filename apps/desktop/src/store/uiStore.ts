@@ -20,7 +20,7 @@ type UIStore = {
   editorThemeLight: LightEditorTheme;
   isCommandPaletteOpen: boolean;
   isSettingsOpen: boolean;
-  activeTab: "notes" | "tasks" | "expenses";
+  activeTab: "notes" | "tasks";
   toasts: Toast[];
   searchFullText: boolean;
   hideCompletedInSearch: boolean;
@@ -41,7 +41,7 @@ type UIStore = {
   setCommandPaletteOpen: (open: boolean) => void;
   toggleCommandPalette: () => void;
   setSettingsOpen: (open: boolean) => void;
-  setActiveTab: (tab: "notes" | "tasks" | "expenses") => void;
+  setActiveTab: (tab: "notes" | "tasks") => void;
   addToast: (type: Toast["type"], message: string) => void;
   removeToast: (id: string) => void;
   setSearchFullText: (v: boolean) => void;

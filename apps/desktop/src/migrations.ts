@@ -52,28 +52,6 @@ do $$ begin
   end if;
 end $$;
 
-create table if not exists transactions (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid references auth.users on delete cascade not null,
-  date date not null,
-  amount integer not null,
-  type text not null check (type in ('income', 'expense')),
-  description text not null default '',
-  category text not null default '',
-  account text not null default '',
-  updated_at timestamptz not null default now()
-);
-
-alter table transactions enable row level security;
-
-do $$ begin
-  if not exists (
-    select 1 from pg_policies where tablename = 'transactions' and policyname = 'transactions_owner'
-  ) then
-    create policy transactions_owner on transactions for all using (auth.uid() = user_id);
-  end if;
-end $$;
-
 -- Composite indexes for manifest queries (delta sync)
 create index if not exists idx_notes_user_updated on notes (user_id, updated_at desc);
 create index if not exists idx_tasks_user_updated on tasks (user_id, updated_at desc);
@@ -200,9 +178,7 @@ end $$;
 grant all on public.notes to authenticated;
 grant all on public.notes to service_role;
 grant all on public.tasks to authenticated;
-grant all on public.tasks to service_role;
-grant all on public.transactions to authenticated;
-grant all on public.transactions to service_role;`;
+grant all on public.tasks to service_role;`;
 
 export type SchemaStatus = "ok" | "not_initialized";
 
