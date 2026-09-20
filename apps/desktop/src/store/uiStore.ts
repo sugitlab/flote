@@ -21,6 +21,7 @@ type UIStore = {
   isCommandPaletteOpen: boolean;
   isSettingsOpen: boolean;
   activeTab: "notes" | "tasks";
+  noteViewMode: "list" | "card";
   toasts: Toast[];
   searchFullText: boolean;
   hideCompletedInSearch: boolean;
@@ -42,6 +43,8 @@ type UIStore = {
   toggleCommandPalette: () => void;
   setSettingsOpen: (open: boolean) => void;
   setActiveTab: (tab: "notes" | "tasks") => void;
+  setNoteViewMode: (mode: "list" | "card") => void;
+  toggleNoteViewMode: () => void;
   addToast: (type: Toast["type"], message: string) => void;
   removeToast: (id: string) => void;
   setSearchFullText: (v: boolean) => void;
@@ -52,6 +55,15 @@ type UIStore = {
   setAccentColor: (color: AccentColor) => void;
 };
 
+const NOTE_VIEW_MODE_KEY = "noteViewMode";
+function readInitialNoteViewMode(): "list" | "card" {
+  try {
+    return localStorage.getItem(NOTE_VIEW_MODE_KEY) === "card" ? "card" : "list";
+  } catch {
+    return "list";
+  }
+}
+
 export const useUIStore = create<UIStore>((set, get) => ({
   theme: "system",
   editorThemeDark: "oneDark",
@@ -59,6 +71,7 @@ export const useUIStore = create<UIStore>((set, get) => ({
   isCommandPaletteOpen: true,
   isSettingsOpen: false,
   activeTab: "notes",
+  noteViewMode: readInitialNoteViewMode(),
   toasts: [],
   searchFullText: false,
   hideCompletedInSearch: true,
@@ -92,6 +105,18 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setSettingsOpen: (open) => set({ isSettingsOpen: open }),
 
   setActiveTab: (tab) => set({ activeTab: tab }),
+
+  setNoteViewMode: (mode) => {
+    try { localStorage.setItem(NOTE_VIEW_MODE_KEY, mode); } catch { /* ignore */ }
+    set({ noteViewMode: mode });
+  },
+
+  toggleNoteViewMode: () =>
+    set((s) => {
+      const next = s.noteViewMode === "card" ? "list" : "card";
+      try { localStorage.setItem(NOTE_VIEW_MODE_KEY, next); } catch { /* ignore */ }
+      return { noteViewMode: next };
+    }),
 
   addToast: (type, message) => {
     const id = crypto.randomUUID();
