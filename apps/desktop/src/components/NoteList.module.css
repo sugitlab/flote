@@ -559,8 +559,8 @@
 }
 
 .cardBody {
-  font-size: 11px;
-  line-height: 1.45;
+  font-size: 8px;
+  line-height: 1.5;
   color: var(--text-secondary);
   display: -webkit-box;
   -webkit-line-clamp: 3;
