@@ -87,14 +87,6 @@
   min-width: 0;
 }
 
-.expensesPane {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
 /* Drag-to-resize handle between sidebar and editor */
 .resizeDivider {
   width: 4px;

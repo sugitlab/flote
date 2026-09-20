@@ -19,7 +19,6 @@ import { supabase } from "../../src/lib/supabase";
 import { useT } from "../../src/hooks/useT";
 import NotesList from "../../components/NotesList";
 import TasksList from "../../components/TasksList";
-import ExpensesList from "../../components/ExpensesList";
 import SettingsPage from "../../components/SettingsPage";
 import FloteLogo from "../../components/FloteLogo";
 import type { Note, Task } from "@flote/types";
@@ -123,7 +122,7 @@ export default function HomeScreen() {
         <View style={[styles.customHeader, { paddingTop: insets.top, backgroundColor: colors.background, borderBottomColor: colors.border }]}>
           <FloteLogo size={28} />
           <Text style={[styles.headerTitle, { color: colors.text }]}>
-            {[t.nav.notes, t.nav.tasks, t.nav.expenses, t.nav.settings][activeTab]}
+            {[t.nav.notes, t.nav.tasks, t.nav.settings][activeTab]}
           </Text>
           {showAddButton ? (
             <TouchableOpacity onPress={handleAdd} activeOpacity={0.5} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
@@ -135,7 +134,7 @@ export default function HomeScreen() {
         </View>
         {/* Tab bar */}
         <View style={[styles.tabBar, { borderBottomColor: colors.border }]}>
-          {([t.nav.notes, t.nav.tasks, t.nav.expenses, t.nav.settings] as string[]).map((label, i) => (
+          {([t.nav.notes, t.nav.tasks, t.nav.settings] as string[]).map((label, i) => (
             <TouchableOpacity
               key={label}
               style={[
@@ -175,9 +174,6 @@ export default function HomeScreen() {
           </View>
           <View style={{ width: SCREEN_WIDTH }}>
             <TasksList userId={userId} />
-          </View>
-          <View style={{ width: SCREEN_WIDTH, flex: 1 }}>
-            <ExpensesList userId={userId} />
           </View>
           <View style={{ width: SCREEN_WIDTH }}>
             <SettingsPage onSignOut={handleSignOut} />

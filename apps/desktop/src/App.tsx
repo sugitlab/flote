@@ -9,7 +9,6 @@ import {
   getSupabase,
   createNoteRepository,
   createTaskRepository,
-  createTransactionRepository,
   initDb,
 } from "@flote/api-client";
 import { getConfig, setConfig } from "./config";
@@ -25,7 +24,6 @@ import { useAccentColor } from "./hooks/useAccentColor";
 import { useKeyboard } from "./hooks/useKeyboard";
 import { useNoteStore } from "./store/noteStore";
 import { useTaskStore } from "./store/taskStore";
-import { useExpenseStore } from "./store/expenseStore";
 import { useUIStore } from "./store/uiStore";
 import Auth from "./components/Auth";
 import Editor from "./components/Editor";
@@ -38,7 +36,6 @@ import ConfirmDialog from "./components/ConfirmDialog";
 import ResizeHandles from "./components/ResizeHandles";
 import ToastContainer from "./components/Toast";
 import FloteLogo from "./components/FloteLogo";
-import ExpensePanel from "./components/ExpensePanel";
 import DatePicker from "./components/DatePicker";
 import styles from "./App.module.css";
 
@@ -127,8 +124,6 @@ function MainApp({
     setActiveTask,
     ensureBodyMd: ensureTaskBodyMd,
   } = useTaskStore();
-
-  const { fetchTransactions } = useExpenseStore();
 
   const [pinned, setPinned] = useState(false);
   const pinnedRef = useRef(false);
@@ -242,7 +237,6 @@ function MainApp({
     Promise.all([
       fetchNotes(userId),
       fetchTasks(userId),
-      fetchTransactions(userId),
     ]).catch(console.error);
   }, [userId, storageMode]); // store functions are stable Zustand references
 
@@ -250,9 +244,8 @@ function MainApp({
     Promise.all([
       fetchNotes(userId),
       fetchTasks(userId),
-      fetchTransactions(userId),
     ]).catch(console.error);
-  }, [userId, fetchNotes, fetchTasks, fetchTransactions]);
+  }, [userId, fetchNotes, fetchTasks]);
 
   // Receive notes saved from the Quick Capture window
   useEffect(() => {
@@ -551,10 +544,6 @@ function MainApp({
     setActiveTab("tasks");
   }, [setActiveTab]);
 
-  const handleShowExpenses = useCallback(() => {
-    setActiveTab("expenses");
-  }, [setActiveTab]);
-
   const handleDeleteNote = useCallback(
     (id: string) => {
       setConfirmDelete({ type: "note", id });
@@ -730,34 +719,18 @@ function MainApp({
           {t.tabs.tasks} <span className={styles.tabKbd}>⌘2</span>
         </button>
         <button
-          className={`${styles.tab} ${activeTab === "expenses" ? styles.tabActive : ""}`}
-          onClick={handleShowExpenses}
+          className={styles.sidebarCollapseBtn}
+          onClick={toggleSidebar}
+          title={sidebarCollapsed ? t.sidebar.expand : t.sidebar.collapse}
         >
-          {t.tabs.expenses} <span className={styles.tabKbd}>⌘3</span>
+          {sidebarCollapsed ? "›" : "‹"}
         </button>
-        {activeTab !== "expenses" && (
-          <button
-            className={styles.sidebarCollapseBtn}
-            onClick={toggleSidebar}
-            title={sidebarCollapsed ? t.sidebar.expand : t.sidebar.collapse}
-          >
-            {sidebarCollapsed ? "›" : "‹"}
-          </button>
-        )}
       </div>
 
       {/* Main area */}
       <div className={styles.main}>
-        {/* Expenses: full width */}
-        {activeTab === "expenses" && (
-          <div className={styles.expensesPane}>
-            <ExpensePanel userId={userId} />
-          </div>
-        )}
-
         {/* Notes / Tasks: sidebar + editor */}
-        {activeTab !== "expenses" && (
-          <>
+        <>
             {!sidebarCollapsed && (
               <div className={styles.sidebar} style={{ width: activeTab === "notes" ? notesSidebarWidth : tasksSidebarWidth }}>
                 <div className={styles.sidebarList}>
@@ -986,7 +959,6 @@ function MainApp({
           )}
             </div>
           </>
-        )}
       </div>
 
       {/* Statusbar */}
@@ -1092,7 +1064,6 @@ function App() {
 
   const initNoteStore = useNoteStore((s) => s.initStore);
   const initTaskStore = useTaskStore((s) => s.initStore);
-  const initExpenseStore = useExpenseStore((s) => s.initStore);
 
   useTheme();
   useAccentColor();
@@ -1146,10 +1117,8 @@ function App() {
 
       const noteRepo = createNoteRepository(mode);
       const taskRepo = createTaskRepository(mode);
-      const transactionRepo = createTransactionRepository(mode);
       initNoteStore(noteRepo);
       initTaskStore(taskRepo);
-      initExpenseStore(transactionRepo);
 
       setLoading(false);
     });
@@ -1171,10 +1140,9 @@ function App() {
     await setConfig({ storageMode: mode });
     initNoteStore(createNoteRepository(mode));
     initTaskStore(createTaskRepository(mode));
-    initExpenseStore(createTransactionRepository(mode));
     setStorageMode(mode);
     if (mode === "selfhost") setSchemaStatus("unchecked");
-  }, [initNoteStore, initTaskStore, initExpenseStore]);
+  }, [initNoteStore, initTaskStore]);
 
   const handleUseLocal = useCallback(() => handleStorageModeChange("local"), [handleStorageModeChange]);
 
