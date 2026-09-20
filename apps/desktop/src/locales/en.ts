@@ -78,6 +78,8 @@ export const en: typeof ja = {
     sort: "Sort",
     sortByUpdated: "By update date",
     sortByTitle: "By title",
+    viewAsList: "List view",
+    viewAsCards: "Card view",
     pin: "Pin",
     unpin: "Unpin",
     pinnedGroup: "Pinned",
