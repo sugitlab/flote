@@ -1,0 +1,4 @@
+{
+  "name": "Flote",
+  "install": "bash .cursor/install.sh"
+}
