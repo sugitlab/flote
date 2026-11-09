@@ -24,6 +24,22 @@ pkg.version = '$VERSION';
 fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
 "
 
+# apps/mobile/package.json and Expo app config
+node -e "
+const fs = require('fs');
+const pkgPath = 'apps/mobile/package.json';
+const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+pkg.version = '$VERSION';
+fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + '\n');
+const appPath = 'apps/mobile/app.json';
+const app = JSON.parse(fs.readFileSync(appPath, 'utf8'));
+if (app.expo.version !== '$VERSION') {
+  app.expo.version = '$VERSION';
+  app.expo.android.versionCode += 1;
+}
+fs.writeFileSync(appPath, JSON.stringify(app, null, 2) + '\n');
+"
+
 # apps/desktop/src-tauri/tauri.conf.json
 node -e "
 const fs = require('fs');
@@ -43,10 +59,20 @@ src = src.replace(/^(version\s*=\s*\")([^\"]+)(\")$/m, '\$1$VERSION\$3');
 fs.writeFileSync(path, src);
 "
 
+# apps/desktop/src-tauri/Cargo.lock (local package version)
+node -e "
+const fs = require('fs');
+const path = 'apps/desktop/src-tauri/Cargo.lock';
+let src = fs.readFileSync(path, 'utf8');
+src = src.replace(/(name = \"flote\"\nversion = \")[^\"]+(\")/, (_m, a, b) => a + '$VERSION' + b);
+fs.writeFileSync(path, src);
+"
+
 echo "→ Verifying..."
 node -e "console.log('  package.json :', JSON.parse(require('fs').readFileSync('apps/desktop/package.json','utf8')).version)"
 node -e "console.log('  tauri.conf   :', JSON.parse(require('fs').readFileSync('apps/desktop/src-tauri/tauri.conf.json','utf8')).version)"
 grep '^version' apps/desktop/src-tauri/Cargo.toml | awk '{print "  Cargo.toml   :", $3}'
+node -e "const fs = require('fs'); const app = JSON.parse(fs.readFileSync('apps/mobile/app.json','utf8')); console.log('  mobile       :', app.expo.version, '(Android code', app.expo.android.versionCode + ')')"
 
 echo "→ Committing..."
 # Stage all tracked changes first, then add version files
@@ -54,7 +80,10 @@ git add -u
 git add \
   apps/desktop/package.json \
   apps/desktop/src-tauri/tauri.conf.json \
-  apps/desktop/src-tauri/Cargo.toml
+  apps/desktop/src-tauri/Cargo.toml \
+  apps/desktop/src-tauri/Cargo.lock \
+  apps/mobile/package.json \
+  apps/mobile/app.json
 
 git commit -m "chore: bump version to $VERSION"
 

@@ -178,7 +178,10 @@ end $$;
 grant all on public.notes to authenticated;
 grant all on public.notes to service_role;
 grant all on public.tasks to authenticated;
-grant all on public.tasks to service_role;`;
+grant all on public.tasks to service_role;
+
+-- Remove the table left by versions that included expense tracking.
+drop table if exists public.transactions cascade;`;
 
 export type SchemaStatus = "ok" | "not_initialized";
 

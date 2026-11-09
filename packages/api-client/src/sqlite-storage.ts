@@ -56,6 +56,8 @@ export async function initDb(): Promise<void> {
   try {
     await db.execute(`ALTER TABLE notes ADD COLUMN note_type TEXT DEFAULT 'markdown'`);
   } catch { /* already exists */ }
+  // Remove the table left by versions that included expense tracking.
+  await db.execute("DROP TABLE IF EXISTS transactions");
 }
 
 // ── notes ─────────────────────────────────────────────────────────────────────
