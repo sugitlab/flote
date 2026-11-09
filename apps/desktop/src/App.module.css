@@ -75,6 +75,16 @@
   min-height: 0;
 }
 
+/* Notes card gallery pane (full-width, responsive grid) */
+.cardPane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-sidebar);
+  overflow-y: auto;
+}
+
 /* Sidebar */
 .sidebar {
   /* width is set via inline style (resizable) */

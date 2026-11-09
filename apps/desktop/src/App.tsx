@@ -132,6 +132,7 @@ function MainApp({
   const t = useT();
   const activeTab = useUIStore((s) => s.activeTab);
   const setActiveTab = useUIStore((s) => s.setActiveTab);
+  const noteViewMode = useUIStore((s) => s.noteViewMode);
   const isCommandPaletteOpen = useUIStore((s) => s.isCommandPaletteOpen);
   const isSettingsOpen = useUIStore((s) => s.isSettingsOpen);
   const setSettingsOpen = useUIStore((s) => s.setSettingsOpen);
@@ -718,18 +719,39 @@ function MainApp({
         >
           {t.tabs.tasks} <span className={styles.tabKbd}>⌘2</span>
         </button>
-        <button
-          className={styles.sidebarCollapseBtn}
-          onClick={toggleSidebar}
-          title={sidebarCollapsed ? t.sidebar.expand : t.sidebar.collapse}
-        >
-          {sidebarCollapsed ? "›" : "‹"}
-        </button>
+        {!(activeTab === "notes" && noteViewMode === "card") && (
+          <button
+            className={styles.sidebarCollapseBtn}
+            onClick={toggleSidebar}
+            title={sidebarCollapsed ? t.sidebar.expand : t.sidebar.collapse}
+          >
+            {sidebarCollapsed ? "›" : "‹"}
+          </button>
+        )}
       </div>
 
       {/* Main area */}
       <div className={styles.main}>
-        {/* Notes / Tasks: sidebar + editor */}
+        {activeTab === "notes" && noteViewMode === "card" ? (
+          /* Notes card gallery: full-width responsive grid */
+          <div className={styles.cardPane}>
+            <NoteList
+              notes={notes}
+              activeNoteId={activeNoteId}
+              activeTag={activeNoteTag}
+              onSelect={(id) => { setIsEditing(false); setActiveNote(id); }}
+              onDelete={handleDeleteNote}
+              onDeleteMultiple={handleDeleteNotes}
+              onNew={handleCreateNote}
+              onNewExcalidraw={handleCreateExcalidrawNote}
+              onTagFilter={setActiveNoteTag}
+              onTogglePin={(id) => toggleNotePin(id, userId)}
+              onVisibleChange={(ids) => { visibleNoteIds.current = ids; }}
+              onEnsureBody={(id) => ensureNoteBodyMd(id, userId ?? undefined)}
+            />
+          </div>
+        ) : (
+        /* Notes / Tasks: sidebar + editor */
         <>
             {!sidebarCollapsed && (
               <div className={styles.sidebar} style={{ width: activeTab === "notes" ? notesSidebarWidth : tasksSidebarWidth }}>
@@ -747,6 +769,7 @@ function MainApp({
                       onTagFilter={setActiveNoteTag}
                       onTogglePin={(id) => toggleNotePin(id, userId)}
                       onVisibleChange={(ids) => { visibleNoteIds.current = ids; }}
+                      onEnsureBody={(id) => ensureNoteBodyMd(id, userId ?? undefined)}
                     />
                   )}
                   {activeTab === "tasks" && (
@@ -959,6 +982,7 @@ function MainApp({
           )}
             </div>
           </>
+        )}
       </div>
 
       {/* Statusbar */}

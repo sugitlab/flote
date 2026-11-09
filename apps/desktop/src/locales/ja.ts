@@ -76,6 +76,8 @@ export const ja = {
     sort: "並び替え",
     sortByUpdated: "更新日時順",
     sortByTitle: "タイトル順",
+    viewAsList: "リスト表示",
+    viewAsCards: "カード表示",
     pin: "ピン留め",
     unpin: "ピンを外す",
     pinnedGroup: "ピン留め",
